@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">
+                    {% if page == 'ajout' %}
+                    <i class="fas fa-user-plus mr-2 text-yellow-400"></i>Nouvel Étudiant
+                    {% else %}
+                    <i class="fas fa-user-edit mr-2 text-yellow-400"></i>Modifier l'Étudiant
+                    {% endif %}
+                </h1>
+                <p class="text-xs text-green-100 mt-1">Saisie des informations académiques et personnelles</p>
+            </div>
+            <a href="{% if etudiant %}{% url 'etudiants:detail_etudiant' etudiant.id %}{% else %}{% url 'etudiants:liste_etudiants' %}{% endif %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Annuler
+            </a>
+        </div>
+
+        <!-- Form Body -->
+        <form method="POST" enctype="multipart/form-data" class="p-6 md:p-8 space-y-6">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Personnal Details -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-user mr-2 text-green-600"></i>État Civil & Contact</h3>
+                    {{ form.nom|as_crispy_field }}
+                    {{ form.prenom|as_crispy_field }}
+                    {{ form.sexe|as_crispy_field }}
+                    {{ form.date_naissance|as_crispy_field }}
+                    {{ form.lieu_naissance|as_crispy_field }}
+                    {{ form.email|as_crispy_field }}
+                    {{ form.telephone|as_crispy_field }}
+                </div>
+
+                <!-- Academic details & Photo -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-graduation-cap mr-2 text-green-600"></i>Données Académiques</h3>
+                    {{ form.matricule|as_crispy_field }}
+                    {{ form.filiere|as_crispy_field }}
+                    {{ form.classe|as_crispy_field }}
+                    {{ form.annee_academique|as_crispy_field }}
+                    {{ form.statut|as_crispy_field }}
+                    
+                    <div class="pt-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Photo d'identité</label>
+                        {% if etudiant.photo %}
+                        <div class="flex items-center gap-4 mb-3">
+                            <img src="{{ etudiant.photo.url }}" alt="Aperçu" class="w-16 h-16 object-cover rounded-xl border">
+                            <span class="text-xs text-gray-400">Photo actuelle</span>
+                        </div>
+                        {% endif %}
+                        {{ form.photo }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit buttons -->
+            <div class="pt-6 border-t border-gray-100 flex justify-end gap-3">
+                <button type="submit" class="bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3 px-6 rounded-xl shadow-lg transition duration-200">
+                    Enregistrer la fiche
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

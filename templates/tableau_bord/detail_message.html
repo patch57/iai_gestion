@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Détail du message - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-lg font-bold"><i class="fas fa-envelope mr-2 text-yellow-400"></i>Lecture du message</h1>
+                <p class="text-xs text-green-100 mt-1">Détails de la conversation</p>
+            </div>
+            <a href="{% url 'tableau_bord:messages' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Retour
+            </a>
+        </div>
+
+        <div class="p-6 md:p-8 space-y-6">
+            <!-- Sender details -->
+            <div class="flex justify-between items-center border-b pb-4 border-gray-100 text-sm">
+                <div>
+                    <span class="text-xs text-gray-400 font-bold uppercase block">Expéditeur</span>
+                    <strong class="text-gray-800">Scolarité (Administration)</strong>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-gray-400 font-bold uppercase block">Reçu le</span>
+                    <span class="text-gray-600 font-semibold">10 Juillet 2026 à 08:30</span>
+                </div>
+            </div>
+
+            <!-- Subject & Content -->
+            <div>
+                <span class="text-xs text-gray-400 font-bold uppercase block mb-1">Objet</span>
+                <h2 class="text-lg font-extrabold text-gray-800 leading-tight">Confirmation de validation du dossier d'inscription</h2>
+            </div>
+
+            <div class="bg-gray-50/50 rounded-2xl border border-gray-100 p-6 text-sm text-gray-700 leading-relaxed min-h-[150px]">
+                Bonjour,<br><br>
+                Nous vous confirmons que votre dossier d'inscription a bien été reçu et est en cours de traitement par nos services.<br>
+                Veuillez vous assurer que tous les reçus de paiement de tranches requis sont téléversés dans votre espace.<br><br>
+                Cordialement,<br>
+                <strong>Le service de Scolarité</strong>
+            </div>
+
+            <!-- Actions -->
+            <div class="pt-6 border-t border-gray-100 flex gap-3">
+                <a href="{% url 'tableau_bord:repondre_message' 1 %}" class="flex-1 text-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3.5 rounded-xl shadow-lg transition duration-200">
+                    <i class="fas fa-reply mr-2"></i> Répondre au message
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

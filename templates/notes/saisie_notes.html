@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold"><i class="fas fa-edit mr-2 text-yellow-400"></i>Saisie des Notes</h1>
+                <p class="text-xs text-green-100 mt-1">{{ evaluation.cours.matiere.nom }} | {{ evaluation.type_evaluation.nom }} (Coef. {{ evaluation.coefficient }})</p>
+            </div>
+            <a href="{% url 'notes:liste_evaluations' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Annuler
+            </a>
+        </div>
+
+        <form method="POST" class="p-6 md:p-8 space-y-6">
+            {% csrf_token %}
+
+            <div class="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-xs text-gray-500 leading-relaxed flex items-center">
+                <i class="fas fa-info-circle text-green-600 text-lg mr-3"></i>
+                <p>
+                    <strong>Instructions de saisie :</strong> Saisissez les notes sur 20. Vous pouvez utiliser des décimales (ex : 14.5, 12.25). Laissez le champ vide si l'étudiant était absent. Les notes saisies ne seront officielles qu'après validation.
+                </p>
+            </div>
+
+            <!-- Students List with Note Inputs -->
+            <div class="border border-gray-150 rounded-2xl overflow-hidden shadow-inner">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <th class="p-4">Étudiant</th>
+                            <th class="p-4">Matricule</th>
+                            <th class="p-4 w-40 text-right">Note (/20)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for ins in inscriptions %}
+                        <tr class="hover:bg-gray-50/50 transition">
+                            <td class="p-4 flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white bg-green-600 text-xs shadow-inner">
+                                    {{ ins.etudiant.prenom|slice:":1" }}{{ ins.etudiant.nom|slice:":1" }}
+                                </div>
+                                <span class="font-bold text-gray-800">{{ ins.etudiant.get_nom_complet }}</span>
+                            </td>
+                            <td class="p-4 text-xs font-semibold text-gray-400">
+                                {{ ins.etudiant.matricule }}
+                            </td>
+                            <td class="p-4 text-right">
+                                <!-- Retrieve note from dict using custom template filter lookup or loop -->
+                                <input type="number" name="note_{{ ins.etudiant.id }}" step="0.25" min="0" max="20"
+                                    placeholder="--"
+                                    {% for etudiant_id, val in notes_existantes.items %}
+                                        {% if etudiant_id == ins.etudiant.id %}value="{{ val|stringformat:'.2f' }}"{% endif %}
+                                    {% endfor %}
+                                    class="w-24 text-right px-3 py-1.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-extrabold">
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="p-8 text-center text-gray-400">Aucun étudiant inscrit à ce cours.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Submit buttons -->
+            <div class="pt-6 border-t border-gray-100 flex justify-end gap-3">
+                <button type="submit" class="bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3.5 px-6 rounded-xl shadow-lg transition duration-200">
+                    Enregistrer les Notes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Détail du reçu - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-file-invoice mr-2 text-green-600"></i>Détail du Reçu Bancaire</h1>
+            <p class="text-gray-500 text-sm mt-1">Vérification de paiement de l'étudiant</p>
+        </div>
+        <a href="{% url 'paiements:liste_recus' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition">
+            <i class="fas fa-arrow-left mr-1"></i> Retour à la liste
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Left: Receipt File Display -->
+        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden flex flex-col justify-between">
+            <div class="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
+                <span class="font-bold text-gray-700 text-sm"><i class="fas fa-eye mr-2"></i>Aperçu du document</span>
+                {% if recu.recu_fichier %}
+                <a href="{{ recu.recu_fichier.url }}" target="_blank" class="text-green-600 hover:text-green-700 text-xs font-bold flex items-center">
+                    <i class="fas fa-external-link-alt mr-1"></i> Ouvrir dans un onglet
+                </a>
+                {% endif %}
+            </div>
+            
+            <div class="p-6 flex-1 flex items-center justify-center bg-gray-100/50 min-h-[450px]">
+                {% if recu.recu_fichier %}
+                    {% if recu.recu_fichier.name|slice:"-4:" == ".pdf" or recu.recu_fichier.name|slice:"-4:" == ".PDF" %}
+                    <iframe src="{{ recu.recu_fichier.url }}" class="w-full h-[500px] rounded-2xl border" frameborder="0"></iframe>
+                    {% else %}
+                    <img src="{{ recu.recu_fichier.url }}" alt="Reçu de paiement" class="max-w-full max-h-[500px] object-contain rounded-2xl shadow-md border">
+                    {% endif %}
+                {% else %}
+                <p class="text-gray-400 text-sm">Aucun fichier joint.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right: Verification & Actions -->
+        <div class="space-y-8">
+            <!-- Student & Tranche details -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-user-graduate text-green-600 mr-2"></i>Informations Étudiant</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Nom complet</p>
+                        <p class="font-bold text-gray-800">{{ recu.etudiant.get_nom_complet }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Matricule</p>
+                        <p class="font-bold text-gray-800">{{ recu.etudiant.matricule }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Filière</p>
+                        <p class="font-bold text-gray-800">{{ recu.etudiant.filiere.nom }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Année Académique</p>
+                        <p class="font-bold text-gray-800">{{ recu.tranche.annee_academique }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IA Verification details -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <div class="flex justify-between items-center border-b pb-3 border-gray-100">
+                    <h3 class="font-bold text-gray-800 text-lg"><i class="fas fa-brain text-green-600 mr-2"></i>Analyse Automatisée par l'IA</h3>
+                    {% if recu.score_confiance %}
+                    <span class="text-xs font-bold px-3 py-1 rounded-full {% if recu.score_confiance >= 0.85 %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                        Confiance : {{ recu.get_score_confiance_pourcentage }}%
+                    </span>
+                    {% endif %}
+                </div>
+
+                <!-- Comparison Table -->
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                            <th class="py-2">Champ</th>
+                            <th class="py-2">Déclaré</th>
+                            <th class="py-2">Extrait par IA</th>
+                            <th class="py-2 text-center">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="py-3 font-semibold text-gray-500">Montant</td>
+                            <td class="py-3 font-extrabold text-gray-800">{{ recu.montant_mentionne|floatformat:0 }} FCFA</td>
+                            <td class="py-3 font-extrabold text-green-700">
+                                {{ recu.verification_ia.montant|default:recu.montant_mentionne|floatformat:0 }} FCFA
+                            </td>
+                            <td class="py-3 text-center">
+                                <i class="fas fa-check-circle text-green-500 text-lg"></i>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 font-semibold text-gray-500">Référence</td>
+                            <td class="py-3 font-bold text-gray-800">{{ recu.reference_recu|default:"-" }}</td>
+                            <td class="py-3 font-bold text-green-700">{{ recu.verification_ia.reference|default:recu.reference_recu }}</td>
+                            <td class="py-3 text-center">
+                                <i class="fas fa-check-circle text-green-500 text-lg"></i>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Anomalies Alert -->
+                {% if recu.a_des_anomalies %}
+                <div class="bg-red-50 border-l-4 border-red-500 rounded-2xl p-4 text-xs text-red-700 leading-relaxed space-y-2 flex flex-col">
+                    <span class="font-extrabold text-red-800 flex items-center text-sm">
+                        <i class="fas fa-exclamation-circle text-lg mr-2 mt-0.5"></i>
+                        Alerte de fraude suspectée !
+                    </span>
+                    <ul class="list-disc pl-5 mt-1 space-y-1">
+                        {% for anomaly in recu.get_anomalies_list %}
+                        <li>{{ anomaly }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Actions Panel -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-4">
+                <div class="flex gap-4">
+                    {% if recu.statut == 'EN_ATTENTE' or recu.statut == 'IA_VERIFIE' %}
+                    <a href="{% url 'paiements:valider_recu' recu.id %}" 
+                       class="flex-1 text-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition duration-200">
+                        <i class="fas fa-check-circle mr-2"></i> Valider le reçu
+                    </a>
+                    <a href="{% url 'paiements:rejeter_recu' recu.id %}" 
+                       class="flex-1 text-center bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition duration-200">
+                        <i class="fas fa-times-circle mr-2"></i> Rejeter le reçu
+                    </a>
+                    {% else %}
+                    <div class="w-full text-center py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-semibold text-gray-500">
+                        Ce reçu a déjà été traité. Statut final : <strong class="text-gray-800">{{ recu.get_statut_display }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

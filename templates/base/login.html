@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Connexion - IAI-Cameroun Centre de Douala{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .animate-fadeIn {
+        animation: fadeIn 0.6s ease-out;
+    }
+    
+    .animate-pulse-slow {
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    .btn-login {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+    }
+    
+    .btn-login:active {
+        transform: translateY(0);
+    }
+    
+    .btn-register {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-register:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
+    }
+    
+    .input-focus:focus {
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    
+    .info-card {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%);
+        border-left: 4px solid #10B981;
+        transition: all 0.3s ease;
+    }
+    
+    .info-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        margin: 20px 0;
+    }
+    
+    .divider::before,
+    .divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .divider span {
+        padding: 0 10px;
+        color: #9ca3af;
+        font-size: 0.75rem;
+    }
+    
+    /* Effet glassmorphism */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Animation de chargement */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 0.6s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Style pour le champ valide */
+    .input-valid {
+        border-color: #10B981 !important;
+        background-color: #f0fdf4 !important;
+    }
+    
+    /* Style pour le champ invalide */
+    .input-invalid {
+        border-color: #ef4444 !important;
+        background-color: #fef2f2 !important;
+    }
+</style>
+{% endblock %}
+
+{% block public_content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 via-green-800 to-yellow-700">
+    <div class="w-full max-w-md p-8 animate-fadeIn">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform hover:scale-105 transition-transform duration-300 animate-pulse-slow">
+                <i class="fas fa-graduation-cap text-green-600 text-4xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white mb-2">IAI-Cameroun</h1>
+            <p class="text-green-100">Centre de Douala</p>
+            <p class="text-yellow-200 text-sm mt-2">Système de Gestion Universitaire</p>
+        </div>
+        
+        <!-- Login form -->
+        <div class="glass-card rounded-2xl shadow-2xl p-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">Connexion</h2>
+            <p class="text-gray-500 text-sm text-center mb-6">
+                Connectez-vous avec votre matricule
+            </p>
+            
+            <form method="post" action="{% url 'login' %}" id="loginForm" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}">
+                
+                <div class="space-y-5">
+                    <!-- Matricule -->
+                    <div>
+                        <label for="id_username" class="block text-sm font-medium text-gray-700 mb-2">
+                            Matricule
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-id-card text-gray-400"></i>
+                            </div>
+                            <input type="text" name="username" id="id_username" 
+                                class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all input-focus"
+                                placeholder="Ex: GL.CMR.D014.2425A"
+                                required autofocus>
+                        </div>
+                        <div id="username-error" class="text-xs text-red-500 mt-1 hidden"></div>
+                        <div id="username-valid" class="text-xs text-green-600 mt-1 hidden">
+                            <i class="fas fa-check-circle mr-1"></i>Format valide
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Étudiant: <span class="font-mono">GL.CMR.D014.2425A</span> ou <span class="font-mono">SR.CMR.D014.2425A</span><br>
+                            Personnel: <span class="font-mono">PA.CMR.D014.2425A</span> | Professeur: <span class="font-mono">PR.CMR.D014.2425A</span>
+                        </p>
+                    </div>
+                    
+                    <!-- Password -->
+                    <div>
+                        <label for="id_password" class="block text-sm font-medium text-gray-700 mb-2">
+                            Mot de passe
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" name="password" id="id_password" 
+                                class="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all input-focus"
+                                placeholder="Entrez votre mot de passe"
+                                required>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onclick="togglePassword()">
+                                <i class="fas fa-eye text-gray-400 hover:text-gray-600 transition-colors" id="toggleIcon"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Remember me & Forgot password -->
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" name="remember" id="remember" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <span class="ml-2 text-sm text-gray-600">Se souvenir de moi</span>
+                        </label>
+                        <button type="button" onclick="showResetHelp()" 
+                                class="text-sm text-green-600 hover:text-green-700 font-medium transition-colors">
+                            Mot de passe oublié ?
+                        </button>
+                    </div>
+                    
+                    <!-- Submit button -->
+                    <button type="submit" id="loginBtn"
+                        class="btn-login w-full text-white py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all">
+                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        Se connecter
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Séparateur -->
+            <div class="divider my-6">
+                <span>ou</span>
+            </div>
+            
+            <!-- Lien d'inscription -->
+            <div class="text-center">
+                <p class="text-sm text-gray-600 mb-3">
+                    Vous n'avez pas encore de compte ?
+                </p>
+                <a href="{% url 'authentification:inscription' %}" 
+                   class="btn-register w-full inline-flex items-center justify-center text-white py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-all">
+                    <i class="fas fa-user-plus mr-2"></i>
+                    Créer un compte
+                </a>
+                <p class="text-xs text-gray-500 mt-3">
+                    Inscription ouverte aux étudiants et au personnel de l'IAI-Cameroun
+                </p>
+                <!-- Lien Géolocalisation public -->
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <a href="{% url 'tableau_bord:geolocalisation' %}" class="inline-flex items-center text-sm font-semibold text-green-700 hover:text-green-800 transition-colors">
+                        <i class="fas fa-map-marked-alt mr-2 text-yellow-500"></i>
+                        Localiser le centre de Douala (PK10)
+                    </a>
+                </div>
+            </div>
+            
+            {% if form.errors %}
+            <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg animate-fadeIn">
+                <div class="flex items-start">
+                    <i class="fas fa-exclamation-circle text-red-500 mr-2 mt-0.5"></i>
+                    <div class="text-sm text-red-700">
+                        <p class="font-medium">Échec de connexion</p>
+                        <p class="mt-1">Matricule ou mot de passe incorrect.</p>
+                        <p class="mt-1 text-xs text-red-600">Veuillez vérifier vos identifiants et réessayer.</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Informations pour les nouveaux utilisateurs -->
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <div class="info-card rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-green-600 mr-2 mt-0.5"></i>
+                        <div class="text-sm text-gray-700">
+                            <p class="font-medium text-green-700">Comment obtenir votre matricule ?</p>
+                            <ul class="mt-2 space-y-1 text-xs text-gray-600">
+                                <li class="flex items-start">
+                                    <i class="fas fa-user-graduate text-green-500 mr-2 mt-0.5"></i>
+                                    <span><strong>Étudiants :</strong> Après pré-inscription et vérification IA → matricule attribué</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fas fa-chalkboard-teacher text-yellow-500 mr-2 mt-0.5"></i>
+                                    <span><strong>Professeurs :</strong> Après signature du contrat → matricule PR.CMR.D014.XXXXA</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fas fa-user-cog text-green-500 mr-2 mt-0.5"></i>
+                                    <span><strong>Administrateurs :</strong> Après validation du dossier → matricule PA.CMR.D014.XXXXA</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Workflow info -->
+        <div class="mt-6 text-center">
+            <div class="bg-white bg-opacity-10 rounded-lg p-3 backdrop-blur-sm hover:bg-opacity-20 transition-all">
+                <p class="text-green-100 text-xs">
+                    <i class="fas fa-robot mr-1"></i>
+                    Vérification automatique des reçus par IA pour les étudiants
+                </p>
+                <p class="text-yellow-200 text-xs mt-1">
+                    <i class="fas fa-file-contract mr-1"></i>
+                    Validation des contrats pour les enseignants et administrateurs
+                </p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="text-center mt-8 text-green-100 text-sm">
+            <p>&copy; {% now "Y" %} IAI-Cameroun - Centre de Douala. Tous droits réservés.</p>
+            <p class="text-xs text-green-200 mt-1">Version 2.0 - Système de Gestion Universitaire</p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'aide pour mot de passe oublié -->
+<div id="resetHelpModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-fadeIn">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-900">Mot de passe oublié ?</h3>
+            <button onclick="closeResetHelp()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="space-y-4">
+            <div class="bg-yellow-50 rounded-lg p-4">
+                <div class="flex items-start">
+                    <i class="fas fa-envelope text-yellow-600 mr-3 mt-0.5"></i>
+                    <div>
+                        <p class="font-medium text-yellow-800">Contactez l'administrateur</p>
+                        <p class="text-sm text-yellow-700 mt-1">Pour réinitialiser votre mot de passe, veuillez contacter le service informatique :</p>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex items-center">
+                    <i class="fas fa-envelope text-green-600 w-8"></i>
+                    <span>support@iai-cameroun.com</span>
+                </div>
+                <div class="flex items-center">
+                    <i class="fas fa-phone text-green-600 w-8"></i>
+                    <span>+237 233 42 00 00</span>
+                </div>
+                <div class="flex items-center">
+                    <i class="fas fa-map-marker-alt text-green-600 w-8"></i>
+                    <span>Bonanjo, Douala, Cameroun</span>
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-xs text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                Veuillez fournir votre matricule et vos informations personnelles lors de la demande.
+            </div>
+            <button onclick="closeResetHelp()" 
+                    class="w-full py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all">
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Fonctions du modal
+    function showResetHelp() {
+        const modal = document.getElementById('resetHelpModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    function closeResetHelp() {
+        const modal = document.getElementById('resetHelpModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    
+    document.getElementById('resetHelpModal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeResetHelp();
+    });
+    
+    // Afficher/masquer le mot de passe
+    function togglePassword() {
+        const passwordInput = document.getElementById('id_password');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('fa-eye-slash');
+            toggleIcon.classList.add('fa-eye');
+        }
+    }
+    
+    // Validation du matricule en temps réel
+    const usernameInput = document.getElementById('id_username');
+    const usernameError = document.getElementById('username-error');
+    const usernameValid = document.getElementById('username-valid');
+    const matriculePattern = /^(GL|SR|PA|PR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]$/;
+    
+    usernameInput?.addEventListener('input', function(e) {
+        const matricule = e.target.value.trim().toUpperCase();
+        
+        if (matricule === '') {
+            usernameInput.classList.remove('input-valid', 'input-invalid');
+            usernameError.classList.add('hidden');
+            usernameValid.classList.add('hidden');
+        } else if (!matriculePattern.test(matricule)) {
+            usernameInput.classList.add('input-invalid');
+            usernameInput.classList.remove('input-valid');
+            usernameError.classList.remove('hidden');
+            usernameValid.classList.add('hidden');
+        } else {
+            usernameInput.classList.add('input-valid');
+            usernameInput.classList.remove('input-invalid');
+            usernameError.classList.add('hidden');
+            usernameValid.classList.remove('hidden');
+            // Mettre à jour la valeur avec la casse correcte
+            if (usernameInput.value !== matricule) {
+                usernameInput.value = matricule;
+            }
+        }
+    });
+    
+    // Sauvegarde du "Se souvenir de moi"
+    const rememberCheckbox = document.getElementById('remember');
+    const savedMatricule = localStorage.getItem('savedMatricule');
+    
+    if (savedMatricule && matriculePattern.test(savedMatricule)) {
+        usernameInput.value = savedMatricule;
+        rememberCheckbox.checked = true;
+        // Déclencher la validation
+        usernameInput.dispatchEvent(new Event('input'));
+    }
+    
+    rememberCheckbox?.addEventListener('change', function() {
+        if (this.checked) {
+            const matricule = usernameInput.value.trim().toUpperCase();
+            if (matriculePattern.test(matricule)) {
+                localStorage.setItem('savedMatricule', matricule);
+            }
+        } else {
+            localStorage.removeItem('savedMatricule');
+        }
+    });
+    
+    // Validation avant soumission
+    document.getElementById('loginForm')?.addEventListener('submit', function(e) {
+        const matricule = usernameInput.value.trim().toUpperCase();
+        
+        if (!matriculePattern.test(matricule)) {
+            e.preventDefault();
+            usernameInput.classList.add('input-invalid');
+            usernameError.textContent = 'Format de matricule invalide. Exemple: GL.CMR.DO14.2425A';
+            usernameError.classList.remove('hidden');
+            usernameInput.focus();
+            return false;
+        }
+        
+        // Mettre à jour la valeur avec la casse correcte
+        usernameInput.value = matricule;
+        
+        // Indicateur de chargement
+        const btn = document.getElementById('loginBtn');
+        btn.innerHTML = '<div class="loading-spinner mr-2"></div>Connexion en cours...';
+        btn.disabled = true;
+    });
+    
+    // Focus sur le champ mot de passe avec Entrée
+    usernameInput?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && matriculePattern.test(this.value.trim().toUpperCase())) {
+            e.preventDefault();
+            document.getElementById('id_password').focus();
+        }
+    });
+    
+    // Animation pour le bouton d'inscription
+    const registerBtn = document.querySelector('.btn-register');
+    if (registerBtn) {
+        registerBtn.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        registerBtn.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    }
+</script>
+{% endblock %}

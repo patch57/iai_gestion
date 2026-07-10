@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Paiement Réussi - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 text-center animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 space-y-6">
+        <!-- Animated Success Badge -->
+        <div class="relative w-24 h-24 mx-auto bg-green-100 rounded-full flex items-center justify-center text-green-500 text-5xl shadow-inner">
+            <i class="fas fa-check-circle"></i>
+            <div class="absolute inset-0 rounded-full border-4 border-green-500 animate-ping opacity-20"></div>
+        </div>
+
+        <!-- Text -->
+        <div>
+            <h1 class="text-3xl font-black text-gray-800">Paiement Réussi !</h1>
+            <p class="text-gray-500 mt-3 text-sm leading-relaxed">
+                Votre transaction Mobile Money a été confirmée et traitée avec succès. Vos pénalités de retard ont été réglées et votre compte a été mis à jour.
+            </p>
+        </div>
+
+        <div class="bg-green-50/50 border border-green-100 rounded-2xl p-4 flex items-center justify-between text-left">
+            <div>
+                <p class="text-xs text-gray-400 font-semibold uppercase">Statut</p>
+                <p class="font-bold text-green-700 text-sm">Réglé (En ligne)</p>
+            </div>
+            <i class="fas fa-shield-alt text-green-600 text-2xl"></i>
+        </div>
+
+        <!-- Buttons -->
+        <div class="pt-4">
+            <a href="{% url 'tableau_bord:tableau_bord' %}" 
+               class="block w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition duration-200">
+                Retour au Tableau de Bord
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

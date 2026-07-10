@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 text-center animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 space-y-6">
+        <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto text-yellow-500 text-3xl">
+            <i class="fas fa-tools animate-pulse"></i>
+        </div>
+        <div>
+            <h1 class="text-2xl font-black text-gray-800">{{ titre }}</h1>
+            <p class="text-gray-500 mt-2 text-sm">
+                {{ message|default:"Cette fonctionnalité est en cours de développement et sera disponible très prochainement." }}
+            </p>
+        </div>
+        <div class="pt-4">
+            <a href="{% url 'tableau_bord:tableau_bord' %}" 
+               class="inline-block bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-md">
+                Retour à l'accueil
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

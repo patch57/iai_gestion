@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mon Profil - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Mon Profil</h1>
+            <p class="text-gray-500 mt-1">Gérez vos informations personnelles</p>
+        </div>
+        <a href="{% url 'tableau_bord:modifier_profil' %}" 
+           class="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all">
+            <i class="fas fa-edit mr-2"></i>
+            Modifier le profil
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Carte d'identité -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl shadow-sm p-6 text-center">
+                <div class="w-32 h-32 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                    <span class="text-5xl font-bold text-white">
+                        {{ user.first_name|first|default:user.username|first|upper }}
+                    </span>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 mt-4">{{ user.get_full_name|default:user.username }}</h2>
+                <p class="text-gray-500 text-sm">{{ user.email }}</p>
+                {% if user.matricule %}
+                <div class="mt-2 inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
+                    <i class="fas fa-id-card mr-1"></i>
+                    {{ user.matricule }}
+                </div>
+                {% endif %}
+                
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <div class="flex justify-center space-x-4">
+                        <a href="{% url 'tableau_bord:changer_mot_de_passe' %}" class="text-sm text-green-600 hover:text-green-700">
+                            <i class="fas fa-key mr-1"></i>
+                            Changer mot de passe
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations détaillées -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Informations personnelles -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-user text-green-600 mr-2"></i>
+                    Informations personnelles
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Nom d'utilisateur</label>
+                        <p class="text-gray-900 font-medium">{{ user.username }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Email</label>
+                        <p class="text-gray-900">{{ user.email }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Prénom</label>
+                        <p class="text-gray-900">{{ user.first_name|default:"Non renseigné" }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Nom</label>
+                        <p class="text-gray-900">{{ user.last_name|default:"Non renseigné" }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Téléphone</label>
+                        <p class="text-gray-900">{{ user.telephone|default:"Non renseigné" }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Type d'utilisateur</label>
+                        <p class="text-gray-900">
+                            <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-sm">
+                                {{ user.get_type_utilisateur_display }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations académiques (pour étudiants) -->
+            {% if user.est_etudiant %}
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-graduation-cap text-green-600 mr-2"></i>
+                    Informations académiques
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Filière</label>
+                        <p class="text-gray-900 font-medium">{{ user.get_filiere|default:"Non attribuée" }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Code filière</label>
+                        <p class="text-gray-900">{{ user.get_code_filiere|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Année académique</label>
+                        <p class="text-gray-900">{{ user.get_annee_academique|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Baccalauréat</label>
+                        <p class="text-gray-900">{{ user.get_type_baccalaureat_display|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Année d'obtention</label>
+                        <p class="text-gray-900">{{ user.annee_obtention_bac|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informations professionnelles (pour professeurs/admins) -->
+            {% if user.est_professeur or user.est_administrateur %}
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-briefcase text-green-600 mr-2"></i>
+                    Informations professionnelles
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Fonction</label>
+                        <p class="text-gray-900">{{ user.get_type_utilisateur_display }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Date d'entrée</label>
+                        <p class="text-gray-900">{{ user.date_joined|date:"d/m/Y" }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Adresse -->
+            {% if user.adresse %}
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-map-marker-alt text-green-600 mr-2"></i>
+                    Adresse
+                </h3>
+                <p class="text-gray-900">{{ user.adresse }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Statistiques de connexion -->
+            <div class="bg-gradient-to-r from-green-50 to-yellow-50 rounded-xl p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-chart-line text-green-600 mr-2"></i>
+                    Activité
+                </h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-500">Date d'inscription</p>
+                        <p class="font-semibold">{{ user.date_joined|date:"d/m/Y" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Dernière connexion</p>
+                        <p class="font-semibold">{{ user.last_login|date:"d/m/Y H:i"|default:"Jamais" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

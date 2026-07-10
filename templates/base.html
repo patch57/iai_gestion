@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ titre }}{% endblock %} | IAI-Cameroun</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- AOS Animation -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        iai: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#10B981',
+                            700: '#059669',
+                            800: '#047857',
+                            900: '#065f46',
+                        },
+                        yellow: {
+                            50: '#fefce8',
+                            100: '#fef9c3',
+                            200: '#fef08a',
+                            300: '#fde047',
+                            400: '#facc15',
+                            500: '#eab308',
+                            600: '#ca8a04',
+                            700: '#a16207',
+                            800: '#854d0e',
+                            900: '#713f12',
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateX(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateX(0)', opacity: '1' },
+                        },
+                    },
+                    backdropBlur: {
+                        xs: '2px',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #10B981;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #059669;
+        }
+        
+        /* Transitions */
+        .transition-all {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Card hover effect */
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+        }
+        
+        /* Gradients */
+        .gradient-primary {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        }
+        
+        .gradient-secondary {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #10B981 0%, #F59E0B 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        .notification-badge {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        /* Sidebar active link */
+        .sidebar-link.active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+            color: #10B981;
+            font-weight: 500;
+            border-right: 3px solid #10B981;
+        }
+        
+        .sidebar-link.active i {
+            color: #10B981;
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+        
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 50;
+        }
+        
+        /* Glass morphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+        
+        /* Mobile menu */
+        .sidebar-mobile {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-mobile.open {
+            transform: translateX(0);
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+    
+    {% if user.is_authenticated %}
+    <!-- Overlay pour mobile -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed left-0 top-0 z-40 h-screen w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out shadow-xl lg:translate-x-0 sidebar-mobile">
+        <!-- Logo avec gradient vert -->
+        <div class="flex items-center justify-center h-16 border-b border-gray-200 gradient-primary">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                    <i class="fas fa-graduation-cap text-green-600 text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold text-lg tracking-tight">IAI-Cameroun</h1>
+                    <p class="text-green-100 text-xs">Centre de Douala</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Profil utilisateur dans sidebar -->
+        <div class="p-4 border-b border-gray-100">
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
+                        {% if user.photo %}
+                        <img src="{{ user.photo.url }}" alt="Avatar" class="w-10 h-10 rounded-full object-cover">
+                        {% else %}
+                        <span class="text-white text-sm font-bold">{{ user.first_name|first|default:user.username|first|upper }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-gray-900 truncate">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="text-xs text-gray-500 truncate">{{ user.email }}</p>
+                    {% if user.matricule %}
+                    <p class="text-xs text-green-600 font-mono">{{ user.matricule }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto py-4 px-3 h-[calc(100vh-200px)]">
+            <ul class="space-y-1">
+                <!-- Tableau de bord -->
+                <li>
+                    <a href="/tableau-de-bord/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-tachometer-alt w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Tableau de bord</span>
+                    </a>
+                </li>
+                
+                <!-- Géolocalisation -->
+                <li>
+                    <a href="{% url 'tableau_bord:geolocalisation' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-map-marked-alt w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Géolocalisation</span>
+                    </a>
+                </li>
+                
+                <!-- Étudiants -->
+                <li>
+                    <a href="/etudiants/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-user-graduate w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Étudiants</span>
+                    </a>
+                </li>
+                
+                <!-- Professeurs -->
+                <li>
+                    <a href="/professeurs/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-chalkboard-teacher w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Professeurs</span>
+                    </a>
+                </li>
+                
+                <!-- Cours -->
+                <li>
+                    <a href="/cours/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-book w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Cours</span>
+                    </a>
+                </li>
+                
+                <!-- Notes & Évaluations -->
+                <li>
+                    <a href="/notes/evaluations/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-chart-line w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Notes & Évaluations</span>
+                    </a>
+                </li>
+                
+                <!-- Inscriptions & Paiements -->
+                <li>
+                    <a href="/inscriptions/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-file-signature w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Inscriptions & Paiements</span>
+                    </a>
+                </li>
+                
+                <!-- Statistiques -->
+                <li>
+                    <a href="/tableau-de-bord/statistiques/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-chart-pie w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Statistiques</span>
+                    </a>
+                </li>
+            </ul>
+            
+            <!-- Divider -->
+            <div class="my-4 border-t border-gray-200"></div>
+            
+            <!-- Paramètres -->
+            <ul class="space-y-1">
+                <li>
+                    <a href="/tableau-de-bord/profil/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-user-cog w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Mon Profil</span>
+                    </a>
+                </li>
+                
+                <!-- Notifications -->
+                <li>
+                    <a href="/tableau-de-bord/notifications/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-bell w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Notifications</span>
+                        <span id="sidebar-notif-count" class="ml-auto px-2 py-0.5 text-xs bg-red-500 text-white rounded-full hidden">0</span>
+                    </a>
+                </li>
+                
+                <!-- Tâches -->
+                <li>
+                    <a href="/tableau-de-bord/taches/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-tasks w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Mes Tâches</span>
+                    </a>
+                </li>
+                
+                {% if user.is_staff %}
+                <li>
+                    <a href="/admin/" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-cog w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Administration</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        
+        <!-- User info et déconnexion - CORRIGÉ avec formulaire POST -->
+        <div class="border-t border-gray-200 p-4">
+            <form method="post" action="{% url 'logout' %}" class="w-full">
+                {% csrf_token %}
+                <button type="submit" 
+                        class="mt-2 flex items-center justify-center w-full px-4 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all group"
+                        onclick="return confirm('Êtes-vous sûr de vouloir vous déconnecter ?')">
+                    <i class="fas fa-sign-out-alt mr-2 group-hover:rotate-12 transition-transform"></i>
+                    Déconnexion
+                </button>
+            </form>
+        </div>
+    </aside>
+    
+    <!-- Main content -->
+    <main class="lg:ml-64 min-h-screen">
+        <!-- Top header avec glass morphism -->
+        <header class="glass border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center space-x-4">
+                    <!-- Mobile menu button -->
+                    <button id="mobile-menu-btn" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-bars text-gray-600 text-xl"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-xl lg:text-2xl font-bold gradient-text">{% block page_title %}{{ titre }}{% endblock %}</h2>
+                        <p class="text-xs lg:text-sm text-gray-500 mt-0.5">{% block page_subtitle %}{% endblock %}</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Search bar -->
+                    <div class="hidden md:block relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                        <input type="text" id="global-search" 
+                               placeholder="Rechercher..." 
+                               class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 w-64 text-sm">
+                    </div>
+                    
+                    <!-- Notifications -->
+                    <a href="/tableau-de-bord/notifications/" 
+                       class="relative p-2 text-gray-500 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50">
+                        <i class="fas fa-bell text-xl"></i>
+                        <span id="notifications-count" 
+                              class="notification-badge absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center hidden">
+                            0
+                        </span>
+                    </a>
+                    
+                    <!-- Tâches -->
+                    <a href="/tableau-de-bord/taches/" 
+                       class="relative p-2 text-gray-500 hover:text-yellow-600 transition-colors rounded-lg hover:bg-yellow-50">
+                        <i class="fas fa-tasks text-xl"></i>
+                    </a>
+                    
+                    <!-- Année académique -->
+                    <div class="hidden lg:flex px-3 py-1.5 bg-gradient-to-r from-green-100 to-yellow-100 text-green-700 rounded-full text-sm font-medium shadow-sm items-center space-x-2">
+                        <i class="fas fa-calendar-alt text-yellow-600"></i>
+                        <span>{{ annee_academique|default:"2024-2025" }}</span>
+                    </div>
+                    
+                    <!-- User dropdown -->
+                    <div class="relative">
+                        <button id="user-menu-btn" class="flex items-center space-x-2 focus:outline-none">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
+                                {% if user.photo %}
+                                <img src="{{ user.photo.url }}" alt="Avatar" class="w-8 h-8 rounded-full object-cover">
+                                {% else %}
+                                <span class="text-white text-xs font-bold">{{ user.first_name|first|default:user.username|first|upper }}</span>
+                                {% endif %}
+                            </div>
+                            <span class="hidden md:block text-sm font-medium text-gray-700">{{ user.get_full_name|default:user.username|truncatechars:20 }}</span>
+                            <i class="fas fa-chevron-down text-xs text-gray-500 transition-transform"></i>
+                        </button>
+                        
+                        <div id="user-dropdown" class="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl overflow-hidden z-50 hidden transition-all">
+                            <div class="p-4 bg-gradient-to-r from-green-500 to-green-600">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center">
+                                        <i class="fas fa-user text-green-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-white font-medium">{{ user.get_full_name|default:user.username }}</p>
+                                        <p class="text-green-100 text-xs">{{ user.email }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="py-2">
+                                <a href="/tableau-de-bord/profil/" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors">
+                                    <i class="fas fa-user w-5 mr-3"></i>Mon profil
+                                </a>
+                                <a href="/tableau-de-bord/statistiques/" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors">
+                                    <i class="fas fa-chart-line w-5 mr-3"></i>Mes statistiques
+                                </a>
+                                <div class="border-t border-gray-100 my-2"></div>
+                                <form method="post" action="{% url 'logout' %}" class="w-full">
+                                    {% csrf_token %}
+                                    <button type="submit" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                        <i class="fas fa-sign-out-alt w-5 mr-3"></i>Déconnexion
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Page content with animation -->
+        <div class="p-4 lg:p-6 animate-fade-in">
+            <!-- Messages flash stylisés -->
+            {% if messages %}
+            <div class="mb-6 space-y-2">
+                {% for message in messages %}
+                <div class="p-4 rounded-lg transition-all transform hover:scale-[1.01] {% if message.tags == 'success' %}bg-green-50 border-l-4 border-green-500 text-green-700{% elif message.tags == 'error' %}bg-red-50 border-l-4 border-red-500 text-red-700{% elif message.tags == 'warning' %}bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700{% else %}bg-blue-50 border-l-4 border-blue-500 text-blue-700{% endif %} shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-3 text-lg"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                        <button class="close-message text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% block content %}{% endblock %}
+        </div>
+        
+        <!-- Footer -->
+        <footer class="border-t border-gray-200 mt-8 py-4 px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
+                <div class="flex items-center space-x-4">
+                    <span>&copy; {% now "Y" %} IAI-Cameroun - Centre de Douala</span>
+                    <span>•</span>
+                    <span>Version 2.0</span>
+                </div>
+                <div class="flex items-center space-x-4 mt-2 md:mt-0">
+                    <a href="#" class="hover:text-green-600 transition-colors">Aide</a>
+                    <a href="#" class="hover:text-green-600 transition-colors">Support</a>
+                    <a href="#" class="hover:text-green-600 transition-colors">Contact</a>
+                </div>
+            </div>
+        </footer>
+    </main>
+    
+    {% else %}
+    <!-- Public content (login page, inscription, etc.) -->
+    <main>
+        {% block public_content %}{% endblock %}
+    </main>
+    {% endif %}
+    
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialisation AOS
+        AOS.init({
+            duration: 600,
+            once: true
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sidebar active link
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                const href = link.getAttribute('href');
+                if (href && href !== '/' && currentPath.startsWith(href)) {
+                    link.classList.add('active');
+                }
+            });
+            
+            // Mobile menu toggle
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            
+            if (mobileMenuBtn && sidebar) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    sidebar.classList.toggle('open');
+                    if (overlay) overlay.classList.toggle('hidden');
+                });
+                
+                if (overlay) {
+                    overlay.addEventListener('click', () => {
+                        sidebar.classList.remove('open');
+                        overlay.classList.add('hidden');
+                    });
+                }
+            }
+            
+            // User dropdown
+            const userMenuBtn = document.getElementById('user-menu-btn');
+            const userDropdown = document.getElementById('user-dropdown');
+            
+            if (userMenuBtn && userDropdown) {
+                userMenuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('hidden');
+                });
+                
+                document.addEventListener('click', () => {
+                    userDropdown.classList.add('hidden');
+                });
+            }
+            
+            // Charger le nombre de notifications non lues
+            fetch('/tableau-de-bord/api/notifications-non-lues/')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('Non autorisé');
+                })
+                .then(data => {
+                    const countBadge = document.getElementById('notifications-count');
+                    const sidebarBadge = document.getElementById('sidebar-notif-count');
+                    if (data.count > 0) {
+                        if (countBadge) {
+                            countBadge.style.display = 'flex';
+                            countBadge.textContent = data.count > 9 ? '9+' : data.count;
+                        }
+                        if (sidebarBadge) {
+                            sidebarBadge.style.display = 'inline-block';
+                            sidebarBadge.textContent = data.count > 9 ? '9+' : data.count;
+                        }
+                    }
+                })
+                .catch(error => console.error('Erreur chargement notifications:', error));
+            
+            // Fermer les messages
+            document.querySelectorAll('.close-message').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    this.closest('.p-4').style.display = 'none';
+                });
+            });
+            
+            // Auto-fermeture des messages après 5 secondes
+            setTimeout(() => {
+                document.querySelectorAll('.bg-green-50, .bg-red-50, .bg-yellow-50, .bg-blue-50').forEach(msg => {
+                    if (msg.style.display !== 'none') {
+                        msg.style.opacity = '0';
+                        setTimeout(() => msg.style.display = 'none', 300);
+                    }
+                });
+            }, 5000);
+            
+            // Search functionality
+            const searchInput = document.getElementById('global-search');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        const query = searchInput.value.trim();
+                        if (query) {
+                            window.location.href = `/recherche/?q=${encodeURIComponent(query)}`;
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

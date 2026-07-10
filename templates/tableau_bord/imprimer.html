@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Impression du Rapport - IAI-Cameroun</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: white;
+            color: #1f2937;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #047857;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #047857;
+            font-size: 24px;
+            font-weight: 800;
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
+        }
+
+        .header p {
+            margin: 0;
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #047857;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #111827;
+            margin-top: 5px;
+        }
+
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 10px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 15px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+            .print-btn {
+                display: none;
+            }
+        }
+
+        .print-btn {
+            background-color: #047857;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 20px;
+            float: right;
+        }
+    </style>
+</head>
+<body>
+
+    <button onclick="window.print()" class="print-btn">Imprimer la Page</button>
+
+    <div class="header">
+        <h1>Rapport d'Activité IAI-Douala</h1>
+        <p>Généré automatiquement par le portail de gestion administrative</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Statistiques Globales</div>
+        <div class="grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Étudiants inscrits</div>
+                <div class="stat-value">540</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Enseignants actifs</div>
+                <div class="stat-value">42</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Reçus de paiement en attente</div>
+                <div class="stat-value">8</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Taux de validation dossiers</div>
+                <div class="stat-value">88.5%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Informations de Validation</div>
+        <p style="font-size: 13px; line-height: 1.6; color: #4b5563;">
+            Ce rapport présente un état synthétique de l'établissement à la date du jour. Pour des raisons de confidentialité et de traçabilité, les signatures électroniques sont intégrées aux rapports détaillés individuels de chaque étudiant (cartes d'étudiant, certificats de scolarité, bulletins semestriels).
+        </p>
+    </div>
+
+    <div class="footer">
+        © IAI-Cameroun Centre de Douala - Tous droits réservés.
+    </div>
+
+</body>
+</html>

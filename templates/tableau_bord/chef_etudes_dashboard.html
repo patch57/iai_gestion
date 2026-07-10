@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Espace Chef des Études - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-700 via-green-600 to-yellow-500 rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 flex justify-between items-center">
+        <div>
+            <span class="bg-white/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/10">Direction Académique</span>
+            <h1 class="text-3xl font-extrabold mt-3">Chef de Service des Études</h1>
+            <p class="text-green-100 mt-2">Gestion des emplois du temps, notes d'information, diplômes et délibérations.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Publications et Chargements -->
+        <div class="lg:col-span-1 space-y-8">
+            <!-- Emploi du Temps -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-calendar-plus mr-2 text-green-600"></i>Publier un Emploi du Temps</h3>
+                {% if filieres %}
+                <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner la Filière</label>
+                        <select name="filiere_id" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                            {% for filiere in filieres %}
+                            <option value="{{ filiere.id }}">{{ filiere.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Fichier Emploi du temps (PDF)</label>
+                        <input type="file" name="emploi_fichier" required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200">
+                        Publier l'Emploi du Temps
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Notes d'information -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-bullhorn mr-2 text-yellow-500"></i>Publier une Note d'Information</h3>
+                <form method="POST" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sujet / Titre</label>
+                        <input type="text" name="sujet" required placeholder="Ex: Report des évaluations" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Contenu de la Note d'Information</label>
+                        <textarea name="contenu" required rows="4" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500" placeholder="Rédigez la note ici..."></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200">
+                        Diffuser la Note
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Procès-Verbaux d'Anonymat -->
+        <div class="lg:col-span-2 space-y-8">
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-user-secret mr-2"></i>Procès-Verbaux d'Anonymat</h3>
+                </div>
+                <div class="p-6">
+                    <p class="text-sm text-gray-500 mb-4">Ces procès-verbaux sont transmis confidentiellement par le Chef de Service de l'Anonymat pour délibération.</p>
+                    
+                    <!-- Simulation de liste de PV d'anonymat -->
+                    <div class="divide-y divide-gray-100">
+                        <div class="py-4 flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-gray-800">PV Examen Semestre 1 - Génie Logiciel</h4>
+                                <p class="text-xs text-gray-400">Date de transmission: Aujourd'hui</p>
+                            </div>
+                            <a href="#" class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-xl text-xs font-bold transition duration-200">
+                                <i class="fas fa-download mr-1"></i>Télécharger le PV
+                            </a>
+                        </div>
+                        <div class="py-4 flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-gray-800">PV Examen Semestre 1 - Systèmes et Réseaux</h4>
+                                <p class="text-xs text-gray-400">Date de transmission: Hier</p>
+                            </div>
+                            <a href="#" class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-xl text-xs font-bold transition duration-200">
+                                <i class="fas fa-download mr-1"></i>Télécharger le PV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

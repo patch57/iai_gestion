@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Répondre au message - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-lg font-bold"><i class="fas fa-reply mr-2 text-yellow-400"></i>Répondre au message</h1>
+                <p class="text-xs text-green-100 mt-1">À : Scolarité (Administration)</p>
+            </div>
+            <a href="{% url 'tableau_bord:detail_message' 1 %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Annuler
+            </a>
+        </div>
+
+        <form method="POST" class="p-6 md:p-8 space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Sujet de réponse</label>
+                <input type="text" name="sujet" readonly value="Re: Confirmation de validation du dossier d'inscription"
+                    class="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-xl text-gray-500 text-sm">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Votre réponse *</label>
+                <textarea name="contenu" required rows="6" placeholder="Rédigez votre réponse ici..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"></textarea>
+            </div>
+
+            <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3 px-4 rounded-xl shadow-lg transition duration-200 mt-6">
+                <i class="fas fa-paper-plane mr-2"></i> Envoyer la réponse
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

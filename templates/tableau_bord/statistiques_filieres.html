@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Statistiques par Filière - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Statistiques par Filière</h1>
+            <p class="text-gray-500 mt-1">Analyse détaillée par filière</p>
+        </div>
+        <select id="filiere-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+            <option value="all">Toutes les filières</option>
+            {% for filiere in filieres %}
+            <option value="{{ filiere.id }}">{{ filiere.nom }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {% for filiere in filieres %}
+        <div class="bg-white rounded-xl shadow-sm p-6 card-hover">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-900">{{ filiere.nom }}</h3>
+                <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
+                    Code: {{ filiere.code }}
+                </span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <p class="text-2xl font-bold text-gray-900">{{ filiere.nb_etudiants }}</p>
+                    <p class="text-xs text-gray-500">Étudiants</p>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <p class="text-2xl font-bold text-green-600">{{ filiere.taux_reussite|default:"0" }}%</p>
+                    <p class="text-xs text-gray-500">Taux réussite</p>
+                </div>
+            </div>
+            
+            <div class="space-y-3">
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>Progression académique</span>
+                        <span>{{ filiere.progression|default:"75" }}%</span>
+                    </div>
+                    <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-green-500 rounded-full" style="width: {{ filiere.progression|default:75 }}%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>Taux de présence</span>
+                        <span>{{ filiere.presence|default:"85" }}%</span>
+                    </div>
+                    <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-yellow-500 rounded-full" style="width: {{ filiere.presence|default:85 }}%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <a href="#" class="text-sm text-green-600 hover:text-green-700">
+                    Voir les détails <i class="fas fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

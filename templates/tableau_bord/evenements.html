@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Événements - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-calendar-alt text-green-600 mr-2"></i>Événements Académiques</h1>
+            <p class="text-gray-500 text-sm mt-1">Calendrier & Activités du campus</p>
+        </div>
+        <a href="{% url 'tableau_bord:ajouter_evenement' %}" class="bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+            <i class="fas fa-plus mr-1"></i> Ajouter un événement
+        </a>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+        <!-- Event item -->
+        <div class="flex flex-col md:flex-row justify-between items-start gap-4 pb-6 border-b border-gray-100">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex flex-col items-center justify-center font-bold shadow-inner">
+                    <span class="text-base leading-none">12</span>
+                    <span class="text-[8px] uppercase">Juil</span>
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-gray-800 text-base">Conseil de Direction de Fin d'Année</h3>
+                    <p class="text-gray-500 text-xs mt-1">Réunion de bilan pédagogique et financier de l'année 2025-2026.</p>
+                </div>
+            </div>
+            <span class="text-xs font-semibold text-gray-500"><i class="fas fa-clock mr-1"></i>09:00 - 13:00</span>
+        </div>
+
+        <!-- Event item 2 -->
+        <div class="flex flex-col md:flex-row justify-between items-start gap-4 pb-6 border-b border-gray-100">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 bg-yellow-50 text-yellow-600 rounded-2xl flex flex-col items-center justify-center font-bold shadow-inner">
+                    <span class="text-base leading-none">15</span>
+                    <span class="text-[8px] uppercase">Juil</span>
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-gray-800 text-base">Délibérations des Examens</h3>
+                    <p class="text-gray-500 text-xs mt-1">Publication officielle des résultats du second semestre.</p>
+                </div>
+            </div>
+            <span class="text-xs font-semibold text-gray-500"><i class="fas fa-clock mr-1"></i>14:00 - 18:00</span>
+        </div>
+
+        <!-- Event item 3 -->
+        <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex flex-col items-center justify-center font-bold shadow-inner">
+                    <span class="text-base leading-none">20</span>
+                    <span class="text-[8px] uppercase">Juil</span>
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-gray-800 text-base">Début des Inscriptions</h3>
+                    <p class="text-gray-500 text-xs mt-1">Ouverture des ré-inscriptions pour l'année académique 2026-2027.</p>
+                </div>
+            </div>
+            <span class="text-xs font-semibold text-gray-500"><i class="fas fa-clock mr-1"></i>Toute la journée</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

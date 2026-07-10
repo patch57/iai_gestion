@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Liste des Professeurs - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-chalkboard-teacher text-green-600 mr-2"></i>Gestion des Professeurs</h1>
+            <p class="text-gray-500 text-sm mt-1">Espace Administratif & Enseignants</p>
+        </div>
+        
+        <div class="flex gap-2">
+            <a href="{% url 'ajouter_professeur' %}" class="inline-flex items-center bg-green-700 hover:bg-green-800 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-plus mr-2"></i> Ajouter un Professeur
+            </a>
+            <a href="{% url 'liste_departements' %}" class="inline-flex items-center bg-gray-800 hover:bg-gray-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-building mr-2"></i> Départements
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters Panel -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <!-- Search -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Recherche</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" name="q" value="{{ recherche|default:'' }}" placeholder="Nom, spécialité..."
+                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 text-sm">
+                </div>
+            </div>
+
+            <!-- Department Filter -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Département</label>
+                <select name="departement" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous</option>
+                    {% for dept in departements %}
+                    <option value="{{ dept.id }}" {% if filtre_departement == dept.id|stringformat:"i" %}selected{% endif %}>{{ dept.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Grade Filter -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Grade</label>
+                <select name="grade" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous</option>
+                    {% for code, label in grades %}
+                    <option value="{{ code }}" {% if filtre_grade == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-xl text-sm transition">
+                    Filtrer
+                </button>
+                <a href="{% url 'liste_professeurs' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Teachers Cards / List -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th class="p-5">Enseignant</th>
+                        <th class="p-5">Département</th>
+                        <th class="p-5">Grade / Contrat</th>
+                        <th class="p-5">Spécialité</th>
+                        <th class="p-5">Statut</th>
+                        <th class="p-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    {% for prof in professeurs %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-5">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-inner bg-green-600">
+                                    {{ prof.prenom|slice:":1" }}{% if prof.nom %}{{ prof.nom|slice:":1" }}{% endif %}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-800">{{ prof.nom }} {{ prof.prenom }}</p>
+                                    <span class="text-xs text-gray-400 font-semibold">{{ prof.matricule }} | {{ prof.email }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-5 font-semibold text-gray-700">
+                            {{ prof.departement.nom }}
+                        </td>
+                        <td class="p-5">
+                            <p class="font-bold text-gray-800 text-xs">{{ prof.get_grade_display }}</p>
+                            <span class="text-xs text-gray-400 block mt-0.5">{{ prof.get_type_contrat_display }}</span>
+                        </td>
+                        <td class="p-5 text-gray-500 font-medium">
+                            {{ prof.specialite }}
+                        </td>
+                        <td class="p-5">
+                            <span class="text-xs font-bold px-3 py-1.5 rounded-full 
+                                {% if prof.statut == 'ACTIF' %}bg-green-100 text-green-800
+                                {% elif prof.statut == 'CONGE' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ prof.get_statut_display }}
+                            </span>
+                        </td>
+                        <td class="p-5 text-right flex justify-end gap-2">
+                            <a href="{% url 'detail_professeur' prof.id %}" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 transition">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'modifier_professeur' prof.id %}" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-10 text-center text-gray-400">
+                            <i class="fas fa-folder-open text-4xl mb-3 block"></i>
+                            Aucun enseignant trouvé.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

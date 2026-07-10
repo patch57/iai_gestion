@@ -1,0 +1,417 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Accueil - IAI-Cameroun Centre de Douala{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Animations personnalisées */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+    
+    .animate-fadeInUp {
+        animation: fadeInUp 0.8s ease-out;
+    }
+    
+    .animate-float {
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    .card-hover {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .card-hover:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+    }
+    
+    .gradient-text {
+        background: linear-gradient(135deg, #10B981 0%, #F59E0B 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+    }
+    
+    .btn-secondary {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block public_content %}
+<!-- Navigation -->
+<nav class="bg-white shadow-lg fixed w-full z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 flex items-center">
+                    <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mr-3 shadow-md">
+                        <i class="fas fa-graduation-cap text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold gradient-text">IAI-Cameroun</h1>
+                        <p class="text-xs text-gray-500">Centre de Douala</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="{% url 'login' %}" class="btn-primary text-white px-6 py-2 rounded-lg font-medium transition-all">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Connexion
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="pt-24 pb-16 bg-gradient-to-br from-green-900 via-green-800 to-yellow-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center py-16 animate-fadeInUp">
+            <div class="mb-6 animate-float">
+                <div class="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto">
+                    <i class="fas fa-graduation-cap text-white text-4xl"></i>
+                </div>
+            </div>
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+                Système de Gestion <span class="text-yellow-300">Universitaire</span>
+            </h1>
+            <p class="text-xl text-green-100 mb-8 max-w-3xl mx-auto">
+                Une solution complète et moderne pour la gestion de l'Institut Africain d'Informatique au Cameroun, Centre de Douala.
+            </p>
+            <div class="flex justify-center space-x-4">
+                <a href="{% url 'login' %}" class="bg-white text-green-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-arrow-right mr-2"></i>
+                    Accéder à l'application
+                </a>
+                <a href="#features" class="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-green-700 transition-all">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    En savoir plus
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Statistics Section -->
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">
+                L'IAI-Cameroun en <span class="gradient-text">chiffres</span>
+            </h2>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                Découvrez les statistiques de notre institut et l'impact de notre formation sur le secteur informatique.
+            </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <!-- Étudiants -->
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-8 text-center card-hover transition-all border-b-4 border-green-500">
+                <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i class="fas fa-user-graduate text-white text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-gray-900 mb-2">{{ nombre_etudiants|default:"0" }}</h3>
+                <p class="text-gray-600 font-medium">Étudiants inscrits</p>
+                <p class="text-xs text-green-600 mt-2">
+                    <i class="fas fa-chart-line mr-1"></i>+15% cette année
+                </p>
+            </div>
+            
+            <!-- Professeurs -->
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl p-8 text-center card-hover transition-all border-b-4 border-yellow-500">
+                <div class="w-16 h-16 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i class="fas fa-chalkboard-teacher text-white text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-gray-900 mb-2">{{ nombre_professeurs|default:"0" }}</h3>
+                <p class="text-gray-600 font-medium">Professeurs</p>
+                <p class="text-xs text-yellow-600 mt-2">
+                    <i class="fas fa-check-circle mr-1"></i>Experts qualifiés
+                </p>
+            </div>
+            
+            <!-- Filières -->
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-8 text-center card-hover transition-all border-b-4 border-green-500">
+                <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i class="fas fa-graduation-cap text-white text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-gray-900 mb-2">{{ nombre_filieres|default:"0" }}</h3>
+                <p class="text-gray-600 font-medium">Filières</p>
+                <p class="text-xs text-green-600 mt-2">
+                    <i class="fas fa-book mr-1"></i>Programmes accrédités
+                </p>
+            </div>
+            
+            <!-- Cours -->
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl p-8 text-center card-hover transition-all border-b-4 border-yellow-500">
+                <div class="w-16 h-16 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i class="fas fa-book-open text-white text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-gray-900 mb-2">{{ nombre_cours|default:"0" }}</h3>
+                <p class="text-gray-600 font-medium">Cours dispensés</p>
+                <p class="text-xs text-yellow-600 mt-2">
+                    <i class="fas fa-clock mr-1"></i>Formation continue
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section id="features" class="py-16 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">
+                Fonctionnalités <span class="gradient-text">principales</span>
+            </h2>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                Notre système offre une gamme complète d'outils pour gérer efficacement tous les aspects de la vie universitaire.
+            </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Gestion des étudiants -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg card-hover transition-all hover:shadow-xl">
+                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-4 shadow-md">
+                    <i class="fas fa-users text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestion des Étudiants</h3>
+                <p class="text-gray-600">
+                    Inscription, suivi académique, gestion des documents et historique complet des étudiants.
+                </p>
+                <div class="mt-4">
+                    <span class="inline-flex items-center text-sm text-green-600">
+                        <i class="fas fa-check-circle mr-1"></i> Suivi personnalisé
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Gestion des professeurs -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg card-hover transition-all hover:shadow-xl">
+                <div class="w-14 h-14 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center mb-4 shadow-md">
+                    <i class="fas fa-chalkboard-teacher text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestion des Professeurs</h3>
+                <p class="text-gray-600">
+                    Suivi des enseignants, charge horaire, disponibilités et gestion des départements.
+                </p>
+                <div class="mt-4">
+                    <span class="inline-flex items-center text-sm text-yellow-600">
+                        <i class="fas fa-check-circle mr-1"></i> Planning optimisé
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Gestion des cours -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg card-hover transition-all hover:shadow-xl">
+                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-4 shadow-md">
+                    <i class="fas fa-book-open text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestion des Cours</h3>
+                <p class="text-gray-600">
+                    Planification des emplois du temps, attribution des salles et suivi des séances.
+                </p>
+                <div class="mt-4">
+                    <span class="inline-flex items-center text-sm text-green-600">
+                        <i class="fas fa-check-circle mr-1"></i> Emplois du temps automatisés
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Notes et évaluations -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg card-hover transition-all hover:shadow-xl">
+                <div class="w-14 h-14 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center mb-4 shadow-md">
+                    <i class="fas fa-chart-line text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Notes & Évaluations</h3>
+                <p class="text-gray-600">
+                    Saisie des notes, génération des bulletins, délibération et suivi des résultats.
+                </p>
+                <div class="mt-4">
+                    <span class="inline-flex items-center text-sm text-yellow-600">
+                        <i class="fas fa-check-circle mr-1"></i> Bulletins en ligne
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Inscriptions et paiements -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg card-hover transition-all hover:shadow-xl">
+                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-4 shadow-md">
+                    <i class="fas fa-credit-card text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Inscriptions & Paiements</h3>
+                <p class="text-gray-600">
+                    Gestion des inscriptions, suivi des paiements, bourses et certificats de scolarité.
+                </p>
+                <div class="mt-4">
+                    <span class="inline-flex items-center text-sm text-green-600">
+                        <i class="fas fa-check-circle mr-1"></i> Paiements sécurisés
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Statistiques et rapports -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg card-hover transition-all hover:shadow-xl">
+                <div class="w-14 h-14 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center mb-4 shadow-md">
+                    <i class="fas fa-chart-pie text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Statistiques & Rapports</h3>
+                <p class="text-gray-600">
+                    Tableaux de bord, rapports détaillés et analyses statistiques complets.
+                </p>
+                <div class="mt-4">
+                    <span class="inline-flex items-center text-sm text-yellow-600">
+                        <i class="fas fa-check-circle mr-1"></i> Analyses en temps réel
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-16 bg-gradient-to-br from-green-800 to-yellow-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl font-bold text-white mb-4">
+            Prêt à commencer ?
+        </h2>
+        <p class="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
+            Rejoignez notre plateforme de gestion universitaire et simplifiez votre quotidien.
+        </p>
+        <a href="{% url 'login' %}" class="inline-flex items-center bg-white text-green-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg">
+            <i class="fas fa-arrow-right mr-2"></i>
+            Connectez-vous maintenant
+        </a>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="bg-gray-900 text-white py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-yellow-500 rounded-lg flex items-center justify-center mr-3 shadow-md">
+                        <i class="fas fa-graduation-cap text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg">IAI-Cameroun</h3>
+                        <p class="text-gray-400 text-sm">Centre de Douala</p>
+                    </div>
+                </div>
+                <p class="text-gray-400 text-sm leading-relaxed">
+                    Institut Africain d'Informatique<br>
+                    Formation d'excellence en informatique depuis 1971.<br>
+                    Leader en formation IT en Afrique centrale.
+                </p>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-lg mb-4 text-yellow-500">Contact</h4>
+                <ul class="space-y-2 text-gray-400 text-sm">
+                    <li class="flex items-start">
+                        <i class="fas fa-map-marker-alt text-green-500 mr-2 mt-1"></i>
+                        <span>Pk9, Douala, Cameroun</span>
+                    </li>
+                    <li class="flex items-center">
+                        <i class="fas fa-phone text-green-500 mr-2"></i>
+                        <span>+237 242 42 79 78</span>
+                    </li>
+                    <li class="flex items-center">
+                        <i class="fas fa-envelope text-green-500 mr-2"></i>
+                        <span>contact@iaicameroun.com</span>
+                    </li>
+                    <li class="flex items-center">
+                        <i class="fas fa-clock text-green-500 mr-2"></i>
+                        <span>Lun-Ven: 07h30 - 16h30</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold text-lg mb-4 text-yellow-500">Liens rapides</h4>
+                <ul class="space-y-2 text-gray-400 text-sm">
+                    <li><a href="#" class="hover:text-green-500 transition-colors flex items-center"><i class="fas fa-chevron-right text-green-500 text-xs mr-2"></i>Site officiel</a></li>
+                    <li><a href="#" class="hover:text-green-500 transition-colors flex items-center"><i class="fas fa-chevron-right text-green-500 text-xs mr-2"></i>E-learning</a></li>
+                    <li><a href="#" class="hover:text-green-500 transition-colors flex items-center"><i class="fas fa-chevron-right text-green-500 text-xs mr-2"></i>Bibliothèque numérique</a></li>
+                    <li><a href="#" class="hover:text-green-500 transition-colors flex items-center"><i class="fas fa-chevron-right text-green-500 text-xs mr-2"></i>Support technique</a></li>
+                    <li><a href="#" class="hover:text-green-500 transition-colors flex items-center"><i class="fas fa-chevron-right text-green-500 text-xs mr-2"></i>FAQ</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="border-t border-gray-800 mt-8 pt-8 text-center">
+            <p class="text-gray-400 text-sm">
+                &copy; {% now "Y" %} IAI-Cameroun - Centre de Douala. Tous droits réservés.
+            </p>
+            <p class="text-gray-500 text-xs mt-2">
+                Système de Gestion Universitaire v2.0 | Conçu pour l'excellence académique
+            </p>
+        </div>
+    </div>
+</footer>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Animation au scroll
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.card-hover');
+        
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        cards.forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'all 0.6s ease-out';
+            observer.observe(card);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Messages - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Liste des conversations -->
+    <div class="lg:col-span-1 bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+            <div class="flex items-center justify-between">
+                <h3 class="font-semibold text-gray-700">Conversations</h3>
+                <a href="{% url 'tableau_bord:envoyer_message' %}" class="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
+                    <i class="fas fa-plus mr-1"></i>
+                    Nouveau
+                </a>
+            </div>
+        </div>
+        <div class="divide-y divide-gray-100">
+            {% for conversation in conversations %}
+            <a href="{% url 'tableau_bord:detail_message' conversation.id %}" class="block p-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {{ conversation.nom|first|upper }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ conversation.nom }}</p>
+                            <p class="text-xs text-gray-500">{{ conversation.date|date:"d/m" }}</p>
+                        </div>
+                        <p class="text-xs text-gray-500 truncate">{{ conversation.dernier_message|truncatechars:40 }}</p>
+                    </div>
+                    {% if conversation.non_lus %}
+                    <span class="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                        {{ conversation.non_lus }}
+                    </span>
+                    {% endif %}
+                </div>
+            </a>
+            {% empty %}
+            <div class="p-8 text-center">
+                <i class="fas fa-envelope-open-text text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">Aucun message</p>
+                <a href="{% url 'tableau_bord:envoyer_message' %}" class="mt-3 inline-block text-sm text-green-600">
+                    Envoyer un message
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Zone de message (si un message est sélectionné) -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm flex flex-col">
+        {% if message_selectionne %}
+        <div class="p-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {{ message_selectionne.expediteur.nom|first|upper }}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900">{{ message_selectionne.expediteur.nom }}</p>
+                        <p class="text-xs text-gray-500">{{ message_selectionne.expediteur.fonction }}</p>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="{% url 'tableau_bord:repondre_message' message_selectionne.id %}" class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+                        <i class="fas fa-reply mr-1"></i>
+                        Répondre
+                    </a>
+                    <button class="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                        <i class="fas fa-archive mr-1"></i>
+                        Archiver
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 p-4 overflow-y-auto">
+            <div class="space-y-4">
+                {% for message in messages %}
+                <div class="flex {% if message.expediteur == user %}justify-end{% endif %}">
+                    <div class="max-w-[70%] {% if message.expediteur == user %}bg-green-500 text-white{% else %}bg-gray-100{% endif %} rounded-xl p-3">
+                        <p class="text-sm">{{ message.contenu }}</p>
+                        <p class="text-xs {% if message.expediteur == user %}text-green-100{% else %}text-gray-500{% endif %} mt-1">
+                            {{ message.date|date:"H:i" }}
+                        </p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-200">
+            <form method="post" class="flex space-x-2">
+                {% csrf_token %}
+                <input type="text" name="message" placeholder="Écrivez votre message..." 
+                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="flex-1 flex items-center justify-center">
+            <div class="text-center">
+                <i class="fas fa-envelope-open-text text-5xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">Sélectionnez une conversation pour lire vos messages</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

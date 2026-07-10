@@ -1,0 +1,191 @@
+[
+  {
+    "model": "etudiants.filiere",
+    "pk": 1,
+    "fields": {
+      "code": "SR",
+      "nom": "Systèmes et Réseaux",
+      "niveau": "L1",
+      "description": "Formation en administration systèmes et réseaux informatiques",
+      "duree": 3,
+      "est_active": true,
+      "date_creation": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "etudiants.filiere",
+    "pk": 2,
+    "fields": {
+      "code": "GL",
+      "nom": "Génie Logiciel",
+      "niveau": "L1",
+      "description": "Formation en développement de logiciels",
+      "duree": 3,
+      "est_active": true,
+      "date_creation": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "etudiants.filiere",
+    "pk": 3,
+    "fields": {
+      "code": "SI",
+      "nom": "Sécurité Informatique",
+      "niveau": "L1",
+      "description": "Formation en cybersécurité et protection des systèmes",
+      "duree": 3,
+      "est_active": true,
+      "date_creation": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "professeurs.departement",
+    "pk": 1,
+    "fields": {
+      "code": "INFO",
+      "nom": "Informatique",
+      "description": "Département d'informatique",
+      "responsable": null,
+      "est_actif": true,
+      "date_creation": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "professeurs.departement",
+    "pk": 2,
+    "fields": {
+      "code": "MATH",
+      "nom": "Mathématiques",
+      "description": "Département de mathématiques",
+      "responsable": null,
+      "est_actif": true,
+      "date_creation": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "cours.salle",
+    "pk": 1,
+    "fields": {
+      "code": "S101",
+      "nom": "Salle 101",
+      "type_salle": "COURS",
+      "capacite": 50,
+      "etage": 1,
+      "est_equipee": true,
+      "a_projecteur": true,
+      "a_climatisation": true,
+      "description": "Salle de cours standard",
+      "est_disponible": true
+    }
+  },
+  {
+    "model": "cours.salle",
+    "pk": 2,
+    "fields": {
+      "code": "LAB01",
+      "nom": "Laboratoire 01",
+      "type_salle": "TP",
+      "capacite": 25,
+      "etage": 2,
+      "est_equipee": true,
+      "a_projecteur": true,
+      "a_climatisation": true,
+      "description": "Laboratoire informatique",
+      "est_disponible": true
+    }
+  },
+  {
+    "model": "cours.matiere",
+    "pk": 1,
+    "fields": {
+      "code": "PROG101",
+      "nom": "Programmation I",
+      "description": "Introduction à la programmation",
+      "credits": 6,
+      "heures_cours": 30,
+      "heures_td": 15,
+      "heures_tp": 15,
+      "semestre": 1,
+      "est_optionnelle": false,
+      "prerequis": []
+    }
+  },
+  {
+    "model": "cours.matiere",
+    "pk": 2,
+    "fields": {
+      "code": "BD101",
+      "nom": "Bases de Données",
+      "description": "Introduction aux bases de données",
+      "credits": 5,
+      "heures_cours": 25,
+      "heures_td": 10,
+      "heures_tp": 15,
+      "semestre": 1,
+      "est_optionnelle": false,
+      "prerequis": []
+    }
+  },
+  {
+    "model": "cours.matiere",
+    "pk": 3,
+    "fields": {
+      "code": "WEB101",
+      "nom": "Développement Web",
+      "description": "Introduction au développement web",
+      "credits": 4,
+      "heures_cours": 20,
+      "heures_td": 10,
+      "heures_tp": 20,
+      "semestre": 2,
+      "est_optionnelle": false,
+      "prerequis": [1]
+    }
+  },
+  {
+    "model": "notes.typeevaluation",
+    "pk": 1,
+    "fields": {
+      "code": "CC",
+      "nom": "Contrôle Continu",
+      "description": "Évaluation continue durant le semestre",
+      "coefficient_default": "0.30",
+      "est_actif": true
+    }
+  },
+  {
+    "model": "notes.typeevaluation",
+    "pk": 2,
+    "fields": {
+      "code": "TP",
+      "nom": "Travaux Pratiques",
+      "description": "Évaluation des travaux pratiques",
+      "coefficient_default": "0.20",
+      "est_actif": true
+    }
+  },
+  {
+    "model": "notes.typeevaluation",
+    "pk": 3,
+    "fields": {
+      "code": "EXAM",
+      "nom": "Examen",
+      "description": "Examen final du semestre",
+      "coefficient_default": "0.50",
+      "est_actif": true
+    }
+  },
+  {
+    "model": "inscriptions.anneeacademique",
+    "pk": 1,
+    "fields": {
+      "code": "2024-2025",
+      "date_debut": "2024-09-01",
+      "date_fin": "2025-06-30",
+      "est_actuelle": true,
+      "est_ouverte_inscription": true,
+      "montant_inscription": "50000.00",
+      "montant_scolarite": "450000.00"
+    }
+  }
+]

@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bulletin de Notes - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-file-invoice mr-2 text-green-600"></i>Relevé de Notes Semestriel</h1>
+            <p class="text-gray-500 text-sm mt-1">Année Académique : {{ bulletin.annee_academique }} | Semestre {{ bulletin.semestre }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'notes:exporter_releve' bulletin.id %}" class="bg-green-700 hover:bg-green-800 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-file-export mr-2"></i> Exporter en CSV
+            </a>
+            <a href="{% url 'notes:mes_notes' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition">
+                Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Bulletin Summary Info Card -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 mb-8 space-y-6">
+        <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-user-graduate text-green-600 mr-2"></i>Dossier de l'Étudiant</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Nom complet</span>
+                <p class="font-bold text-gray-800">{{ bulletin.etudiant.get_nom_complet }}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Matricule</span>
+                <p class="font-bold text-gray-800">{{ bulletin.etudiant.matricule }}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Moyenne Générale</span>
+                <p class="font-black text-green-600 text-lg">{{ bulletin.moyenne_semestre|floatformat:2 }}/20</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Rang</span>
+                <p class="font-bold text-gray-800">{{ bulletin.rang }} / {{ bulletin.effectif }}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Filière</span>
+                <p class="font-bold text-gray-800">{{ bulletin.filiere.nom }} ({{ bulletin.filiere.code }})</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Crédits acquis</span>
+                <p class="font-bold text-gray-800">{{ bulletin.credits_obtenus }} Credits</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Décision du jury</span>
+                <span class="text-xs font-bold px-2.5 py-1 rounded-full inline-block mt-1 {% if bulletin.decision == 'ADMIS' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                    {{ bulletin.get_decision_display }}
+                </span>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-semibold">Progression Crédits</span>
+                <p class="font-bold text-gray-800">{{ progression }}%</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulletin Details Table -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th class="p-5">Matière</th>
+                        <th class="p-5">CC (30%)</th>
+                        <th class="p-5">TP (20%)</th>
+                        <th class="p-5">Examen (50%)</th>
+                        <th class="p-5">Moyenne Matière</th>
+                        <th class="p-5">Crédits</th>
+                        <th class="p-5 text-right">Validation</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for detail in details %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-5 font-bold text-gray-800">
+                            {{ detail.matiere.nom }}
+                        </td>
+                        <td class="p-5 font-semibold text-gray-600">
+                            {{ detail.note_cc|default:"--" }}
+                        </td>
+                        <td class="p-5 font-semibold text-gray-600">
+                            {{ detail.note_tp|default:"--" }}
+                        </td>
+                        <td class="p-5 font-semibold text-gray-600">
+                            {{ detail.note_examen|default:"--" }}
+                        </td>
+                        <td class="p-5 font-extrabold {% if detail.moyenne_matiere >= 10 %}text-green-600{% else %}text-red-500{% endif %}">
+                            {{ detail.moyenne_matiere|floatformat:2 }}
+                        </td>
+                        <td class="p-5 font-bold text-gray-800">
+                            {{ detail.credits_obtenus }} / {{ detail.matiere.credits }}
+                        </td>
+                        <td class="p-5 text-right">
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full {% if detail.est_validee %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                {% if detail.est_validee %}Validé{% else %}Ajourné{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="p-10 text-center text-gray-400">Aucun relevé disponible pour ce bulletin.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

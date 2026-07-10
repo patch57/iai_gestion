@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Calendrier - IAI-Cameroun{% endblock %}
+
+{% block extra_css %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+<style>
+    .fc-event {
+        cursor: pointer;
+        border-radius: 8px;
+        padding: 2px 6px;
+    }
+    .fc-event-title {
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Calendrier Académique</h1>
+            <p class="text-gray-500 mt-1">Événements, examens et activités</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{% url 'tableau_bord:ajouter_evenement' %}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                <i class="fas fa-plus mr-2"></i>
+                Ajouter un événement
+            </a>
+            <a href="{% url 'tableau_bord:liste_evenements' %}" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                <i class="fas fa-list mr-2"></i>
+                Liste
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <div id="calendar"></div>
+    </div>
+
+    <!-- Prochains événements -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-clock text-green-600 mr-2"></i>
+            Prochains événements
+        </h3>
+        <div class="space-y-3">
+            {% for event in prochains_evenements %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition-colors">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex flex-col items-center justify-center">
+                        <span class="text-lg font-bold text-green-600">{{ event.date|date:"d" }}</span>
+                        <span class="text-xs text-green-600">{{ event.date|date:"M" }}</span>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900">{{ event.titre }}</p>
+                        <p class="text-xs text-gray-500">{{ event.lieu|default:"Lieu à définir" }}</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-xs rounded-full 
+                    {% if event.type == 'examen' %}bg-red-100 text-red-700
+                    {% elif event.type == 'cours' %}bg-blue-100 text-blue-700
+                    {% else %}bg-green-100 text-green-700{% endif %}">
+                    {{ event.get_type_display }}
+                </span>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 text-center py-4">Aucun événement à venir</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js'></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'fr',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listWeek'
+            },
+            events: [
+                {% for event in events %}
+                {
+                    title: '{{ event.titre }}',
+                    start: '{{ event.date_debut|date:"Y-m-d" }}',
+                    end: '{{ event.date_fin|date:"Y-m-d" }}',
+                    backgroundColor: '{% if event.type == "examen" %}#EF4444{% elif event.type == "cours" %}#3B82F6{% else %}#10B981{% endif %}',
+                    url: '{% url "tableau_bord:detail_evenement" event.id %}'
+                },
+                {% endfor %}
+            ],
+            eventClick: function(info) {
+                if (info.event.url) {
+                    window.location.href = info.event.url;
+                    return false;
+                }
+            }
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %}

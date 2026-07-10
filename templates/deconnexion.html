@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Déconnexion - IAI-Cameroun</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-green-900 via-green-800 to-yellow-700 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-sign-out-alt text-red-600 text-2xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Déconnexion</h2>
+        <p class="text-gray-600 mb-6">Êtes-vous sûr de vouloir vous déconnecter ?</p>
+        
+        <form method="post" action="/logout/">
+            {% csrf_token %}
+            <div class="flex space-x-3">
+                <a href="/" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-center">
+                    Annuler
+                </a>
+                <button type="submit" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    Se déconnecter
+                </button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

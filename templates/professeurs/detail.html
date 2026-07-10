@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Détail Enseignant - {{ professeur.get_nom_complet }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-chalkboard-teacher mr-2 text-green-600"></i>Fiche de l'Enseignant</h1>
+            <p class="text-gray-500 text-sm mt-1">Matricule : {{ professeur.matricule }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'charge_horaire' professeur.id %}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-clock mr-1"></i> Charge Horaire
+            </a>
+            <a href="{% url 'modifier_professeur' professeur.id %}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-edit mr-1"></i> Modifier
+            </a>
+            <a href="{% url 'supprimer_professeur' professeur.id %}" class="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-trash mr-1"></i> Supprimer
+            </a>
+            <a href="{% url 'liste_professeurs' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition">
+                Retour
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left: Teacher Info Profile Card -->
+        <div class="space-y-8">
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 text-center relative overflow-hidden">
+                <!-- Gold stripe -->
+                <div class="absolute top-0 left-0 right-0 h-2 bg-yellow-500"></div>
+                
+                <div class="w-24 h-24 bg-green-600 text-white font-black text-3xl rounded-full flex items-center justify-center mx-auto shadow-inner mb-4">
+                    {{ professeur.prenom|slice:":1" }}{{ professeur.nom|slice:":1" }}
+                </div>
+                
+                <h2 class="text-xl font-black text-gray-800">{{ professeur.get_nom_complet }}</h2>
+                <span class="bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200 inline-block mt-2">{{ professeur.get_grade_display }}</span>
+                
+                <div class="text-left space-y-4 pt-6 mt-6 border-t border-gray-100 text-sm">
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Département</span>
+                        <p class="font-bold text-gray-800">{{ professeur.departement.nom }}</p>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Spécialité</span>
+                        <p class="font-bold text-gray-800">{{ professeur.specialite }}</p>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Grade académique</span>
+                        <p class="font-bold text-gray-800">{{ professeur.get_grade_display }}</p>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">E-mail</span>
+                        <p class="font-bold text-gray-800">{{ professeur.email }}</p>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Téléphone</span>
+                        <p class="font-bold text-gray-800">{{ professeur.telephone }}</p>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Date d'embauche</span>
+                        <p class="font-bold text-gray-800">{{ professeur.date_embauche|date:"d F Y" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center/Right 2 Cols: Assigned Courses & Hourly Charges -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Lectures Statistics -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Hours Done widget -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Heures Effectuées</span>
+                        <h3 class="text-2xl font-black text-gray-900 mt-1">{{ heures_effectuees }} h</h3>
+                    </div>
+                </div>
+                <!-- Assigned courses widget -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-yellow-50 text-yellow-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Cours Assignés</span>
+                        <h3 class="text-2xl font-black text-gray-900 mt-1">{{ cours.count }}</h3>
+                    </div>
+                </div>
+                <!-- Seniority widget -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400 uppercase font-bold">Ancienneté</span>
+                        <h3 class="text-2xl font-black text-gray-900 mt-1">{{ professeur.get_anciennete }} ans</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assigned Courses list -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-chalkboard text-green-600 mr-2"></i>Cours Assignés</h3>
+                <div class="divide-y divide-gray-100">
+                    {% for c in cours %}
+                    <div class="flex justify-between items-center py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-lg">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-gray-800">{{ c.matiere.nom }}</p>
+                                <span class="text-xs text-gray-400 font-semibold">{{ c.filiere.nom }} ({{ c.filiere.code }}) | Semestre {{ c.semestre }}</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
+                            {{ c.get_type_cours_display }}
+                        </span>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-400 text-sm py-4 text-center">Aucun cours assigné pour le moment.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Hourly Charge history list -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-wallet text-green-600 mr-2"></i>Historique des charges horaires</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                <th class="py-2">Année Académique</th>
+                                <th class="py-2">Assignées</th>
+                                <th class="py-2">Effectuées</th>
+                                <th class="py-2">Montant Estimé</th>
+                                <th class="py-2 text-right">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for ch in charges %}
+                            <tr>
+                                <td class="py-3 font-bold text-gray-800">{{ ch.annee_academique }}</td>
+                                <td class="py-3 font-medium text-gray-600">{{ ch.heures_assignees }} h</td>
+                                <td class="py-3 font-medium text-gray-600">{{ ch.heures_effectuees }} h</td>
+                                <td class="py-3 font-extrabold text-gray-900">{{ ch.montant_total|floatformat:0 }} FCFA</td>
+                                <td class="py-3 text-right">
+                                    <span class="text-xs font-bold px-2 py-1 rounded-full {% if ch.est_paye %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                        {% if ch.est_paye %}Réglé{% else %}Non payé{% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="py-4 text-center text-gray-400">Aucune charge horaire enregistrée.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

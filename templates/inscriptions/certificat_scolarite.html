@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificat de Scolarité - {{ etudiant.get_nom_complet }}</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 40px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .certificate-container {
+            width: 210mm;
+            height: 297mm;
+            background-color: white;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            box-sizing: border-box;
+            padding: 20mm;
+            position: relative;
+            display: flex;
+            flex-col: column;
+            justify-content: space-between;
+        }
+
+        /* Decorative Border */
+        .certificate-border {
+            position: absolute;
+            top: 10mm;
+            left: 10mm;
+            right: 10mm;
+            bottom: 10mm;
+            border: 2px solid #047857;
+            pointer-events: none;
+        }
+        .certificate-border-inner {
+            position: absolute;
+            top: 12mm;
+            left: 12mm;
+            right: 12mm;
+            bottom: 12mm;
+            border: 1px solid #facc15;
+            pointer-events: none;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 15px;
+            margin-top: 10px;
+        }
+
+        .header-left {
+            text-align: center;
+            font-size: 10px;
+            line-height: 1.4;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .header-logo {
+            text-align: center;
+        }
+
+        .logo-text {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 28px;
+            color: #047857;
+            letter-spacing: 2px;
+            margin: 0;
+        }
+        .logo-sub {
+            font-size: 9px;
+            letter-spacing: 4px;
+            color: #eab308;
+            font-weight: 800;
+            margin: 2px 0 0 0;
+            text-transform: uppercase;
+        }
+
+        .title-block {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .title {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .divider {
+            width: 150px;
+            height: 3px;
+            background-color: #eab308;
+            margin: 15px auto 0 auto;
+            border-radius: 2px;
+        }
+
+        .content {
+            font-size: 15px;
+            line-height: 1.8;
+            color: #374151;
+            margin-bottom: 40px;
+            padding: 0 10px;
+        }
+
+        .highlight {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: auto;
+            padding-bottom: 20px;
+        }
+
+        .qr-code {
+            text-align: center;
+        }
+        .qr-box {
+            width: 90px;
+            height: 90px;
+            border: 1px solid #d1d5db;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9fafb;
+        }
+
+        .signature-block {
+            text-align: center;
+            width: 250px;
+        }
+
+        .signature-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #4b5563;
+            margin-bottom: 60px;
+        }
+
+        .signature-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #111827;
+            border-top: 1px solid #d1d5db;
+            padding-top: 5px;
+        }
+
+        /* Printable / Action controls */
+        .print-btn-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        .print-btn {
+            background-color: #047857;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .print-btn:hover {
+            background-color: #065f46;
+            transform: translateY(-2px);
+        }
+
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+                margin: 0;
+            }
+            .certificate-container {
+                box-shadow: none;
+                margin: 0;
+            }
+            .print-btn-container {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="print-btn-container">
+        <button onclick="window.print()" class="print-btn">
+            🖨️ Imprimer le Certificat
+        </button>
+    </div>
+
+    <div class="certificate-container">
+        <div class="certificate-border"></div>
+        <div class="certificate-border-inner"></div>
+
+        <div>
+            <!-- Header -->
+            <div class="header">
+                <div class="header-left">
+                    République du Cameroun<br>
+                    Paix - Travail - Patrie<br>
+                    MINESUP
+                </div>
+                <div class="header-logo">
+                    <h2 class="logo-text">IAI-CAMEROUN</h2>
+                    <p class="logo-sub">Douala Centre</p>
+                </div>
+                <div class="header-left">
+                    Republic of Cameroon<br>
+                    Peace - Work - Fatherland<br>
+                    MINESUP
+                </div>
+            </div>
+
+            <!-- Title -->
+            <div class="title-block">
+                <h1 class="title">Certificat de Scolarité</h1>
+                <div class="divider"></div>
+            </div>
+
+            <!-- Body -->
+            <div class="content">
+                Le Sous-Directeur de l'Institut Africain d'Informatique (IAI-Cameroun), Centre d'Excellence technologique Paul Biya, Représentation de Douala, soussigné, certifie par la présente que l'étudiant(e) :<br><br>
+                
+                Nom complet : <span class="highlight">{{ etudiant.get_nom_complet }}</span><br>
+                Né(e) le : <span class="highlight">{{ etudiant.date_naissance|date:"d F Y" }}</span> à <span class="highlight">{{ etudiant.lieu_naissance }}</span><br>
+                Matricule : <span class="highlight">{{ etudiant.matricule }}</span><br><br>
+                
+                Est régulièrement inscrit(e) à l'IAI-Cameroun (Centre de Douala) pour l'année académique <span class="highlight">{{ annee_academique.code|default:"2024-2025" }}</span> dans la filière :<br>
+                Filière : <span class="highlight">{{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }})</span><br><br>
+                
+                En foi de quoi, le présent certificat est établi et délivré pour servir et valoir ce que de droit.
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="qr-code">
+                <div class="qr-box">
+                    <!-- Simple SVG QR Code mockup -->
+                    <svg width="80" height="80" viewBox="0 0 100 100" style="fill: #111827;">
+                        <rect x="0" y="0" width="25" height="25" />
+                        <rect x="5" y="5" width="15" height="15" style="fill: white;" />
+                        <rect x="8" y="8" width="9" height="9" />
+                        
+                        <rect x="75" y="0" width="25" height="25" />
+                        <rect x="80" y="5" width="15" height="15" style="fill: white;" />
+                        <rect x="83" y="8" width="9" height="9" />
+                        
+                        <rect x="0" y="75" width="25" height="25" />
+                        <rect x="5" y="80" width="15" height="15" style="fill: white;" />
+                        <rect x="8" y="83" width="9" height="9" />
+                        
+                        <!-- Random bits -->
+                        <rect x="35" y="5" width="10" height="10" />
+                        <rect x="50" y="15" width="15" height="5" />
+                        <rect x="35" y="30" width="5" height="15" />
+                        <rect x="45" y="45" width="15" height="15" />
+                        <rect x="65" y="35" width="15" height="10" />
+                        <rect x="85" y="60" width="10" height="10" />
+                        <rect x="30" y="75" width="10" height="15" />
+                        <rect x="55" y="80" width="15" height="5" />
+                        <rect x="70" y="75" width="10" height="10" />
+                    </svg>
+                </div>
+                <span style="font-size: 9px; color: #9ca3af; margin-top: 5px; display: block;">Vérification sécurisée</span>
+            </div>
+            
+            <div class="signature-block">
+                <div class="signature-title">Fait à Douala, le {{ date_aujourdhui|date:"d F Y" }}</div>
+                <div class="signature-name">Le Représentant Régional, Douala</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Espace Apprenant - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-700 via-green-600 to-yellow-500 rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+            <span class="bg-white/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/10">Espace Apprenant</span>
+            <h1 class="text-3xl font-extrabold mt-3">{{ apprenant.nom_complet }}</h1>
+            <p class="text-green-100 mt-2">
+                <span class="font-semibold">Email:</span> {{ apprenant.email }} | 
+                <span class="font-semibold">Contact:</span> {{ apprenant.contact }}
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0 bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20">
+            <p class="text-xs text-green-100 uppercase font-semibold">Reste à payer</p>
+            <h2 class="text-3xl font-black mt-1 text-yellow-300">{{ apprenant.reste_a_payer|floatformat:0 }} <span class="text-sm">FCFA</span></h2>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Inscription à une formation -->
+        <div class="lg:col-span-1 space-y-8">
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-edit mr-2 text-green-600"></i>S'inscrire à une Formation</h3>
+                {% if formations_disponibles %}
+                <form method="POST" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner la formation</label>
+                        <select name="formation_id" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                            {% for formation in formations_disponibles %}
+                            <option value="{{ formation.id }}">{{ formation.get_nom_display }} ({{ formation.tarif|floatformat:0 }} FCFA)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200">
+                        Valider l'inscription
+                    </button>
+                </form>
+                {% else %}
+                <p class="text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">Vous êtes déjà inscrit à toutes les formations de certification disponibles.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Détails Financiers -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-wallet mr-2 text-yellow-500"></i>État de mon solde</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Montant total payé</span>
+                        <span class="font-bold text-green-600">{{ apprenant.montant_paye|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2">
+                        <span class="text-gray-500 font-bold">Reste à payer</span>
+                        <span class="font-black text-red-600">{{ apprenant.reste_a_payer|floatformat:0 }} FCFA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formations Suivies, Attestations, Diplômes -->
+        <div class="lg:col-span-2 space-y-8">
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-graduation-cap mr-2"></i>Mes Formations Actives</h3>
+                </div>
+                <div class="p-6">
+                    {% if apprenant.formations.all %}
+                    <div class="divide-y divide-gray-100">
+                        {% for formation in apprenant.formations.all %}
+                        <div class="py-4 flex justify-between items-center">
+                            <div>
+                                <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full uppercase">{{ formation.get_type_formation_display }}</span>
+                                <h4 class="font-bold text-gray-800 mt-1">{{ formation.get_nom_display }}</h4>
+                                <p class="text-xs text-gray-400 mt-0.5">Tarif: {{ formation.tarif|floatformat:0 }} FCFA</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full">Inscrit</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-6">Vous n'êtes encore inscrit à aucune formation.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Documents à télécharger (Attestations, DQP) -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-file-download text-yellow-500 mr-2"></i>Attestations & Diplômes de Qualification Professionnelle (DQP)</h3>
+                <div class="space-y-4">
+                    <!-- Attestation -->
+                    <div class="flex justify-between items-center p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div class="flex items-center">
+                            <i class="fas fa-file-pdf text-red-500 text-2xl mr-4"></i>
+                            <div>
+                                <h4 class="font-bold text-gray-800">Attestation de fin de formation</h4>
+                                <p class="text-xs text-gray-400">Pour la formation continue (MIJEF 2035)</p>
+                            </div>
+                        </div>
+                        {% if apprenant.attestation %}
+                        <a href="{{ apprenant.attestation.url }}" download class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 p-2.5 rounded-xl transition duration-200">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        {% else %}
+                        <span class="text-xs text-gray-400">Non disponible</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- DQP -->
+                    <div class="flex justify-between items-center p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div class="flex items-center">
+                            <i class="fas fa-certificate text-yellow-500 text-2xl mr-4"></i>
+                            <div>
+                                <h4 class="font-bold text-gray-800">Diplôme de Qualification Professionnelle (DQP)</h4>
+                                <p class="text-xs text-gray-400">Pour les formations certifiantes</p>
+                            </div>
+                        </div>
+                        {% if apprenant.dqp %}
+                        <a href="{{ apprenant.dqp.url }}" download class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 p-2.5 rounded-xl transition duration-200">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        {% else %}
+                        <span class="text-xs text-gray-400">Non disponible</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

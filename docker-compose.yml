@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=django-insecure-iai-cameroun-douala-2024-secure-key-for-development
+      - DEBUG=True
+      - ALLOWED_HOSTS=*
+      - DATABASE_ENGINE=django.db.backends.sqlite3
+    restart: always
+
+volumes:
+  static_volume:
+  media_volume:

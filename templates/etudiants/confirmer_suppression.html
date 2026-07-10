@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmer la suppression - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 text-center animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 space-y-6">
+        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto text-red-500 text-3xl">
+            <i class="fas fa-trash-alt animate-bounce"></i>
+        </div>
+        <div>
+            <h1 class="text-2xl font-black text-gray-800">Supprimer l'Étudiant</h1>
+            <p class="text-gray-500 mt-2 text-sm leading-relaxed">
+                Êtes-vous sûr de vouloir supprimer définitivement la fiche de l'étudiant <strong class="text-gray-800">{{ etudiant.get_nom_complet }}</strong> ? Cette action est irréversible.
+            </p>
+        </div>
+        <form method="POST" class="flex gap-3 pt-4">
+            {% csrf_token %}
+            <button type="submit" class="flex-1 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-extrabold py-3 rounded-xl shadow-lg transition duration-200">
+                Oui, Supprimer
+            </button>
+            <a href="{% url 'etudiants:detail_etudiant' etudiant.id %}" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl text-center text-sm transition flex items-center justify-center">
+                Annuler
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

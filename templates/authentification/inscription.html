@@ -1,0 +1,601 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Inscription - IAI-Cameroun{% endblock %}
+
+{% block extra_css %}
+<style>
+    .step-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+    .step:not(:last-child):after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        width: 100%;
+        height: 2px;
+        background: #e5e7eb;
+        z-index: -1;
+    }
+    .step.active:after {
+        background: #10B981;
+    }
+    .step-number {
+        width: 40px;
+        height: 40px;
+        background: #e5e7eb;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 8px;
+        font-weight: bold;
+        color: #6b7280;
+    }
+    .step.active .step-number {
+        background: #10B981;
+        color: white;
+    }
+    .step.completed .step-number {
+        background: #059669;
+        color: white;
+    }
+    .step-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+    .step.active .step-label {
+        color: #10B981;
+        font-weight: 500;
+    }
+    .document-preview {
+        border: 2px dashed #e5e7eb;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .document-preview:hover {
+        border-color: #10B981;
+        background: #f0fdf4;
+    }
+    .document-preview.has-file {
+        border-color: #10B981;
+        background: #f0fdf4;
+    }
+    .info-card {
+        background: linear-gradient(135deg, #f0fdf4 0%, #fef3c7 100%);
+        border-left: 4px solid #10B981;
+    }
+    .user-type-card.selected .border-2 {
+        border-color: #10B981;
+        background: #f0fdf4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen py-12 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- En-tête -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg mb-4">
+                <i class="fas fa-user-plus text-white text-2xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-900">Inscription à la plateforme</h1>
+            <p class="text-gray-500 mt-2">Créez votre compte pour accéder à l'espace de gestion universitaire</p>
+        </div>
+
+        <!-- Indicateur d'étapes -->
+        <div class="step-indicator mb-8">
+            <div class="step active" id="step1">
+                <div class="step-number">1</div>
+                <div class="step-label">Type de compte</div>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <div class="step-label">Informations personnelles</div>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <div class="step-label">Document justificatif</div>
+            </div>
+            <div class="step" id="step4">
+                <div class="step-number">4</div>
+                <div class="step-label">Confirmation</div>
+            </div>
+        </div>
+
+        <!-- Messages d'information -->
+        <div class="info-card rounded-xl p-5 mb-6">
+            <div class="flex items-start">
+                <i class="fas fa-info-circle text-green-600 text-xl mr-3 mt-0.5"></i>
+                <div>
+                    <p class="font-semibold text-gray-800">Comment obtenir votre matricule ?</p>
+                    <ul class="mt-2 space-y-1 text-sm text-gray-600">
+                        <li><i class="fas fa-user-graduate text-green-500 mr-2"></i> <strong>Étudiants :</strong> Après inscription, votre reçu de pré-inscription sera vérifié. Un matricule vous sera attribué automatiquement.</li>
+                        <li><i class="fas fa-user-tie text-yellow-500 mr-2"></i> <strong>Personnel administratif :</strong> Après vérification de votre justificatif par l'administrateur, votre compte sera activé.</li>
+                        <li><i class="fas fa-shield-alt text-green-500 mr-2"></i> <strong>Sécurité :</strong> La connexion se fera avec votre matricule et votre mot de passe.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulaire principal -->
+        <form method="post" enctype="multipart/form-data" id="inscriptionForm" class="bg-white rounded-2xl shadow-xl p-8">
+            {% csrf_token %}
+            
+            <!-- Étape 1 : Choix du type de compte -->
+            <div id="step1-content" class="step-content">
+                <h2 class="text-xl font-bold text-gray-900 mb-6">Choisissez votre type de compte</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <!-- Carte Étudiant -->
+                    <label class="user-type-card relative cursor-pointer">
+                        <input type="radio" name="type_utilisateur" value="ETUDIANT" class="hidden user-type-radio" required>
+                        <div class="border-2 border-gray-200 rounded-xl p-5 hover:border-green-500 transition-all text-center">
+                            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-user-graduate text-green-600 text-2xl"></i>
+                            </div>
+                            <h3 class="font-bold text-gray-900">Étudiant</h3>
+                            <p class="text-sm text-gray-500 mt-1">Je suis un étudiant de l'IAI-Cameroun</p>
+                            <p class="text-xs text-green-600 mt-2">Document requis : Reçu de pré-inscription</p>
+                        </div>
+                    </label>
+                    
+                    <!-- Carte Personnel -->
+                    <label class="user-type-card relative cursor-pointer">
+                        <input type="radio" name="type_utilisateur" value="PERSONNEL" class="hidden user-type-radio" required>
+                        <div class="border-2 border-gray-200 rounded-xl p-5 hover:border-yellow-500 transition-all text-center">
+                            <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-user-tie text-yellow-600 text-2xl"></i>
+                            </div>
+                            <h3 class="font-bold text-gray-900">Personnel</h3>
+                            <p class="text-sm text-gray-500 mt-1">Je suis membre du personnel IAI</p>
+                            <p class="text-xs text-yellow-600 mt-2">Document requis : Contrat / Note de service</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Étape 2 : Informations personnelles -->
+            <div id="step2-content" class="step-content hidden">
+                <h2 class="text-xl font-bold text-gray-900 mb-6">Informations personnelles</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                        <input type="text" name="last_name" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prénom(s) *</label>
+                        <input type="text" name="first_name" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <input type="email" name="email" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Confirmer l'email *</label>
+                        <input type="email" name="confirm_email" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
+                        <input type="tel" name="telephone" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                               placeholder="6XXXXXXXX">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
+                        <input type="date" name="date_naissance"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                </div>
+
+                <!-- Champs spécifiques Étudiant -->
+                <div id="etudiant-fields" class="hidden mt-6 p-5 bg-green-50 rounded-xl">
+                    <h3 class="font-semibold text-green-800 mb-4"><i class="fas fa-graduation-cap mr-2"></i>Informations académiques</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Filière souhaitée *</label>
+                            <select name="filiere" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                                <option value="GL">Génie Logiciel (GL)</option>
+                                <option value="SR">Systèmes et Réseaux (SR)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Type de Baccalauréat *</label>
+                            <select name="type_bac" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                                <option value="A">Série A</option>
+                                <option value="A1">Série A1</option>
+                                <option value="A2">Série A2</option>
+                                <option value="A3">Série A3</option>
+                                <option value="A4">Série A4</option>
+                                <option value="C">Série C</option>
+                                <option value="D">Série D</option>
+                                <option value="E">Série E</option>
+                                <option value="F">Série F</option>
+                                <option value="G">Série G</option>
+                                <option value="TI">Technique Industriel</option>
+                                <option value="TC">Technique Commercial</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Année d'obtention du Bac</label>
+                            <input type="number" name="annee_bac" min="2000" max="2026" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Champs spécifiques Personnel -->
+                <div id="personnel-fields" class="hidden mt-6 p-5 bg-yellow-50 rounded-xl">
+                    <h3 class="font-semibold text-yellow-800 mb-4"><i class="fas fa-briefcase mr-2"></i>Informations professionnelles</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fonction *</label>
+                            <input type="text" name="fonction" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Département *</label>
+                            <input type="text" name="departement" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Étape 3 : Document justificatif -->
+            <div id="step3-content" class="step-content hidden">
+                <h2 class="text-xl font-bold text-gray-900 mb-6">Document justificatif</h2>
+                
+                <div id="document-info" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-sm">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <span id="document-message">Choisissez votre type de compte pour voir le document requis</span>
+                </div>
+                
+                <div class="document-preview" id="document-zone">
+                    <input type="file" name="document" id="document-input" accept=".pdf,.jpg,.jpeg,.png" class="hidden">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                    <p class="text-gray-600">Cliquez ou glissez votre document ici</p>
+                    <p class="text-xs text-gray-400 mt-1">Formats acceptés : PDF, JPG, PNG (Max 5 Mo)</p>
+                    <div id="file-name" class="mt-3 text-sm text-green-600 hidden"></div>
+                </div>
+                
+                <div id="etudiant-document-info" class="hidden mt-4 p-4 bg-green-50 rounded-lg">
+                    <div class="flex items-start">
+                        <i class="fas fa-receipt text-green-600 mr-3 mt-0.5"></i>
+                        <div>
+                            <p class="font-semibold text-green-800">Reçu de pré-inscription</p>
+                            <p class="text-sm text-green-700 mt-1">Le reçu doit mentionner :</p>
+                            <ul class="text-sm text-green-600 mt-2 list-disc list-inside">
+                                <li>Le montant de 80 000 FCFA</li>
+                                <li>La date de paiement</li>
+                                <li>Le nom du payeur</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="personnel-document-info" class="hidden mt-4 p-4 bg-yellow-50 rounded-lg">
+                    <div class="flex items-start">
+                        <i class="fas fa-file-contract text-yellow-600 mr-3 mt-0.5"></i>
+                        <div>
+                            <p class="font-semibold text-yellow-800">Justificatif d'emploi</p>
+                            <p class="text-sm text-yellow-700 mt-1">Documents acceptés :</p>
+                            <ul class="text-sm text-yellow-600 mt-2 list-disc list-inside">
+                                <li>Contrat de travail</li>
+                                <li>Note de service</li>
+                                <li>Attestation d'emploi</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Étape 4 : Confirmation -->
+            <div id="step4-content" class="step-content hidden">
+                <h2 class="text-xl font-bold text-gray-900 mb-6">Confirmation de votre inscription</h2>
+                
+                <div class="bg-gradient-to-r from-green-50 to-yellow-50 rounded-xl p-6">
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-clipboard-list text-green-600 text-xl mr-3"></i>
+                        <h3 class="font-semibold text-gray-900">Récapitulatif de votre demande</h3>
+                    </div>
+                    
+                    <div class="space-y-3 text-sm" id="recap-content">
+                        <!-- Le récapitulatif sera rempli par JavaScript -->
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-white rounded-lg">
+                        <div class="flex items-start">
+                            <input type="checkbox" id="accept-conditions" required class="mt-1 mr-3">
+                            <label for="accept-conditions" class="text-sm text-gray-600">
+                                J'accepte les <a href="#" class="text-green-600 hover:underline">conditions d'utilisation</a> 
+                                et je certifie que les informations fournies sont exactes.
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-center text-sm text-gray-500">
+                        <i class="fas fa-shield-alt mr-1"></i>
+                        Vos informations sont protégées et confidentielles
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation buttons -->
+            <div class="flex justify-between mt-8 pt-6 border-t border-gray-200">
+                <button type="button" id="prev-btn" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors hidden">
+                    <i class="fas fa-chevron-left mr-2"></i>Précédent
+                </button>
+                <button type="button" id="next-btn" class="ml-auto px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md">
+                    Suivant<i class="fas fa-chevron-right ml-2"></i>
+                </button>
+                <button type="submit" id="submit-btn" class="hidden px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md">
+                    <i class="fas fa-check-circle mr-2"></i>S'inscrire
+                </button>
+            </div>
+        </form>
+
+        <!-- Lien vers connexion -->
+        <div class="text-center mt-8">
+            <p class="text-gray-600">
+                Vous avez déjà un compte ? 
+                <a href="{% url 'login' %}" class="text-green-600 hover:text-green-700 font-medium">Se connecter</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Gestion des étapes
+    let currentStep = 1;
+    let selectedUserType = null;
+    
+    const step1Content = document.getElementById('step1-content');
+    const step2Content = document.getElementById('step2-content');
+    const step3Content = document.getElementById('step3-content');
+    const step4Content = document.getElementById('step4-content');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    function updateSteps() {
+        step1Content.classList.add('hidden');
+        step2Content.classList.add('hidden');
+        step3Content.classList.add('hidden');
+        step4Content.classList.add('hidden');
+        
+        if (currentStep === 1) step1Content.classList.remove('hidden');
+        if (currentStep === 2) step2Content.classList.remove('hidden');
+        if (currentStep === 3) step3Content.classList.remove('hidden');
+        if (currentStep === 4) step4Content.classList.remove('hidden');
+        
+        for (let i = 1; i <= 4; i++) {
+            const step = document.getElementById(`step${i}`);
+            if (i < currentStep) {
+                step.classList.add('completed');
+                step.classList.remove('active');
+            } else if (i === currentStep) {
+                step.classList.add('active');
+                step.classList.remove('completed');
+            } else {
+                step.classList.remove('active', 'completed');
+            }
+        }
+        
+        prevBtn.classList.toggle('hidden', currentStep === 1);
+        
+        if (currentStep === 4) {
+            nextBtn.classList.add('hidden');
+            submitBtn.classList.remove('hidden');
+        } else {
+            nextBtn.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+        }
+    }
+    
+    function isStepValid() {
+        if (currentStep === 1) {
+            selectedUserType = document.querySelector('input[name="type_utilisateur"]:checked');
+            if (!selectedUserType) {
+                alert('Veuillez sélectionner un type de compte');
+                return false;
+            }
+            return true;
+        }
+        
+        if (currentStep === 2) {
+            const nom = document.querySelector('input[name="last_name"]').value;
+            const prenom = document.querySelector('input[name="first_name"]').value;
+            const email = document.querySelector('input[name="email"]').value;
+            const confirmEmail = document.querySelector('input[name="confirm_email"]').value;
+            
+            if (!nom || !prenom || !email || !confirmEmail) {
+                alert('Veuillez remplir tous les champs obligatoires');
+                return false;
+            }
+            if (email !== confirmEmail) {
+                alert('Les emails ne correspondent pas');
+                return false;
+            }
+            return true;
+        }
+        
+        if (currentStep === 3) {
+            const file = document.querySelector('input[name="document"]').files[0];
+            if (!file) {
+                alert('Veuillez téléverser votre document justificatif');
+                return false;
+            }
+            return true;
+        }
+        
+        return true;
+    }
+    
+    nextBtn.addEventListener('click', () => {
+        if (isStepValid()) {
+            if (currentStep === 1) {
+                const type = document.querySelector('input[name="type_utilisateur"]:checked').value;
+                const etudiantFields = document.getElementById('etudiant-fields');
+                const personnelFields = document.getElementById('personnel-fields');
+                
+                if (type === 'ETUDIANT') {
+                    etudiantFields.classList.remove('hidden');
+                    personnelFields.classList.add('hidden');
+                    document.getElementById('document-message').innerHTML = '<i class="fas fa-receipt mr-2"></i>Document requis : Reçu de pré-inscription (50 000 FCFA)';
+                } else {
+                    etudiantFields.classList.add('hidden');
+                    personnelFields.classList.remove('hidden');
+                    document.getElementById('document-message').innerHTML = '<i class="fas fa-file-contract mr-2"></i>Document requis : Contrat de travail ou note de service';
+                }
+            }
+            
+            if (currentStep === 2 && selectedUserType && selectedUserType.value === 'ETUDIANT') {
+                const bac = document.querySelector('select[name="type_bac"]').value;
+                const filiere = document.querySelector('select[name="filiere"]').value;
+                if (bac.startsWith('A') && filiere !== 'GL') {
+                    alert('Les titulaires d\'un Baccalauréat série A ne peuvent postuler qu\'en Génie Logiciel (GL).');
+                    return;
+                }
+            }
+            
+            if (currentStep === 3) {
+                const type = document.querySelector('input[name="type_utilisateur"]:checked').value;
+                const nom = document.querySelector('input[name="last_name"]').value;
+                const prenom = document.querySelector('input[name="first_name"]').value;
+                const email = document.querySelector('input[name="email"]').value;
+                const telephone = document.querySelector('input[name="telephone"]').value;
+                const file = document.querySelector('input[name="document"]').files[0];
+                
+                let recapHtml = `
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">Type de compte :</span>
+                        <span class="font-medium">${type === 'ETUDIANT' ? 'Étudiant' : 'Personnel'}</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">Nom complet :</span>
+                        <span class="font-medium">${prenom} ${nom}</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">Email :</span>
+                        <span class="font-medium">${email}</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">Téléphone :</span>
+                        <span class="font-medium">${telephone}</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <span class="text-gray-600">Document :</span>
+                        <span class="font-medium text-green-600">${file ? file.name : 'Aucun'}</span>
+                    </div>
+                `;
+                
+                if (type === 'ETUDIANT') {
+                    const filiere = document.querySelector('select[name="filiere"]').value;
+                    recapHtml += `
+                        <div class="flex justify-between py-2 border-b border-gray-100">
+                            <span class="text-gray-600">Filière :</span>
+                            <span class="font-medium">${filiere === 'GL' ? 'Génie Logiciel' : 'Systèmes et Réseaux'}</span>
+                        </div>
+                    `;
+                } else {
+                    const fonction = document.querySelector('input[name="fonction"]').value;
+                    recapHtml += `
+                        <div class="flex justify-between py-2 border-b border-gray-100">
+                            <span class="text-gray-600">Fonction :</span>
+                            <span class="font-medium">${fonction || 'Non renseignée'}</span>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('recap-content').innerHTML = recapHtml;
+            }
+            
+            currentStep++;
+            updateSteps();
+        }
+    });
+    
+    prevBtn.addEventListener('click', () => {
+        currentStep--;
+        updateSteps();
+    });
+    
+    const documentZone = document.getElementById('document-zone');
+    const documentInput = document.getElementById('document-input');
+    const fileName = document.getElementById('file-name');
+    
+    documentZone.addEventListener('click', () => {
+        documentInput.click();
+    });
+    
+    documentZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        documentZone.classList.add('border-green-500', 'bg-green-50');
+    });
+    
+    documentZone.addEventListener('dragleave', () => {
+        documentZone.classList.remove('border-green-500', 'bg-green-50');
+    });
+    
+    documentZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        documentZone.classList.remove('border-green-500', 'bg-green-50');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            documentInput.files = e.dataTransfer.files;
+            documentZone.classList.add('has-file');
+            fileName.textContent = file.name;
+            fileName.classList.remove('hidden');
+        }
+    });
+    
+    documentInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            documentZone.classList.add('has-file');
+            fileName.textContent = e.target.files[0].name;
+            fileName.classList.remove('hidden');
+        }
+    });
+    
+    document.querySelectorAll('.user-type-radio').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const etudiantInfo = document.getElementById('etudiant-document-info');
+            const personnelInfo = document.getElementById('personnel-document-info');
+            const cards = document.querySelectorAll('.user-type-card .border-2');
+            cards.forEach(card => card.classList.remove('border-green-500', 'bg-green-50', 'border-yellow-500', 'bg-yellow-50'));
+            
+            if (this.value === 'ETUDIANT') {
+                etudiantInfo.classList.remove('hidden');
+                personnelInfo.classList.add('hidden');
+                this.parentElement.querySelector('.border-2').classList.add('border-green-500', 'bg-green-50');
+                document.getElementById('document-message').innerHTML = '<i class="fas fa-receipt mr-2"></i>Document requis : Reçu de pré-inscription (50 000 FCFA)';
+            } else {
+                etudiantInfo.classList.add('hidden');
+                personnelInfo.classList.remove('hidden');
+                this.parentElement.querySelector('.border-2').classList.add('border-yellow-500', 'bg-yellow-50');
+                document.getElementById('document-message').innerHTML = '<i class="fas fa-file-contract mr-2"></i>Document requis : Contrat de travail ou note de service';
+            }
+        });
+    });
+    
+    updateSteps();
+</script>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Évaluations - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-file-signature text-green-600 mr-2"></i>Gestion des Évaluations</h1>
+            <p class="text-gray-500 text-sm mt-1">Espace Enseignants & Notes</p>
+        </div>
+    </div>
+
+    <!-- Filters Panel -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <!-- Search / Course -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Cours ID</label>
+                <input type="text" name="cours" value="{{ request.GET.cours|default:'' }}" placeholder="Ex: 5"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 text-sm">
+            </div>
+
+            <!-- Type Filter -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Type d'Évaluation</label>
+                <select name="type" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous</option>
+                    {% for t in types_eval %}
+                    <option value="{{ t.id }}" {% if request.GET.type == t.id|stringformat:"i" %}selected{% endif %}>{{ t.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Statut</label>
+                <select name="statut" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous</option>
+                    {% for code, label in statut_choices %}
+                    <option value="{{ code }}" {% if request.GET.statut == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-xl text-sm transition">
+                    Filtrer
+                </button>
+                <a href="{% url 'notes:liste_evaluations' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Evaluations Table -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th class="p-5">Matière / Cours</th>
+                        <th class="p-5">Type d'Évaluation</th>
+                        <th class="p-5">Date d'Évaluation</th>
+                        <th class="p-5">Coefficient</th>
+                        <th class="p-5">Statut</th>
+                        <th class="p-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    {% for eval in evaluations %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-5">
+                            <div>
+                                <p class="font-bold text-gray-800">{{ eval.cours.matiere.nom }}</p>
+                                <span class="text-xs text-gray-400 font-semibold">{{ eval.cours.filiere.code }} | Enseignant : {{ eval.cours.professeur.get_nom_complet }}</span>
+                            </div>
+                        </td>
+                        <td class="p-5 font-bold text-gray-800">
+                            {{ eval.type_evaluation.nom }}
+                        </td>
+                        <td class="p-5 text-gray-500 font-medium">
+                            {{ eval.date_evaluation|date:"d F Y" }}
+                        </td>
+                        <td class="p-5 font-extrabold text-gray-800">
+                            Coef {{ eval.coefficient }}
+                        </td>
+                        <td class="p-5">
+                            <span class="text-xs font-bold px-3 py-1.5 rounded-full 
+                                {% if eval.statut == 'VALIDE' %}bg-green-100 text-green-800
+                                {% elif eval.statut == 'EN_ATTENTE' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ eval.get_statut_display }}
+                            </span>
+                        </td>
+                        <td class="p-5 text-right flex justify-end gap-2">
+                            <a href="{% url 'notes:detail_evaluation' eval.id %}" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 transition">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'notes:saisie_notes' eval.id %}" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-50 hover:bg-yellow-100 text-yellow-800 transition">
+                                <i class="fas fa-pen-alt"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-10 text-center text-gray-400">
+                            <i class="fas fa-folder-open text-4xl mb-3 block"></i>
+                            Aucune évaluation trouvée.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if evaluations.has_other_pages %}
+        <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+            <span class="text-xs font-semibold text-gray-500">Page {{ evaluations.number }} sur {{ evaluations.paginator.num_pages }}</span>
+            <div class="flex gap-2">
+                {% if evaluations.has_previous %}
+                <a href="?page={{ evaluations.previous_page_number }}{% if request.GET.cours %}&cours={{ request.GET.cours }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" class="bg-white hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs transition">Précédent</a>
+                {% endif %}
+                {% if evaluations.has_next %}
+                <a href="?page={{ evaluations.next_page_number }}{% if request.GET.cours %}&cours={{ request.GET.cours }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" class="bg-white hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs transition">Suivant</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

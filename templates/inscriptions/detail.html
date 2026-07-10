@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Détail de l'Inscription - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-file-signature mr-2 text-green-600"></i>Dossier d'Inscription</h1>
+            <p class="text-gray-500 text-sm mt-1">Référence : #INS-{{ inscription.id }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'inscriptions:certificat_scolarite' inscription.etudiant.id %}" target="_blank"
+               class="bg-green-700 hover:bg-green-800 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center">
+                <i class="fas fa-print mr-2"></i> Certificat de Scolarité
+            </a>
+            <a href="{% url 'inscriptions:liste_inscriptions' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition">
+                Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Alert / Validation Actions -->
+    {% if inscription.statut == 'EN_ATTENTE' or inscription.statut == 'PREINSCRIPTION' %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-3xl p-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="flex items-start">
+            <i class="fas fa-info-circle text-yellow-600 text-2xl mr-4 mt-1"></i>
+            <div>
+                <h4 class="text-yellow-800 font-bold text-lg">Dossier en attente de validation</h4>
+                <p class="text-yellow-700 text-sm mt-1">Veuillez vérifier que l'étudiant a téléversé tous ses documents requis et réglé ses tranches de scolarité avant de valider l'inscription.</p>
+            </div>
+        </div>
+        <div class="flex gap-2 w-full md:w-auto">
+            <a href="{% url 'inscriptions:valider_inscription' inscription.id %}" 
+               class="flex-1 md:flex-none text-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition duration-200">
+                Valider le Dossier
+            </a>
+            <a href="{% url 'inscriptions:rejeter_inscription' inscription.id %}" 
+               class="flex-1 md:flex-none text-center bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition duration-200">
+                Rejeter
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left 2 Cols: Inscription & Documents -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Academic Information -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-university text-green-600 mr-2"></i>Informations Académiques</h3>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Étudiant</p>
+                        <p class="font-bold text-gray-800 text-base">{{ inscription.etudiant.get_nom_complet }}</p>
+                        <span class="text-xs text-gray-400">Matricule : {{ inscription.etudiant.matricule }}</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Filière</p>
+                        <p class="font-bold text-gray-800 text-base">{{ inscription.filiere.nom }} ({{ inscription.filiere.code }})</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Année Académique</p>
+                        <p class="font-bold text-gray-800">{{ inscription.annee_academique.code }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Type de Dossier</p>
+                        <span class="text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full inline-block mt-1">
+                            {{ inscription.get_type_inscription_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documents -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-file-pdf text-green-600 mr-2"></i>Documents Obligatoires</h3>
+                
+                <div class="divide-y divide-gray-100">
+                    {% for doc in documents %}
+                    <div class="flex justify-between items-center py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-lg">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-gray-800">{{ doc.type_document }}</p>
+                                <span class="text-xs text-gray-400">Téléversé le : {{ doc.date_ajout|date:"d M Y" }}</span>
+                            </div>
+                        </div>
+                        <a href="{{ doc.fichier.url }}" target="_blank" class="bg-gray-100 hover:bg-green-50 hover:text-green-700 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 transition">
+                            Visualiser
+                        </a>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-400 text-sm py-4 text-center">Aucun document joint pour le moment.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Col: Financial Follow-up -->
+        <div class="lg:col-span-1 space-y-8">
+            <!-- Payment overview -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-wallet text-green-600 mr-2"></i>Paiements & Scolarité</h3>
+                
+                <div class="space-y-4">
+                    <!-- Progress Bar -->
+                    <div>
+                        <div class="flex justify-between text-xs font-bold text-gray-400 uppercase mb-2">
+                            <span>Progression</span>
+                            <span>{{ pourcentage_paiement }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-3">
+                            <div class="bg-green-600 h-3 rounded-full transition-all" style="width: {{ pourcentage_paiement }}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Payment summary checkboxes -->
+                    <div class="space-y-3 pt-4">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500 font-semibold">Pré-inscription (50 000 FCFA)</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded-full {% if statut_paiement.preinscription %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                {% if statut_paiement.preinscription %}Réglé{% else %}Non réglé{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500 font-semibold">1ère Tranche (175 000 FCFA)</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded-full {% if statut_paiement.tranche_1 %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                {% if statut_paiement.tranche_1 %}Réglé{% else %}Non réglé{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500 font-semibold">2ème Tranche (115 000 FCFA)</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded-full {% if statut_paiement.tranche_2 %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                {% if statut_paiement.tranche_2 %}Réglé{% else %}Non réglé{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500 font-semibold">3ème Tranche (100 000 FCFA)</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded-full {% if statut_paiement.tranche_3 %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                {% if statut_paiement.tranche_3 %}Réglé{% else %}Non réglé{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity log -->
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-history text-green-600 mr-2"></i>Historique du dossier</h3>
+                
+                <div class="flow-root">
+                    <ul class="divide-y divide-gray-100">
+                        {% for entry in historique %}
+                        <li class="py-3">
+                            <p class="text-sm font-bold text-gray-800">{{ entry.get_action_display }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ entry.details }}</p>
+                            <span class="text-[10px] text-gray-400 block mt-1"><i class="fas fa-user mr-1"></i>{{ entry.utilisateur.nom_complet|default:"Système" }} | {{ entry.date_action|date:"d M Y H:i" }}</span>
+                        </li>
+                        {% empty %}
+                        <li class="text-gray-400 text-sm py-3 text-center">Aucun historique disponible.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Téléverser {{ tranche.get_numero_display }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold"><i class="fas fa-file-upload mr-2"></i>Téléverser Reçu : {{ tranche.get_numero_display }}</h1>
+                <p class="text-xs text-green-100 mt-1">Montant requis : {{ tranche.montant|floatformat:0 }} FCFA</p>
+            </div>
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Annuler
+            </a>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="p-6 md:p-8 space-y-6">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Montant de la Tranche (Fixé)</label>
+                    <input type="text" readonly value="{{ tranche.montant|floatformat:0 }} FCFA"
+                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-bold text-gray-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Référence du reçu / Transaction *</label>
+                    <input type="text" name="reference_recu" required placeholder="Ex: FT240710..."
+                        class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                </div>
+            </div>
+
+            <!-- File Upload Dropzone -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Fichier du reçu (Image ou PDF) *</label>
+                <div class="border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-green-500 transition-all text-center cursor-pointer relative" id="dropzone">
+                    <input type="file" name="recu_fichier" required accept="image/*,application/pdf" id="file-input"
+                        class="absolute inset-0 opacity-0 cursor-pointer">
+                    <div class="space-y-2">
+                        <i class="fas fa-cloud-upload-alt text-gray-400 text-4xl" id="upload-icon"></i>
+                        <p class="text-sm font-semibold text-gray-700" id="file-name">Glissez-déposez votre reçu ou cliquez pour parcourir</p>
+                        <p class="text-xs text-gray-400">Formats acceptés : PDF, PNG, JPG (Max 5Mo)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Information Alert -->
+            <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 text-xs text-blue-700 leading-relaxed flex">
+                <i class="fas fa-info-circle text-base mr-3 mt-0.5"></i>
+                <p>
+                    <strong>Analyse IA intégrée :</strong> Notre système extrait automatiquement les données de votre reçu pour accélérer sa validation. Les documents falsifiés ou suspects feront l'objet d'un rejet automatique et d'une alerte comptable.
+                </p>
+            </div>
+
+            <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition duration-200">
+                Soumettre pour vérification
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('file-input');
+    const fileName = document.getElementById('file-name');
+    const uploadIcon = document.getElementById('upload-icon');
+    const dropzone = document.getElementById('dropzone');
+
+    fileInput.addEventListener('change', (e) => {
+        if(fileInput.files.length > 0) {
+            const name = fileInput.files[0].name;
+            fileName.innerText = name;
+            fileName.classList.add('text-green-600');
+            uploadIcon.classList.remove('text-gray-400');
+            uploadIcon.classList.add('text-green-500');
+            dropzone.classList.add('border-green-500', 'bg-green-50/10');
+        }
+    });
+</script>
+{% endblock %}

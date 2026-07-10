@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription - IAI-Cameroun Centre de Douala</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#10B981',
+                            700: '#059669',
+                            800: '#047857',
+                            900: '#065f46',
+                        },
+                        secondary: {
+                            50: '#fefce8',
+                            100: '#fef9c3',
+                            200: '#fef08a',
+                            300: '#fde047',
+                            400: '#facc15',
+                            500: '#eab308',
+                            600: '#ca8a04',
+                            700: '#a16207',
+                            800: '#854d0e',
+                            900: '#713f12',
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #065f46 0%, #10B981 50%, #F59E0B 100%);
+        }
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+        }
+        .input-focus:focus {
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+            border-color: #10B981;
+        }
+        .type-card.selected {
+            border-color: #10B981;
+            background-color: #f0fdf4;
+        }
+        .type-card.personnel-selected {
+            border-color: #F59E0B;
+            background-color: #fefce8;
+        }
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #6b7280;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .step.active {
+            background: #10B981;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+            transform: scale(1.05);
+        }
+        .step.completed {
+            background: #059669;
+            color: white;
+        }
+        .step:not(:last-child):after {
+            content: '';
+            position: absolute;
+            right: -60px;
+            top: 50%;
+            width: 40px;
+            height: 2px;
+            background: #e5e7eb;
+        }
+        .step.active:not(:last-child):after {
+            background: #10B981;
+        }
+        .step.completed:not(:last-child):after {
+            background: #059669;
+        }
+        .step-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            white-space: nowrap;
+            color: #6b7280;
+        }
+        .step.active .step-label {
+            color: #10B981;
+            font-weight: 500;
+        }
+        .step.completed .step-label {
+            color: #059669;
+        }
+        .toast {
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* Aperçu du fichier */
+        .file-preview {
+            transition: all 0.3s ease;
+        }
+        .file-preview:hover {
+            transform: translateX(5px);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen font-sans">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="w-full max-w-2xl">
+            <!-- Logo et en-tête -->
+            <div class="text-center mb-8 animate-fade-in">
+                <div class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform hover:scale-105 transition-transform duration-300">
+                    <i class="fas fa-graduation-cap text-primary-600 text-4xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">IAI-Cameroun</h1>
+                <p class="text-primary-100">Centre de Douala</p>
+                <p class="text-secondary-200 text-sm mt-2">Système de Gestion Universitaire</p>
+            </div>
+
+            <!-- Indicateur d'étapes -->
+            <div class="step-indicator mb-8">
+                <div class="step active" id="step1">
+                    <span>1</span>
+                    <span class="step-label">Type de compte</span>
+                </div>
+                <div class="step" id="step2">
+                    <span>2</span>
+                    <span class="step-label">Informations</span>
+                </div>
+                <div class="step" id="step3">
+                    <span>3</span>
+                    <span class="step-label">Document</span>
+                </div>
+                <div class="step" id="step4">
+                    <span>4</span>
+                    <span class="step-label">Confirmation</span>
+                </div>
+            </div>
+
+            <!-- Messages d'alerte -->
+            <div id="alert-container" class="mb-4"></div>
+
+            <!-- Formulaire principal -->
+            <div class="bg-white rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+                <div class="p-6 sm:p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">Créer un compte</h2>
+                    <p class="text-gray-500 text-sm text-center mb-6">Rejoignez la plateforme de gestion universitaire</p>
+                    
+                    <form method="post" enctype="multipart/form-data" id="inscriptionForm">
+                        {% csrf_token %}
+                        
+                        <!-- Étape 1 : Type de compte -->
+                        <div id="step1-content" class="step-content">
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-3">Je suis :</label>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <!-- Carte Étudiant -->
+                                    <div class="type-card border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg text-center" data-type="ETUDIANT">
+                                        <input type="radio" name="type_utilisateur" value="ETUDIANT" class="hidden" required>
+                                        <div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <i class="fas fa-user-graduate text-primary-600 text-2xl"></i>
+                                        </div>
+                                        <h3 class="font-bold text-gray-800">Étudiant</h3>
+                                        <p class="text-xs text-gray-500 mt-1">Je souhaite poursuivre mes études</p>
+                                        <div class="mt-2 text-xs text-primary-600">
+                                            <i class="fas fa-file-alt mr-1"></i>Reçu de pré-inscription
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Carte Personnel -->
+                                    <div class="type-card border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg text-center" data-type="PERSONNEL">
+                                        <input type="radio" name="type_utilisateur" value="PERSONNEL" class="hidden">
+                                        <div class="w-16 h-16 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <i class="fas fa-user-tie text-secondary-600 text-2xl"></i>
+                                        </div>
+                                        <h3 class="font-bold text-gray-800">Personnel</h3>
+                                        <p class="text-xs text-gray-500 mt-1">Je suis membre du personnel</p>
+                                        <div class="mt-2 text-xs text-secondary-600">
+                                            <i class="fas fa-file-contract mr-1"></i>Contrat / Note de service
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Étape 2 : Informations personnelles -->
+                        <div id="step2-content" class="step-content hidden">
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                                        <input type="text" name="last_name" required 
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
+                                               placeholder="Votre nom">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
+                                        <input type="text" name="first_name" required 
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
+                                               placeholder="Votre prénom">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                                        <input type="email" name="email" required 
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
+                                               placeholder="exemple@iai-cameroun.com">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Confirmer l'email *</label>
+                                        <input type="email" name="confirm_email" required 
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
+                                               placeholder="Confirmez votre email">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
+                                        <input type="tel" name="telephone" required 
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
+                                               placeholder="6XXXXXXXX">
+                                        <p class="text-xs text-gray-400 mt-1">Format: 6XXXXXXXX ou 2XXXXXXXX</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
+                                        <input type="date" name="date_naissance" 
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus">
+                                    </div>
+                                </div>
+
+                                <!-- Champs spécifiques Étudiant -->
+                                <div id="etudiant-fields" class="hidden space-y-4 p-4 bg-primary-50 rounded-lg">
+                                    <h3 class="font-semibold text-primary-800 flex items-center">
+                                        <i class="fas fa-graduation-cap mr-2"></i>
+                                        Informations académiques
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Filière souhaitée *</label>
+                                            <select name="filiere" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
+                                                <option value="GL">Génie Logiciel (GL)</option>
+                                                <option value="SR">Systèmes et Réseaux (SR)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Type de Baccalauréat *</label>
+                                            <select name="type_bac" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
+                                                <option value="A">Série A (Littéraire)</option>
+                                                <option value="A1">Série A1 (Lettres)</option>
+                                                <option value="A2">Série A2 (Philosophie)</option>
+                                                <option value="A3">Série A3 (Langues)</option>
+                                                <option value="A4">Série A4 (Arts)</option>
+                                                <option value="C">Série C (Mathématiques)</option>
+                                                <option value="D">Série D (Sciences)</option>
+                                                <option value="E">Série E (Sciences techniques)</option>
+                                                <option value="F">Série F (Technique)</option>
+                                                <option value="G">Série G (Gestion)</option>
+                                                <option value="TI">Technique Industriel</option>
+                                                <option value="TC">Technique Commercial</option>
+                                                <option value="AUTRE">Autre Baccalauréat</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Année d'obtention</label>
+                                        <input type="number" name="annee_bac" min="2000" max="2026" 
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                               placeholder="Ex: 2024">
+                                    </div>
+                                </div>
+
+                                <!-- Champs spécifiques Personnel -->
+                                <div id="personnel-fields" class="hidden space-y-4 p-4 bg-secondary-50 rounded-lg">
+                                    <h3 class="font-semibold text-secondary-800 flex items-center">
+                                        <i class="fas fa-briefcase mr-2"></i>
+                                        Informations professionnelles
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Fonction *</label>
+                                            <input type="text" name="fonction" 
+                                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-500"
+                                                   placeholder="Ex: Enseignant, Administratif...">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Département *</label>
+                                            <input type="text" name="departement" 
+                                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-500"
+                                                   placeholder="Ex: Informatique, Finance...">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Étape 3 : Document justificatif -->
+                        <div id="step3-content" class="step-content hidden">
+                            <div class="space-y-4">
+                                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-primary-500 transition-all cursor-pointer" id="dropzone">
+                                    <input type="file" name="document" id="document-input" accept=".pdf,.jpg,.jpeg,.png" class="hidden" required>
+                                    <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 mb-3"></i>
+                                    <p class="text-gray-600">Glissez votre document ici ou <span class="text-primary-600 hover:underline">cliquez pour parcourir</span></p>
+                                    <p class="text-xs text-gray-400 mt-2">Formats acceptés : PDF, JPG, PNG (Max 5 Mo)</p>
+                                    <div id="file-name" class="mt-3 text-sm text-primary-600 hidden"></div>
+                                </div>
+                                
+                                <!-- Aperçu du fichier sélectionné -->
+                                <div id="file-preview" class="hidden file-preview p-3 bg-green-50 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-file-pdf text-red-500 text-2xl mr-3"></i>
+                                            <i class="fas fa-file-image text-blue-500 text-2xl mr-3 hidden"></i>
+                                            <div>
+                                                <p id="selected-file-name" class="text-sm font-medium text-gray-700"></p>
+                                                <p id="selected-file-size" class="text-xs text-gray-500"></p>
+                                            </div>
+                                        </div>
+                                        <button type="button" onclick="clearFile()" class="text-red-500 hover:text-red-700 transition-colors">
+                                            <i class="fas fa-times-circle"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="etudiant-doc-info" class="hidden p-3 bg-primary-50 rounded-lg">
+                                    <div class="flex items-start">
+                                        <i class="fas fa-info-circle text-primary-600 mr-2 mt-0.5"></i>
+                                        <div class="text-xs text-primary-700">
+                                            <p class="font-medium">Reçu de pré-inscription (50 000 FCFA)</p>
+                                            <p>Le reçu doit clairement mentionner : le montant, la date, et le nom du payeur.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="personnel-doc-info" class="hidden p-3 bg-secondary-50 rounded-lg">
+                                    <div class="flex items-start">
+                                        <i class="fas fa-info-circle text-secondary-600 mr-2 mt-0.5"></i>
+                                        <div class="text-xs text-secondary-700">
+                                            <p class="font-medium">Justificatif d'emploi</p>
+                                            <p>Documents acceptés : Contrat de travail, Note de service, Attestation d'emploi.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Étape 4 : Confirmation -->
+                        <div id="step4-content" class="step-content hidden">
+                            <div class="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-6">
+                                <div class="flex items-center mb-4">
+                                    <i class="fas fa-clipboard-list text-primary-600 text-xl mr-3"></i>
+                                    <h3 class="font-semibold text-gray-800">Récapitulatif de votre demande</h3>
+                                </div>
+                                <div id="recap-content" class="space-y-3 text-sm">
+                                    <!-- Rempli par JavaScript -->
+                                </div>
+                                <div class="mt-6 p-3 bg-white rounded-lg">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="checkbox" name="accept_conditions" required class="mr-3 w-4 h-4 text-primary-600">
+                                        <span class="text-sm text-gray-700">J'accepte les <a href="#" class="text-primary-600 hover:underline">conditions d'utilisation</a> et je certifie que les informations fournies sont exactes.</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Boutons de navigation -->
+                        <div class="flex justify-between mt-8 pt-4 border-t border-gray-200">
+                            <button type="button" id="prevBtn" class="hidden px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                <i class="fas fa-chevron-left mr-2"></i>Précédent
+                            </button>
+                            <button type="button" id="nextBtn" class="ml-auto px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all shadow-md">
+                                Suivant <i class="fas fa-chevron-right ml-2"></i>
+                            </button>
+                            <button type="submit" id="submitBtn" class="hidden px-6 py-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-lg hover:from-primary-600 hover:to-primary-700 transition-all shadow-md">
+                                <i class="fas fa-check-circle mr-2"></i>S'inscrire
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Lien vers connexion -->
+            <div class="text-center mt-6">
+                <p class="text-white text-sm">
+                    Déjà inscrit ? 
+                    <a href="{% url 'login' %}" class="text-secondary-300 hover:text-secondary-200 font-medium transition-colors">
+                        Se connecter
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Gestion des étapes
+    let currentStep = 1;
+    let selectedUserType = null;
+    let selectedFile = null;  // Variable pour stocker le fichier
+    
+    const step1Content = document.getElementById('step1-content');
+    const step2Content = document.getElementById('step2-content');
+    const step3Content = document.getElementById('step3-content');
+    const step4Content = document.getElementById('step4-content');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    function showAlert(message, type = 'error') {
+        const alertContainer = document.getElementById('alert-container');
+        if (!alertContainer) return;
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `p-4 rounded-lg mb-2 ${type === 'error' ? 'bg-red-100 text-red-700 border-l-4 border-red-500' : 'bg-green-100 text-green-700 border-l-4 border-green-500'} animate-slide-up`;
+        alertDiv.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-2"></i>
+                <span>${message}</span>
+                <button class="ml-auto text-gray-400 hover:text-gray-600" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        alertContainer.appendChild(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+    
+    function updateSteps() {
+        step1Content.classList.add('hidden');
+        step2Content.classList.add('hidden');
+        step3Content.classList.add('hidden');
+        step4Content.classList.add('hidden');
+        
+        if (currentStep === 1) step1Content.classList.remove('hidden');
+        if (currentStep === 2) step2Content.classList.remove('hidden');
+        if (currentStep === 3) step3Content.classList.remove('hidden');
+        if (currentStep === 4) step4Content.classList.remove('hidden');
+        
+        for (let i = 1; i <= 4; i++) {
+            const step = document.getElementById(`step${i}`);
+            if (step) {
+                if (i < currentStep) {
+                    step.classList.add('completed');
+                    step.classList.remove('active');
+                } else if (i === currentStep) {
+                    step.classList.add('active');
+                    step.classList.remove('completed');
+                } else {
+                    step.classList.remove('active', 'completed');
+                }
+            }
+        }
+        
+        prevBtn.classList.toggle('hidden', currentStep === 1);
+        
+        if (currentStep === 4) {
+            nextBtn.classList.add('hidden');
+            submitBtn.classList.remove('hidden');
+            updateRecap(); // Mettre à jour le récapitulatif à l'étape 4
+        } else {
+            nextBtn.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+        }
+    }
+    
+    function isStepValid() {
+        if (currentStep === 1) {
+            const selected = document.querySelector('input[name="type_utilisateur"]:checked');
+            if (!selected) {
+                showAlert('Veuillez sélectionner un type de compte');
+                return false;
+            }
+            selectedUserType = selected.value;
+            return true;
+        }
+        
+        if (currentStep === 2) {
+            const nom = document.querySelector('input[name="last_name"]').value.trim();
+            const prenom = document.querySelector('input[name="first_name"]').value.trim();
+            const email = document.querySelector('input[name="email"]').value.trim();
+            const confirmEmail = document.querySelector('input[name="confirm_email"]').value.trim();
+            const telephone = document.querySelector('input[name="telephone"]').value.trim();
+            
+            if (!nom || !prenom || !email || !confirmEmail || !telephone) {
+                showAlert('Veuillez remplir tous les champs obligatoires');
+                return false;
+            }
+            if (email !== confirmEmail) {
+                showAlert('Les emails ne correspondent pas');
+                return false;
+            }
+            if (!/^(6|2)\d{8}$/.test(telephone)) {
+                showAlert('Numéro de téléphone invalide. Format: 6XXXXXXXX ou 2XXXXXXXX');
+                return false;
+            }
+            
+            if (selectedUserType === 'ETUDIANT') {
+                const filiere = document.querySelector('select[name="filiere"]').value;
+                const typeBac = document.querySelector('select[name="type_bac"]').value;
+                if (!filiere || !typeBac) {
+                    showAlert('Veuillez remplir les informations académiques');
+                    return false;
+                }
+                if (typeBac.startsWith('A') && filiere !== 'GL') {
+                    showAlert('Les titulaires d\'un Baccalauréat série A ne peuvent postuler qu\'en Génie Logiciel (GL).');
+                    return false;
+                }
+            }
+            
+            if (selectedUserType === 'PERSONNEL') {
+                const fonction = document.querySelector('input[name="fonction"]').value.trim();
+                const departement = document.querySelector('input[name="departement"]').value.trim();
+                if (!fonction || !departement) {
+                    showAlert('Veuillez remplir les informations professionnelles');
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        if (currentStep === 3) {
+            if (!selectedFile) {
+                showAlert('Veuillez téléverser votre document justificatif');
+                return false;
+            }
+            return true;
+        }
+        
+        return true;
+    }
+    
+    function updateRecap() {
+        const type = selectedUserType;
+        const nom = document.querySelector('input[name="last_name"]').value;
+        const prenom = document.querySelector('input[name="first_name"]').value;
+        const email = document.querySelector('input[name="email"]').value;
+        const telephone = document.querySelector('input[name="telephone"]').value;
+        
+        let recapHtml = `
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-gray-600">Type de compte :</span>
+                <span class="font-medium">${type === 'ETUDIANT' ? '🎓 Étudiant' : '👔 Personnel'}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-gray-600">Nom complet :</span>
+                <span class="font-medium">${prenom} ${nom}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-gray-600">Email :</span>
+                <span class="font-medium">${email}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-gray-600">Téléphone :</span>
+                <span class="font-medium">${telephone}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-200">
+                <span class="text-gray-600">Document :</span>
+                <span class="font-medium text-primary-600">${selectedFile ? selectedFile.name : 'Aucun fichier sélectionné'}</span>
+            </div>
+        `;
+        
+        if (type === 'ETUDIANT') {
+            const filiere = document.querySelector('select[name="filiere"]').value;
+            recapHtml += `
+                <div class="flex justify-between py-2">
+                    <span class="text-gray-600">Filière :</span>
+                    <span class="font-medium">${filiere === 'GL' ? 'Génie Logiciel' : 'Systèmes et Réseaux'}</span>
+                </div>
+            `;
+        }
+        
+        const recapContent = document.getElementById('recap-content');
+        if (recapContent) recapContent.innerHTML = recapHtml;
+    }
+    
+    nextBtn.addEventListener('click', () => {
+        if (isStepValid()) {
+            currentStep++;
+            updateSteps();
+        }
+    });
+    
+    prevBtn.addEventListener('click', () => {
+        currentStep--;
+        updateSteps();
+    });
+    
+    // Gestion des cartes de type
+    document.querySelectorAll('.type-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const radio = this.querySelector('input[type="radio"]');
+            radio.checked = true;
+            
+            document.querySelectorAll('.type-card').forEach(c => {
+                c.classList.remove('selected', 'personnel-selected');
+            });
+            
+            if (radio.value === 'ETUDIANT') {
+                this.classList.add('selected');
+                const etudiantFields = document.getElementById('etudiant-fields');
+                const personnelFields = document.getElementById('personnel-fields');
+                const etudiantDocInfo = document.getElementById('etudiant-doc-info');
+                const personnelDocInfo = document.getElementById('personnel-doc-info');
+                if (etudiantFields) etudiantFields.classList.remove('hidden');
+                if (personnelFields) personnelFields.classList.add('hidden');
+                if (etudiantDocInfo) etudiantDocInfo.classList.remove('hidden');
+                if (personnelDocInfo) personnelDocInfo.classList.add('hidden');
+            } else {
+                this.classList.add('personnel-selected');
+                const etudiantFields = document.getElementById('etudiant-fields');
+                const personnelFields = document.getElementById('personnel-fields');
+                const etudiantDocInfo = document.getElementById('etudiant-doc-info');
+                const personnelDocInfo = document.getElementById('personnel-doc-info');
+                if (etudiantFields) etudiantFields.classList.add('hidden');
+                if (personnelFields) personnelFields.classList.remove('hidden');
+                if (etudiantDocInfo) etudiantDocInfo.classList.add('hidden');
+                if (personnelDocInfo) personnelDocInfo.classList.remove('hidden');
+            }
+        });
+    });
+    
+    // Gestion du fichier
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('document-input');
+    const fileName = document.getElementById('file-name');
+    const filePreview = document.getElementById('file-preview');
+    const selectedFileName = document.getElementById('selected-file-name');
+    const selectedFileSize = document.getElementById('selected-file-size');
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    window.clearFile = function() {
+        fileInput.value = '';
+        selectedFile = null;
+        if (filePreview) filePreview.classList.add('hidden');
+        if (fileName) fileName.classList.add('hidden');
+    }
+    
+    function handleFile(file) {
+        if (!file) return;
+        
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert('Le fichier ne doit pas dépasser 5 Mo');
+            clearFile();
+            return;
+        }
+        
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+        if (!allowedTypes.includes(file.type)) {
+            showAlert('Format non supporté. Utilisez PDF, JPG ou PNG');
+            clearFile();
+            return;
+        }
+        
+        selectedFile = file;
+        
+        if (selectedFileName) selectedFileName.textContent = file.name;
+        if (selectedFileSize) selectedFileSize.textContent = formatFileSize(file.size);
+        if (filePreview) filePreview.classList.remove('hidden');
+        if (fileName) {
+            fileName.textContent = file.name;
+            fileName.classList.remove('hidden');
+        }
+        
+        const pdfIcon = document.querySelector('#file-preview .fa-file-pdf');
+        const imgIcon = document.querySelector('#file-preview .fa-file-image');
+        if (pdfIcon && imgIcon) {
+            if (file.type === 'application/pdf') {
+                pdfIcon.classList.remove('hidden');
+                imgIcon.classList.add('hidden');
+            } else {
+                pdfIcon.classList.add('hidden');
+                imgIcon.classList.remove('hidden');
+            }
+        }
+    }
+    
+    if (dropzone) {
+        dropzone.addEventListener('click', () => fileInput.click());
+        
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('border-primary-500', 'bg-primary-50');
+        });
+        
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('border-primary-500', 'bg-primary-50');
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-primary-500', 'bg-primary-50');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                fileInput.files = e.dataTransfer.files;
+                handleFile(file);
+            }
+        });
+    }
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            if (this.files[0]) {
+                handleFile(this.files[0]);
+            }
+        });
+    }
+    
+    // Validation email en temps réel
+    const emailInput = document.querySelector('input[name="email"]');
+    const confirmEmailInput = document.querySelector('input[name="confirm_email"]');
+    
+    function validateEmailMatch() {
+        if (emailInput && confirmEmailInput) {
+            if (emailInput.value !== confirmEmailInput.value && confirmEmailInput.value) {
+                confirmEmailInput.setCustomValidity("Les emails ne correspondent pas");
+                confirmEmailInput.classList.add('border-red-500');
+            } else {
+                confirmEmailInput.setCustomValidity("");
+                confirmEmailInput.classList.remove('border-red-500');
+            }
+        }
+    }
+    
+    if (emailInput) emailInput.addEventListener('input', validateEmailMatch);
+    if (confirmEmailInput) confirmEmailInput.addEventListener('input', validateEmailMatch);
+    
+    // Soumission du formulaire
+    const form = document.getElementById('inscriptionForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!selectedFile) {
+                e.preventDefault();
+                showAlert('Veuillez téléverser votre document justificatif');
+                currentStep = 3;
+                updateSteps();
+                return false;
+            }
+            
+            // S'assurer que le fichier est dans le formulaire
+            const formData = new FormData(this);
+            if (!formData.has('document') && selectedFile) {
+                formData.append('document', selectedFile);
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<div class="loading mr-2"></div>Inscription en cours...';
+                submitBtn.disabled = true;
+            }
+            
+            // Remplacer le formulaire original
+            this.querySelectorAll('input, select, textarea').forEach(field => {
+                if (field.name && field.name !== 'document') {
+                    formData.append(field.name, field.value);
+                }
+            });
+            
+            // Créer une nouvelle requête
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', this.action, true);
+            xhr.setRequestHeader('X-CSRFToken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            xhr.onload = function() {
+                if (xhr.status === 302 || xhr.status === 200) {
+                    if (xhr.responseURL) {
+                        window.location.href = xhr.responseURL;
+                    } else {
+                        window.location.href = '/authentification/inscription_confirmation/';
+                    }
+                } else {
+                    showAlert('Une erreur est survenue. Veuillez réessayer.');
+                    if (submitBtn) {
+                        submitBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>S\'inscrire';
+                        submitBtn.disabled = false;
+                    }
+                }
+            };
+            xhr.onerror = function() {
+                showAlert('Erreur réseau. Veuillez réessayer.');
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>S\'inscrire';
+                    submitBtn.disabled = false;
+                }
+            };
+            xhr.send(formData);
+            
+            e.preventDefault();
+            return false;
+        });
+    }
+    
+    // Initialisation
+    updateSteps();
+</script>
+</body>
+</html>

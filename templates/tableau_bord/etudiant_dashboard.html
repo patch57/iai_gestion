@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Espace Étudiant - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-700 via-green-600 to-yellow-500 rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+            <span class="bg-white/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/10">Espace Étudiant</span>
+            <h1 class="text-3xl font-extrabold mt-3">{{ etudiant.get_nom_complet }}</h1>
+            <p class="text-green-100 mt-2">
+                <span class="font-semibold">Filière:</span> {{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }}) | 
+                <span class="font-semibold">Matricule:</span> {{ etudiant.matricule }}
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0 bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20">
+            <p class="text-xs text-green-100 uppercase font-semibold">Reste à payer</p>
+            <h2 class="text-3xl font-black mt-1 text-yellow-300">{{ reste_payer|floatformat:0 }} <span class="text-sm">FCFA</span></h2>
+        </div>
+    </div>
+
+    <!-- Alertes et Notifications -->
+    {% if penalites_info.total > 0 %}
+    <div class="mb-8 bg-red-50 border-l-4 border-red-500 rounded-2xl p-5 flex items-start shadow-md">
+        <i class="fas fa-exclamation-triangle text-red-500 text-2xl mr-4 mt-1"></i>
+        <div class="flex-1">
+            <h4 class="text-red-800 font-bold text-lg">Pénalités de retard accumulées !</h4>
+            <p class="text-red-700 mt-1">Vous avez accumulé un total de <span class="font-black text-red-900">{{ penalites_info.total }} FCFA</span> de pénalités en raison de retards de paiement.</p>
+            <ul class="list-disc pl-5 mt-2 text-sm text-red-700 space-y-1">
+                {% for detail in penalites_info.details %}
+                <li>{{ detail.tranche }} : {{ detail.semennes_retard|default:detail.semaines_retard }} semaine(s) de retard (limite: {{ detail.date_limite }}) -> +{{ detail.montant }} FCFA</li>
+                {% endfor %}
+            </ul>
+            <div class="mt-4">
+                <a href="{% url 'paiements:payer_penalites' %}" class="inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-md transition duration-200">
+                    <i class="fas fa-credit-card mr-2"></i> Payer mes pénalités en ligne (MTN / Orange Money)
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Colonne Gauche: Finances et Reçus -->
+        <div class="lg:col-span-1 space-y-8">
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white">
+                    <h3 class="font-bold text-lg"><i class="fas fa-wallet mr-2"></i>Suivi des Tranches</h3>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- Tranche 1: Pré-inscription -->
+                    <div class="flex justify-between items-center p-3 rounded-2xl border {% if etudiant.recu_preinscription_valide %}border-green-200 bg-green-50/50{% else %}border-gray-200{% endif %}">
+                        <div>
+                            <p class="font-bold text-gray-800">Pré-inscription</p>
+                            <p class="text-xs text-gray-500">50 000 FCFA</p>
+                        </div>
+                        {% if etudiant.recu_preinscription_valide %}
+                        <span class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-check mr-1"></i>Validé</span>
+                        {% else %}
+                        <span class="bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-clock mr-1"></i>En attente</span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Tranche 2, 3, 4 -->
+                    {% for number, name, amount in tranches_info|default_filter_empty %}
+                    {% endfor %}
+                    
+                    <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
+                        <div>
+                            <p class="font-bold text-gray-800">1ère Tranche</p>
+                            <p class="text-xs text-gray-500">175 000 FCFA</p>
+                        </div>
+                        <span class="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">Non réglé</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
+                        <div>
+                            <p class="font-bold text-gray-800">2ème Tranche</p>
+                            <p class="text-xs text-gray-500">115 000 FCFA</p>
+                        </div>
+                        <span class="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">Non réglé</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
+                        <div>
+                            <p class="font-bold text-gray-800">3ème Tranche</p>
+                            <p class="text-xs text-gray-500">100 000 FCFA</p>
+                        </div>
+                        <span class="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">Non réglé</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Reçu -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-file-upload mr-2 text-green-600"></i>Téléverser un Reçu</h3>
+                <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner la tranche</label>
+                        <select name="tranche_num" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                            <option value="1">Pré-inscription (50 000 FCFA)</option>
+                            <option value="2">1ère Tranche (175 000 FCFA)</option>
+                            <option value="3">2ème Tranche (115 000 FCFA)</option>
+                            <option value="4">3ème Tranche (100 000 FCFA)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Fichier du reçu (PDF, JPG, PNG)</label>
+                        <input type="file" name="recu_fichier" required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200">
+                        Soumettre le Reçu
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Colonne Droite: Cours, Emploi du Temps, Notes, Absences -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Emploi du temps & Règlement -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Emploi du temps -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800 mb-2"><i class="fas fa-calendar-alt text-yellow-500 mr-2"></i>Mon Emploi du Temps</h3>
+                        <p class="text-sm text-gray-500">Consultez et téléchargez votre planning hebdomadaire de cours.</p>
+                    </div>
+                    <div class="mt-6">
+                        {% if emploi and emploi.fichier_pdf %}
+                        <a href="{{ emploi.fichier_pdf.url }}" target="_blank" class="flex items-center justify-center bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200">
+                            <i class="fas fa-download mr-2"></i>Télécharger le PDF
+                        </a>
+                        {% else %}
+                        <p class="text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">Aucun emploi du temps disponible pour le moment.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Règlement Intérieur -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800 mb-2"><i class="fas fa-book text-green-600 mr-2"></i>Règlement Intérieur</h3>
+                        <p class="text-sm text-gray-500">Prenez connaissance des règles de vie et de discipline de l'établissement.</p>
+                    </div>
+                    <div class="mt-6">
+                        <a href="#" class="flex items-center justify-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200">
+                            <i class="fas fa-eye mr-2"></i>Consulter le Règlement
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Téléchargement des cours (Supports pédagogiques) -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-graduation-cap mr-2"></i>Supports Pédagogiques (Cours, TP, TD)</h3>
+                </div>
+                <div class="p-6">
+                    {% if ressources %}
+                    <div class="divide-y divide-gray-100">
+                        {% for ressource in ressources %}
+                        <div class="py-4 flex justify-between items-center">
+                            <div>
+                                <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full uppercase">{{ ressource.get_type_ressource_display }}</span>
+                                <h4 class="font-bold text-gray-800 mt-1">{{ ressource.titre }}</h4>
+                                <p class="text-xs text-gray-400 mt-0.5">Matière: {{ ressource.cours.matiere.nom }}</p>
+                            </div>
+                            {% if ressource.fichier %}
+                            <a href="{{ ressource.fichier.url }}" download class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 p-2.5 rounded-xl transition duration-200">
+                                <i class="fas fa-download text-lg"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-6">Aucun support de cours n'a été publié pour votre filière.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Notes & Absences -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Absences et retards -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                    <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-clock text-yellow-500 mr-2"></i>Absences & Retards</h3>
+                    {% if absences %}
+                    <div class="space-y-3">
+                        {% for absence in absences %}
+                        <div class="flex justify-between items-center p-3 rounded-2xl bg-yellow-50/50 border border-yellow-100">
+                            <div>
+                                <p class="font-semibold text-gray-800">{{ absence.seance.cours.matiere.nom }}</p>
+                                <p class="text-xs text-gray-500">{{ absence.seance.date }}</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-yellow-700 bg-yellow-100 px-2.5 py-0.5 rounded-full">{{ absence.get_statut_display }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-6 text-sm">Félicitations, vous n'avez aucun retard ni absence enregistré.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Notes académiques -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                    <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-poll text-green-600 mr-2"></i>Mes Notes</h3>
+                    {% if notes %}
+                    <div class="space-y-3">
+                        {% for note in notes %}
+                        <div class="flex justify-between items-center p-3 rounded-2xl bg-green-50/50 border border-green-100">
+                            <div>
+                                <p class="font-semibold text-gray-800">{{ note.evaluation.cours.matiere.nom }}</p>
+                                <p class="text-xs text-gray-500">{{ note.evaluation.titre }}</p>
+                            </div>
+                            <span class="font-black text-green-700 text-lg">{{ note.valeur }}/20</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-6 text-sm">Aucune note n'a encore été publiée.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

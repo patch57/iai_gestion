@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mes Notes - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-graduation-cap text-green-600 mr-2"></i>Mes Notes & Bulletins</h1>
+            <p class="text-gray-500 text-sm mt-1">Espace Académique Étudiant</p>
+        </div>
+    </div>
+
+    <!-- Stats Widgets -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex items-center gap-4">
+            <div class="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 font-bold uppercase">Moyenne Générale</span>
+                <h3 class="text-2xl font-black text-gray-900 mt-1">
+                    {% if stats.moyenne_generale %}{{ stats.moyenne_generale|floatformat:2 }}{% else %}--{% endif %} <span class="text-xs text-gray-400">/20</span>
+                </h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex items-center gap-4">
+            <div class="w-12 h-12 bg-yellow-50 text-yellow-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                <i class="fas fa-award"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 font-bold uppercase">Crédits Obtenus</span>
+                <h3 class="text-2xl font-black text-gray-900 mt-1">{{ stats.total_credits }} <span class="text-xs text-gray-400">Credits</span></h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex items-center gap-4">
+            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                <i class="fas fa-star"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 font-bold uppercase">Meilleure Note</span>
+                <h3 class="text-2xl font-black text-gray-900 mt-1">
+                    {% if stats.meilleure_note %}{{ stats.meilleure_note|floatformat:2 }}{% else %}--{% endif %} <span class="text-xs text-gray-400">/20</span>
+                </h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex items-center gap-4">
+            <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                <i class="fas fa-percent"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-400 font-bold uppercase">Matières Validées</span>
+                <h3 class="text-2xl font-black text-gray-900 mt-1">{{ stats.matieres_validees }} <span class="text-xs text-gray-400">/ {{ stats.total_matieres }}</span></h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Grades Table -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden mb-8">
+        <div class="p-6 border-b border-gray-100">
+            <h3 class="font-bold text-gray-800 text-lg"><i class="fas fa-list-ol mr-2 text-green-600"></i>Relevé de notes individuelles</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th class="p-5">Matière</th>
+                        <th class="p-5">Évaluation</th>
+                        <th class="p-5">Note (/20)</th>
+                        <th class="p-5">Coefficient</th>
+                        <th class="p-5">Mention / Observation</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    {% for note in notes %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-5 font-bold text-gray-800">
+                            {{ note.evaluation.cours.matiere.nom }}
+                        </td>
+                        <td class="p-5 text-gray-500 font-semibold">
+                            {{ note.evaluation.type_evaluation.nom }}
+                        </td>
+                        <td class="p-5 font-extrabold {% if note.valeur >= 10 %}text-green-600{% else %}text-red-500{% endif %}">
+                            {{ note.valeur|floatformat:2 }}
+                        </td>
+                        <td class="p-5 font-medium text-gray-600">
+                            Coef {{ note.evaluation.coefficient }}
+                        </td>
+                        <td class="p-5">
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full {% if note.valeur >= 12 %}bg-green-50 text-green-700{% elif note.valeur >= 10 %}bg-blue-50 text-blue-700{% else %}bg-red-50 text-red-700{% endif %}">
+                                {% if note.valeur >= 16 %}Très Bien{% elif note.valeur >= 14 %}Bien{% elif note.valeur >= 12 %}Assez Bien{% elif note.valeur >= 10 %}Passable{% else %}Échec{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="p-10 text-center text-gray-400">Aucune note publiée pour le moment.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Semester Bulletins -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+        <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-file-invoice mr-2 text-green-600"></i>Bulletins Semestriels</h3>
+        <div class="divide-y divide-gray-100">
+            {% for b in bulletins %}
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-lg">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-gray-800">Semestre {{ b.semestre }}</p>
+                        <span class="text-xs text-gray-400 font-semibold">Année : {{ b.annee_academique }} | Moyenne : {{ b.moyenne_semestre|floatformat:2 }}/20</span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <a href="{% url 'notes:detail_bulletin' b.id %}" class="bg-gray-100 hover:bg-green-50 hover:text-green-700 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 transition">
+                        Voir
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm py-4 text-center">Aucun bulletin disponible.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

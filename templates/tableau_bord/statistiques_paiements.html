@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Statistiques Financières - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Statistiques Financières</h1>
+            <p class="text-gray-500 mt-1">Suivi des recettes et paiements</p>
+        </div>
+        <div class="flex space-x-3">
+            <select id="annee-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                <option value="2024-2025">2024-2025</option>
+                <option value="2023-2024">2023-2024</option>
+            </select>
+            <a href="#" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                <i class="fas fa-file-excel mr-2"></i>
+                Exporter
+            </a>
+        </div>
+    </div>
+
+    <!-- Cartes récapitulatives -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
+            <p class="text-sm opacity-90">Total recettes</p>
+            <p class="text-3xl font-bold">{{ total_recettes|floatformat:0 }} FCFA</p>
+            <p class="text-xs mt-2">Toutes tranches confondues</p>
+        </div>
+        <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl p-6 text-white">
+            <p class="text-sm opacity-90">Pénalités</p>
+            <p class="text-3xl font-bold">{{ total_penalites|floatformat:0 }} FCFA</p>
+            <p class="text-xs mt-2">Montant total des pénalités</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <p class="text-sm text-gray-500">Taux de recouvrement</p>
+            <p class="text-3xl font-bold text-gray-900">87.5%</p>
+            <div class="mt-2 w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-green-500 rounded-full" style="width: 87.5%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recettes par tranche -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-chart-bar text-green-600 mr-2"></i>
+            Recettes par tranche
+        </h3>
+        <div class="space-y-4">
+            {% for tranche in recettes_par_tranche %}
+            <div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700">{{ tranche.nom }}</span>
+                    <span class="text-sm font-semibold text-gray-900">{{ tranche.total|floatformat:0 }} FCFA</span>
+                </div>
+                <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-1000" 
+                         style="width: {% widthratio tranche.total total_recettes 100 %}%; background: {{ tranche.couleur }};"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Graphique d'évolution -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-chart-line text-yellow-600 mr-2"></i>
+            Évolution mensuelle
+        </h3>
+        <canvas id="evolutionMensuelle" height="200"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('evolutionMensuelle').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Sep', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+            datasets: [{
+                label: 'Recettes (millions FCFA)',
+                data: [25, 42, 38, 55, 32, 28, 45, 52, 48, 60],
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'top' }
+            }
+        }
+    });
+</script>
+{% endblock %}
