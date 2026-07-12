@@ -756,17 +756,43 @@ class DemandeInscription(models.Model):
         """Analyse le document justificatif avec simulation d'IA"""
         nom_fichier = self.document.name.lower() if self.document else ""
         
-        # Simulation d'anomalies si suspect
+        # Initialisation par défaut
+        self.score_confiance = 0.95
+        self.anomalies = []
+        self.statut = 'VALIDE'
+        self.commentaires = "Validé automatiquement par l'agent IA."
+        
+        # 1. Vérification générale anti-fraude (fichiers suspects)
         if "suspect" in nom_fichier or "fake" in nom_fichier or "truque" in nom_fichier:
-            self.score_confiance = 0.45
-            self.anomalies = ["Signature bancaire non concordante", "Montant altéré numériquement"]
-            self.statut = 'EN_ATTENTE'
-            self.commentaires = "Vérification manuelle requise par la comptabilité (IA douteuse)."
-        else:
-            self.score_confiance = 0.95
-            self.anomalies = []
-            self.statut = 'VALIDE'
-            self.commentaires = "Validé automatiquement par l'agent IA."
+            self.score_confiance = 0.35
+            self.anomalies = ["Tentative de falsification détectée (métadonnées suspectes)"]
+            self.statut = 'REJETE'
+            self.commentaires = "Rejet automatique : Document identifié comme falsifié par l'IA."
+        
+        # 2. Vérification spécifique pour les Notes de Service du Personnel
+        elif self.type_document == 'NOTE_SERVICE':
+            # Extraction de texte OCR simulée (recherche de mots-clés officiels du document authentique)
+            mots_cles_officiels = ['abanda', 'excellence', 'note de service', 'nsn']
+            
+            # Simulation d'inauthenticité si des mots disqualifiants sont présents
+            # ou si aucun mot clé officiel de la note de service n'est présent dans le nom de fichier
+            a_elements_officiels = any(k in nom_fichier for k in mots_cles_officiels)
+            contient_erreur = any(k in nom_fichier for k in ['incomplet', 'brouillon', 'test'])
+            
+            if contient_erreur or not a_elements_officiels:
+                self.score_confiance = 0.55
+                self.anomalies = [
+                    "Absence de la signature officielle (Armand Claude Abanda non détecté)",
+                    "Entête institutionnelle 'Centre d'Excellence Technologique' manquante ou altérée",
+                    "Tampon officiel circulaire IAI non identifiable"
+                ]
+                self.statut = 'EN_ATTENTE'
+                self.commentaires = "Vérification manuelle requise : Éléments d'authenticité de la Note de Service manquants."
+            else:
+                self.score_confiance = 0.98
+                self.anomalies = []
+                self.statut = 'VALIDE'
+                self.commentaires = "Note de Service validée : Signature d'Armand Claude Abanda et cachet officiel confirmés."
             
         self.save()
         
