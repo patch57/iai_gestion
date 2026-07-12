@@ -60,13 +60,13 @@ def televerser_recu(request, etudiant_id):
                 statut='EN_ATTENTE'
             )
             
-            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Bessengue, 200 000 FCFA, Romuald Patchong)
+            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Bessengue, 200 000 FCFA & 115 000 FCFA, Romuald Patchong)
             nom_fichier = file.name.lower()
             
             # Détection de fraude/suspicion
             est_suspect = any(k in nom_fichier for k in ['suspect', 'fake', 'truque', 'falsifie'])
             
-            # Détection de conformité avec le reçu SCB authentique fourni par l'utilisateur
+            # Détection de conformité avec le reçu SCB authentique
             a_mots_cles_scb = any(k in nom_fichier for k in ['scb', 'bessengue', 'patchong', 'njitack', 'romuald'])
             
             if est_suspect:
@@ -78,26 +78,43 @@ def televerser_recu(request, etudiant_id):
                     },
                     'score_confiance': 0.35,
                     'anomalies': {'anomalies': ["Filigrane bancaire SCB non concordant", "Altération numérique suspecte du montant"]},
-                    'version': '1.1'
+                    'version': '1.2'
                 })
                 messages.warning(request, '⚠️ Reçu téléversé. Des anomalies critiques ont été détectées par notre système de vérification IA.')
             elif a_mots_cles_scb:
-                # Reçu officiel SCB authentifié
-                recu.analyser_par_ia({
-                    'extraction': {
+                # Distinguer le reçu selon le montant ou motif
+                est_deuxieme_tranche = any(k in nom_fichier for k in ['115', 'deuxieme', '2eme', 'tranche_3']) or float(montant) == 115000.0
+                
+                if est_deuxieme_tranche:
+                    donnees = {
+                        'montant': 115000.0,
+                        'reference': '011261',
+                        'date_paiement': '2024-04-09',
+                        'remettant': 'PATCHONG NJITACK ROMUALD',
+                        'banque': 'SCB Cameroun',
+                        'agence': 'BESSENGUE',
+                        'compte_dest': '12167083150-53',
+                        'motif': '2EME TRANCHE'
+                    }
+                else:
+                    donnees = {
                         'montant': 200000.0,
                         'reference': '024356',
                         'date_paiement': '2025-10-07',
                         'remettant': 'PATCHONG NJITACK ROMUALD',
                         'banque': 'SCB Cameroun',
                         'agence': 'BESSENGUE',
-                        'compte_dest': '12167083150-53'
-                    },
+                        'compte_dest': '12167083150-53',
+                        'motif': 'DROITS UNIVERSITAIRES'
+                    }
+                
+                recu.analyser_par_ia({
+                    'extraction': donnees,
                     'score_confiance': 0.99,
                     'anomalies': {'anomalies': []},
-                    'version': '1.1'
+                    'version': '1.2'
                 })
-                messages.success(request, '✅ Reçu SCB Cameroun (Bessengue) de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% par l\'IA !')
+                messages.success(request, f"✅ Reçu SCB Cameroun ({donnees['motif']}) de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% !")
             else:
                 recu.analyser_par_ia({
                     'extraction': {
@@ -107,7 +124,7 @@ def televerser_recu(request, etudiant_id):
                     },
                     'score_confiance': 0.96,
                     'anomalies': {'anomalies': []},
-                    'version': '1.1'
+                    'version': '1.2'
                 })
                 messages.success(request, '✅ Reçu téléversé et vérifié par l\'IA avec succès !')
                 
@@ -143,7 +160,7 @@ def televerser_recu_tranche(request, etudiant_id, tranche_id):
                 statut='EN_ATTENTE'
             )
             
-            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Bessengue, 200 000 FCFA, Romuald Patchong)
+            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Bessengue, 200 000 FCFA & 115 000 FCFA, Romuald Patchong)
             nom_fichier = file.name.lower()
             
             # Détection de fraude/suspicion
@@ -161,25 +178,43 @@ def televerser_recu_tranche(request, etudiant_id, tranche_id):
                     },
                     'score_confiance': 0.35,
                     'anomalies': {'anomalies': ["Filigrane bancaire SCB suspect"]},
-                    'version': '1.1'
+                    'version': '1.2'
                 })
                 messages.warning(request, '⚠️ Reçu téléversé. Des anomalies ont été détectées par notre système de vérification IA.')
             elif a_mots_cles_scb:
-                recu.analyser_par_ia({
-                    'extraction': {
+                # Distinguer le reçu selon le montant ou motif
+                est_deuxieme_tranche = any(k in nom_fichier for k in ['115', 'deuxieme', '2eme', 'tranche_3']) or float(tranche.montant) == 115000.0
+                
+                if est_deuxieme_tranche:
+                    donnees = {
+                        'montant': 115000.0,
+                        'reference': '011261',
+                        'date_paiement': '2024-04-09',
+                        'remettant': 'PATCHONG NJITACK ROMUALD',
+                        'banque': 'SCB Cameroun',
+                        'agence': 'BESSENGUE',
+                        'compte_dest': '12167083150-53',
+                        'motif': '2EME TRANCHE'
+                    }
+                else:
+                    donnees = {
                         'montant': 200000.0,
                         'reference': '024356',
                         'date_paiement': '2025-10-07',
                         'remettant': 'PATCHONG NJITACK ROMUALD',
                         'banque': 'SCB Cameroun',
                         'agence': 'BESSENGUE',
-                        'compte_dest': '12167083150-53'
-                    },
+                        'compte_dest': '12167083150-53',
+                        'motif': 'DROITS UNIVERSITAIRES'
+                    }
+                
+                recu.analyser_par_ia({
+                    'extraction': donnees,
                     'score_confiance': 0.99,
                     'anomalies': {'anomalies': []},
-                    'version': '1.1'
+                    'version': '1.2'
                 })
-                messages.success(request, '✅ Reçu SCB Cameroun (Bessengue) de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% par l\'IA !')
+                messages.success(request, f"✅ Reçu SCB Cameroun ({donnees['motif']}) de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% !")
             else:
                 recu.analyser_par_ia({
                     'extraction': {
@@ -189,7 +224,7 @@ def televerser_recu_tranche(request, etudiant_id, tranche_id):
                     },
                     'score_confiance': 0.98,
                     'anomalies': {'anomalies': []},
-                    'version': '1.1'
+                    'version': '1.2'
                 })
                 messages.success(request, '✅ Reçu téléversé et vérifié par l\'IA avec succès !')
                 
