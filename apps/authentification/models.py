@@ -805,8 +805,8 @@ class DemandeInscription(models.Model):
             
         # 3. Vérification spécifique pour les Reçus de Pré-inscription (Entrée Caisse IAI)
         elif self.type_document == 'RECU_BANCAIRE':
-            # Mots-clés du reçu de pré-inscription d'entrée caisse de Romuald Patchong Njitack
-            mots_cles_preins = ['caisse', 'entree', 'preinscription', 'pre-inscription', '71000', '71.000', '71', 'patchong', 'patohong', 'njitack', 'romuald']
+            # Mots-clés du reçu de pré-inscription d'entrée caisse de Romuald Patchong Njitack (le montant peut varier)
+            mots_cles_preins = ['caisse', 'entree', 'preinscription', 'pre-inscription', 'patchong', 'patohong', 'njitack', 'romuald']
             
             a_elements = any(k in nom_fichier for k in mots_cles_preins)
             contient_erreur = any(k in nom_fichier for k in ['suspect', 'incomplet', 'brouillon', 'test'])
@@ -815,16 +815,15 @@ class DemandeInscription(models.Model):
                 self.score_confiance = 0.50
                 self.anomalies = [
                     "Absence du tampon officiel rouge de la Comptabilité IAI",
-                    "Montant ou libellé de pré-inscription non conforme (71 000 FCFA attendus)",
                     "Numéro de reçu Entrée Caisse non valide ou altéré"
                 ]
                 self.statut = 'EN_ATTENTE'
-                self.commentaires = "Vérification manuelle requise : Tampon de la caisse ou montant non concordant."
+                self.commentaires = "Vérification manuelle requise : Tampon ou validité de la caisse non concordante."
             else:
                 self.score_confiance = 0.99
                 self.anomalies = []
                 self.statut = 'VALIDE'
-                self.commentaires = "Reçu Entrée Caisse IAI validé avec succès (Numéro: 0043779, Montant: 71 000 FCFA pour Romuald Patchong)."
+                self.commentaires = "Reçu Entrée Caisse IAI validé avec succès (Numéro: 0043779 pour Romuald Patchong, montant variable validé)."
             
         self.save()
         
