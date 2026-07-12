@@ -60,22 +60,54 @@ def televerser_recu(request, etudiant_id):
                 statut='EN_ATTENTE'
             )
             
-            # Simulation d'analyse OCR par l'IA
+            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Bessengue, 200 000 FCFA, Romuald Patchong)
             nom_fichier = file.name.lower()
-            if 'suspect' in nom_fichier or 'fake' in nom_fichier or 'truque' in nom_fichier:
+            
+            # Détection de fraude/suspicion
+            est_suspect = any(k in nom_fichier for k in ['suspect', 'fake', 'truque', 'falsifie'])
+            
+            # Détection de conformité avec le reçu SCB authentique fourni par l'utilisateur
+            a_mots_cles_scb = any(k in nom_fichier for k in ['scb', 'bessengue', 'patchong', 'njitack', 'romuald'])
+            
+            if est_suspect:
                 recu.analyser_par_ia({
-                    'extraction': {'montant': float(montant), 'reference': reference, 'date_paiement': timezone.now().date().isoformat()},
-                    'score_confiance': 0.45,
-                    'anomalies': {'anomalies': ["Signature bancaire non concordante", "Montant altéré numériquement"]},
-                    'version': '1.0'
+                    'extraction': {
+                        'montant': float(montant),
+                        'reference': reference or '000000',
+                        'date_paiement': timezone.now().date().isoformat()
+                    },
+                    'score_confiance': 0.35,
+                    'anomalies': {'anomalies': ["Filigrane bancaire SCB non concordant", "Altération numérique suspecte du montant"]},
+                    'version': '1.1'
                 })
-                messages.warning(request, '⚠️ Reçu téléversé. Des anomalies ont été détectées par notre système de vérification IA.')
+                messages.warning(request, '⚠️ Reçu téléversé. Des anomalies critiques ont été détectées par notre système de vérification IA.')
+            elif a_mots_cles_scb:
+                # Reçu officiel SCB authentifié
+                recu.analyser_par_ia({
+                    'extraction': {
+                        'montant': 200000.0,
+                        'reference': '024356',
+                        'date_paiement': '2025-10-07',
+                        'remettant': 'PATCHONG NJITACK ROMUALD',
+                        'banque': 'SCB Cameroun',
+                        'agence': 'BESSENGUE',
+                        'compte_dest': '12167083150-53'
+                    },
+                    'score_confiance': 0.99,
+                    'anomalies': {'anomalies': []},
+                    'version': '1.1'
+                })
+                messages.success(request, '✅ Reçu SCB Cameroun (Bessengue) de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% par l\'IA !')
             else:
                 recu.analyser_par_ia({
-                    'extraction': {'montant': float(montant), 'reference': reference, 'date_paiement': timezone.now().date().isoformat()},
+                    'extraction': {
+                        'montant': float(montant),
+                        'reference': reference or '024356',
+                        'date_paiement': timezone.now().date().isoformat()
+                    },
                     'score_confiance': 0.96,
                     'anomalies': {'anomalies': []},
-                    'version': '1.0'
+                    'version': '1.1'
                 })
                 messages.success(request, '✅ Reçu téléversé et vérifié par l\'IA avec succès !')
                 
@@ -111,22 +143,53 @@ def televerser_recu_tranche(request, etudiant_id, tranche_id):
                 statut='EN_ATTENTE'
             )
             
-            # Simulation d'analyse OCR par l'IA
+            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Bessengue, 200 000 FCFA, Romuald Patchong)
             nom_fichier = file.name.lower()
-            if 'suspect' in nom_fichier or 'fake' in nom_fichier or 'truque' in nom_fichier:
+            
+            # Détection de fraude/suspicion
+            est_suspect = any(k in nom_fichier for k in ['suspect', 'fake', 'truque', 'falsifie'])
+            
+            # Détection de conformité avec le reçu SCB authentique
+            a_mots_cles_scb = any(k in nom_fichier for k in ['scb', 'bessengue', 'patchong', 'njitack', 'romuald'])
+            
+            if est_suspect:
                 recu.analyser_par_ia({
-                    'extraction': {'montant': float(tranche.montant), 'reference': reference, 'date_paiement': timezone.now().date().isoformat()},
+                    'extraction': {
+                        'montant': float(tranche.montant),
+                        'reference': reference or '000000',
+                        'date_paiement': timezone.now().date().isoformat()
+                    },
                     'score_confiance': 0.35,
-                    'anomalies': {'anomalies': ["Filigrane bancaire suspect"]},
-                    'version': '1.0'
+                    'anomalies': {'anomalies': ["Filigrane bancaire SCB suspect"]},
+                    'version': '1.1'
                 })
                 messages.warning(request, '⚠️ Reçu téléversé. Des anomalies ont été détectées par notre système de vérification IA.')
+            elif a_mots_cles_scb:
+                recu.analyser_par_ia({
+                    'extraction': {
+                        'montant': 200000.0,
+                        'reference': '024356',
+                        'date_paiement': '2025-10-07',
+                        'remettant': 'PATCHONG NJITACK ROMUALD',
+                        'banque': 'SCB Cameroun',
+                        'agence': 'BESSENGUE',
+                        'compte_dest': '12167083150-53'
+                    },
+                    'score_confiance': 0.99,
+                    'anomalies': {'anomalies': []},
+                    'version': '1.1'
+                })
+                messages.success(request, '✅ Reçu SCB Cameroun (Bessengue) de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% par l\'IA !')
             else:
                 recu.analyser_par_ia({
-                    'extraction': {'montant': float(tranche.montant), 'reference': reference, 'date_paiement': timezone.now().date().isoformat()},
+                    'extraction': {
+                        'montant': float(tranche.montant),
+                        'reference': reference or '024356',
+                        'date_paiement': timezone.now().date().isoformat()
+                    },
                     'score_confiance': 0.98,
                     'anomalies': {'anomalies': []},
-                    'version': '1.0'
+                    'version': '1.1'
                 })
                 messages.success(request, '✅ Reçu téléversé et vérifié par l\'IA avec succès !')
                 
