@@ -388,6 +388,16 @@ def detail_demande(request, pk):
     if request.method == 'POST':
         action = request.POST.get('action')
         
+        # Contrôle de permission par type de document
+        if demande.type_document == 'NOTE_SERVICE':
+            if request.user.type_utilisateur not in ['CHEF_ETUDES', 'ADMIN_SYSTEME']:
+                messages.error(request, "Seul le Chef de Service des Études est autorisé à valider/rejeter les Notes de Service.")
+                return redirect('authentification:liste_demandes')
+        elif demande.type_document == 'RECU_BANCAIRE':
+            if request.user.type_utilisateur not in ['CHEF_COMPTABILITE', 'ADMIN_SYSTEME']:
+                messages.error(request, "Seul le Chef de Service de la Comptabilité est autorisé à valider/rejeter les Reçus de paiement.")
+                return redirect('authentification:liste_demandes')
+                
         if action == 'valider':
             demande.activer_compte()
             messages.success(
@@ -413,6 +423,16 @@ def valider_demande(request, pk):
     """Valider une demande d'inscription"""
     demande = get_object_or_404(DemandeInscription, pk=pk)
     
+    # Contrôle de permission par type de document
+    if demande.type_document == 'NOTE_SERVICE':
+        if request.user.type_utilisateur not in ['CHEF_ETUDES', 'ADMIN_SYSTEME']:
+            messages.error(request, "Seul le Chef de Service des Études est autorisé à valider/rejeter les Notes de Service.")
+            return redirect('authentification:liste_demandes')
+    elif demande.type_document == 'RECU_BANCAIRE':
+        if request.user.type_utilisateur not in ['CHEF_COMPTABILITE', 'ADMIN_SYSTEME']:
+            messages.error(request, "Seul le Chef de Service de la Comptabilité est autorisé à valider/rejeter les Reçus de paiement.")
+            return redirect('authentification:liste_demandes')
+            
     if request.method == 'POST':
         demande.activer_compte()
         messages.success(
@@ -434,6 +454,16 @@ def rejeter_demande(request, pk):
     """Rejeter une demande d'inscription"""
     demande = get_object_or_404(DemandeInscription, pk=pk)
     
+    # Contrôle de permission par type de document
+    if demande.type_document == 'NOTE_SERVICE':
+        if request.user.type_utilisateur not in ['CHEF_ETUDES', 'ADMIN_SYSTEME']:
+            messages.error(request, "Seul le Chef de Service des Études est autorisé à valider/rejeter les Notes de Service.")
+            return redirect('authentification:liste_demandes')
+    elif demande.type_document == 'RECU_BANCAIRE':
+        if request.user.type_utilisateur not in ['CHEF_COMPTABILITE', 'ADMIN_SYSTEME']:
+            messages.error(request, "Seul le Chef de Service de la Comptabilité est autorisé à valider/rejeter les Reçus de paiement.")
+            return redirect('authentification:liste_demandes')
+            
     if request.method == 'POST':
         motif = request.POST.get('motif', '')
         demande.rejeter_demande(motif)

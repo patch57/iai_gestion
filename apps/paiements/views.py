@@ -268,6 +268,10 @@ def detail_recu(request, pk):
 @permission_required('paiements.can_validate_paiements', raise_exception=True)
 def valider_recu(request, pk):
     """Valider un reçu"""
+    if request.user.type_utilisateur not in ['CHEF_COMPTABILITE', 'ADMIN_SYSTEME']:
+        messages.error(request, "Seul le Chef de Service de la Comptabilité est autorisé à valider/rejeter les reçus de paiement.")
+        return redirect('paiements:liste_recus')
+        
     recu = get_object_or_404(RecuPaiement, pk=pk)
     recu.statut = 'VALIDE'
     recu.date_verification = timezone.now()
@@ -282,6 +286,10 @@ def valider_recu(request, pk):
 @permission_required('paiements.can_validate_paiements', raise_exception=True)
 def rejeter_recu(request, pk):
     """Rejeter un reçu"""
+    if request.user.type_utilisateur not in ['CHEF_COMPTABILITE', 'ADMIN_SYSTEME']:
+        messages.error(request, "Seul le Chef de Service de la Comptabilité est autorisé à valider/rejeter les reçus de paiement.")
+        return redirect('paiements:liste_recus')
+        
     recu = get_object_or_404(RecuPaiement, pk=pk)
     recu.statut = 'REJETE'
     recu.date_verification = timezone.now()
