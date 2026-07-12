@@ -54,8 +54,8 @@ class Utilisateur(AbstractUser):
     ]
     
     matricule_validator = RegexValidator(
-        regex=r'^(GL|SR|PA|PR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]?$',
-        message='Format de matricule invalide. Exemple: GL.CMR.DO14.2425'
+        regex=r'^((GL|SR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]?|[A-Z]{3}\.CMR\.D\d{3}\.\d{4}\.[A-Z])$',
+        message='Format de matricule invalide. Exemples : GL.CMR.DO14.2425 ou CSE.CMR.D123.2026.A'
     )
     
     telephone_validator = RegexValidator(
@@ -301,18 +301,11 @@ class Utilisateur(AbstractUser):
                     )
                 })
                 
-        elif self.type_utilisateur in ['ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'ADMIN_FINANCIER']:
-            pattern = r'^PA\.CMR\.D014\.\d{4}[A-Z]$'
+        elif self.type_utilisateur in ['ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'ADMIN_FINANCIER'] or self.type_utilisateur == 'PROFESSEUR' or self.type_utilisateur == 'ENSEIGNANT' or self.type_utilisateur.startswith('CHEF_'):
+            pattern = r'^[A-Z]{3}\.CMR\.D\d{3}\.\d{4}\.[A-Z]$'
             if not re.match(pattern, self.matricule):
                 raise ValidationError({
-                    'matricule': _('Format invalide. Format attendu: PA.CMR.D014.2324A')
-                })
-        
-        elif self.type_utilisateur == 'PROFESSEUR':
-            pattern = r'^PR\.CMR\.D014\.\d{4}[A-Z]$'
-            if not re.match(pattern, self.matricule):
-                raise ValidationError({
-                    'matricule': _('Format invalide. Format attendu: PR.CMR.D014.2324A')
+                    'matricule': _('Format invalide. Format attendu: CSE.CMR.D123.2026.A')
                 })
     
     def save(self, *args, **kwargs):
@@ -352,23 +345,36 @@ class Utilisateur(AbstractUser):
     
     def generer_matricule(self):
         """Génère un matricule automatiquement après validation"""
+        import random
+        import string
         annee = datetime.now().year
-        annee_acad = str(annee)[2:] + str(annee + 1)[2:]
-        suffixe = f"{annee_acad}A"
         
         if self.type_utilisateur == 'ETUDIANT':
+            annee_acad = str(annee)[2:] + str(annee + 1)[2:]
+            suffixe = f"{annee_acad}A"
             if self.matricule:
                 filiere = self.matricule.split('.')[0]
             else:
                 reco = self.get_recommandation_filiere()
                 filiere = reco['filiere'] if reco else 'GL'
             self.matricule = f"{filiere}.CMR.D014.{suffixe}"
-        elif self.type_utilisateur in ['ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'ADMIN_FINANCIER']:
-            self.matricule = f"PA.CMR.D014.{suffixe}"
-        elif self.type_utilisateur == 'PROFESSEUR':
-            self.matricule = f"PR.CMR.D014.{suffixe}"
         else:
-            self.matricule = f"PA.CMR.D014.{suffixe}"
+            role_abbrev = {
+                'PROFESSEUR': 'ENS',
+                'ENSEIGNANT': 'ENS',
+                'ADMIN_PEDAGOGIQUE': 'APE',
+                'ADMIN_FINANCIER': 'AFI',
+                'CHEF_SCOLARITE': 'CSC',
+                'CHEF_ETUDES': 'CSE',
+                'CHEF_ANONYMAT': 'CAN',
+                'CHEF_COMPTABILITE': 'CCO',
+                'ADMIN_SYSTEME': 'ASY',
+            }
+            abbrev = role_abbrev.get(self.type_utilisateur, 'ADM')
+            digits = "".join(random.choices(string.digits, k=3))
+            letter = random.choice(string.ascii_uppercase)
+            year = self.date_joined.year if (hasattr(self, 'date_joined') and self.date_joined) else annee
+            self.matricule = f"{abbrev}.CMR.D{digits}.{year}.{letter}"
     
     def _notifier_changement_statut(self):
         """Notifie l'utilisateur du changement de statut"""
@@ -710,25 +716,41 @@ class DemandeInscription(models.Model):
     def generer_matricule(self):
         """Génère le matricule après validation"""
         from datetime import datetime
+        import random
+        import string
         from apps.etudiants.models import AnneeAcademique, Etudiant
         
         annee_active = AnneeAcademique.get_active()
         if annee_active:
             parties = annee_active.code.split('-')
             suffixe_annee = parties[0][2:] + parties[1][2:]
+            year_hiring = int(parties[0])
         else:
             annee = datetime.now().year
             suffixe_annee = f"{str(annee)[2:]}{str(annee+1)[2:]}"
+            year_hiring = annee
         
         if self.type_utilisateur == 'ETUDIANT':
             filiere = self.filiere_souhaitee or 'GL'
             # Compter les étudiants existants dans cette filière pour cette année
             num_ordre = Etudiant.objects.filter(filiere__code=filiere).count() + 1
             return f"{filiere}.CMR.DO{num_ordre:02d}.{suffixe_annee}A"
-        elif self.type_utilisateur == 'ENSEIGNANT':
-            return f"PR.CMR.D014.{suffixe_annee}A"
         else:
-            return f"PA.CMR.D014.{suffixe_annee}A"
+            fonction_str = self.fonction or ""
+            words = [w for w in re.split(r'[\s\-_,\'\.]+', fonction_str) if w]
+            if len(words) >= 3:
+                abbrev = "".join([w[0].upper() for w in words[:3]])
+            elif len(words) > 0:
+                abbrev = words[0][:3].upper()
+            else:
+                abbrev = 'ENS' if self.type_utilisateur == 'ENSEIGNANT' else 'ADM'
+            
+            if len(abbrev) < 3:
+                abbrev = (abbrev + "ADM")[:3]
+                
+            digits = "".join(random.choices(string.digits, k=3))
+            letter = random.choice(string.ascii_uppercase)
+            return f"{abbrev}.CMR.D{digits}.{year_hiring}.{letter}"
 
     def analyser_par_ia(self):
         """Analyse le document justificatif avec simulation d'IA"""

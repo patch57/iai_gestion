@@ -226,11 +226,11 @@ IAI_CONFIG = {
 # Configuration des formats de matricules
 MATRICULE_CONFIG = {
     'ETUDIANT_PATTERN': r'^(GL|SR)\.CMR\.D014\.\d{4}[A-Z]$',
-    'ADMIN_PATTERN': r'^PA\.CMR\.D014\.\d{4}[A-Z]$',
-    'PROFESSEUR_PATTERN': r'^PR\.CMR\.D014\.\d{4}[A-Z]$',
+    'ADMIN_PATTERN': r'^[A-Z]{3}\.CMR\.D\d{3}\.\d{4}\.[A-Z]$',
+    'PROFESSEUR_PATTERN': r'^[A-Z]{3}\.CMR\.D\d{3}\.\d{4}\.[A-Z]$',
     'EXEMPLE_ETUDIANT': 'GL.CMR.D014.2324A',
-    'EXEMPLE_ADMIN': 'PA.CMR.D014.2324A',
-    'EXEMPLE_PROFESSEUR': 'PR.CMR.D014.2324A',
+    'EXEMPLE_ADMIN': 'CSE.CMR.D123.2026.A',
+    'EXEMPLE_PROFESSEUR': 'ENS.CMR.D456.2026.B',
 }
 
 # Configuration des tranches de paiement
