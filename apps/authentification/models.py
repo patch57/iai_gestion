@@ -282,7 +282,7 @@ class Utilisateur(AbstractUser):
             return
             
         if self.type_utilisateur == 'ETUDIANT':
-            pattern = r'^(GL|SR)\.CMR\.D014\.\d{4}[A-Z]$'
+            pattern = r'^(GL|SR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]$'
             if not re.match(pattern, self.matricule):
                 raise ValidationError({
                     'matricule': _('Format invalide. Format attendu: GL.CMR.D014.2324A ou SR.CMR.D014.2324A')
