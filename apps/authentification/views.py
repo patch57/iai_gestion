@@ -209,8 +209,8 @@ L'équipe administrative IAI-Cameroun
                     filiere_souhaitee=request.POST.get('filiere') if type_utilisateur == 'ETUDIANT' else None,
                     type_baccalaureat=request.POST.get('type_bac') if type_utilisateur == 'ETUDIANT' else None,
                     annee_obtention_bac=request.POST.get('annee_bac') if type_utilisateur == 'ETUDIANT' else None,
-                    fonction=request.POST.get('fonction') if type_utilisateur != 'ETUDIANT' else None,
-                    departement=request.POST.get('departement') if type_utilisateur != 'ETUDIANT' else None
+                    fonction=request.POST.get('fonction', '') if type_utilisateur != 'ETUDIANT' else "",
+                    departement=request.POST.get('departement', '') if type_utilisateur != 'ETUDIANT' else ""
                 )
                 
                 # Traitement par l'Agent IA en tâche de fond immédiate
