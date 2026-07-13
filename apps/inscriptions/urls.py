@@ -37,4 +37,7 @@ urlpatterns = [
     
     # Statistiques
     path('statistiques/', views.statistiques_financieres, name='statistiques_financieres'),
+    
+    # Export
+    path('exporter/', views.exporter_inscriptions, name='exporter_inscriptions'),
 ]
