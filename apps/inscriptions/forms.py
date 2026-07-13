@@ -5,7 +5,7 @@ IAI-Cameroun - Centre de Douala
 from django import forms
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Submit, Row, Column, Fieldset, ButtonHolder
-from .models import Inscription, DocumentInscription, AnneeAcademique
+from .models import Inscription, DocumentInscription, AnneeAcademique, Bourse
 from apps.etudiants.models import Etudiant, Filiere
 
 
@@ -188,5 +188,44 @@ class RejetRecuForm(forms.Form):
             'motif',
             ButtonHolder(
                 Submit('submit', 'Rejeter', css_class='btn btn-danger'),
+            )
+        )
+
+
+class BourseForm(forms.ModelForm):
+    """Formulaire pour attribuer ou modifier une bourse d'études"""
+    
+    class Meta:
+        model = Bourse
+        fields = ['etudiant', 'type_bourse', 'montant', 'annee_academique', 'date_attribution', 'est_active', 'commentaire']
+        widgets = {
+            'commentaire': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Commentaires ou motif de la bourse...'}),
+            'date_attribution': forms.DateInput(attrs={'type': 'date'}),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtrer uniquement les étudiants actifs, préinscrits ou inscrits
+        self.fields['etudiant'].queryset = Etudiant.objects.filter(statut__in=['PREINSCRIT', 'ACTIF', 'INSCRIT']).order_by('nom')
+        self.fields['annee_academique'].queryset = AnneeAcademique.objects.all()
+        
+        self.helper = FormHelper()
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Row(
+                Column('etudiant', css_class='col-md-6'),
+                Column('annee_academique', css_class='col-md-6'),
+            ),
+            Row(
+                Column('type_bourse', css_class='col-md-6'),
+                Column('montant', css_class='col-md-6'),
+            ),
+            Row(
+                Column('date_attribution', css_class='col-md-6'),
+                Column('est_active', css_class='col-md-6'),
+            ),
+            'commentaire',
+            ButtonHolder(
+                Submit('submit', 'Enregistrer la bourse', css_class='btn btn-primary'),
             )
         )

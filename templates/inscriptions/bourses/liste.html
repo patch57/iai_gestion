@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Bourses d'Études - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-hand-holding-usd text-green-600 mr-2"></i>Bourses d'Études</h1>
+            <p class="text-gray-500 text-sm mt-1">Attributions, exonérations et réductions de scolarité</p>
+        </div>
+        
+        <div class="flex gap-3">
+            <a href="{% url 'inscriptions:attribuer_bourse' %}" class="inline-flex items-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-plus-circle mr-2 text-yellow-400"></i> Attribuer une bourse
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <!-- Recherche -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Recherche</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Matricule, nom..."
+                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 text-sm">
+                </div>
+            </div>
+
+            <!-- Type de Bourse -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Type de bourse</label>
+                <select name="type_bourse" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous</option>
+                    {% for code, label in types_bourse %}
+                    <option value="{{ code }}" {% if request.GET.type_bourse == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filière -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Filière</label>
+                <select name="filiere" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Toutes</option>
+                    {% for f in filieres %}
+                    <option value="{{ f.id }}" {% if request.GET.filiere == f.id|stringformat:"i" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-xl text-sm transition">
+                    Filtrer
+                </button>
+                <a href="{% url 'inscriptions:liste_bourses' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau des bourses -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th class="p-5">Étudiant</th>
+                        <th class="p-5">Année Académique</th>
+                        <th class="p-5">Filière</th>
+                        <th class="p-5">Type de Bourse</th>
+                        <th class="p-5">Montant</th>
+                        <th class="p-5">Date d'attribution</th>
+                        <th class="p-5">Statut</th>
+                        <th class="p-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    {% for b in bourses %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-5">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center font-bold text-white shadow-inner">
+                                    {{ b.etudiant.nom|first|upper }}{{ b.etudiant.prenom|first|upper }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-800">{{ b.etudiant.get_nom_complet }}</p>
+                                    <span class="text-xs text-gray-400 font-semibold font-mono">{{ b.etudiant.matricule }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-5 align-middle text-gray-600">
+                            {{ b.annee_academique.code }}
+                        </td>
+                        <td class="p-5 align-middle font-bold text-green-700">
+                            {{ b.etudiant.filiere.code }}
+                        </td>
+                        <td class="p-5 align-middle">
+                            <span class="px-2.5 py-1 text-xs font-bold rounded-full 
+                                {% if b.type_bourse == 'EXCELLENCE' %}bg-purple-100 text-purple-700
+                                {% elif b.type_bourse == 'DEMI_EXCELLENCE' %}bg-indigo-100 text-indigo-700
+                                {% elif b.type_bourse == 'SOCIALE' %}bg-blue-100 text-blue-700
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ b.get_type_bourse_display }}
+                            </span>
+                        </td>
+                        <td class="p-5 align-middle font-black text-gray-800">
+                            {{ b.montant|floatformat:"0" }} FCFA
+                        </td>
+                        <td class="p-5 align-middle text-gray-500">
+                            {{ b.date_attribution|date:"d M Y" }}
+                        </td>
+                        <td class="p-5 align-middle">
+                            {% if b.est_active %}
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-green-600">
+                                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Actif
+                            </span>
+                            {% else %}
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-red-500">
+                                <span class="w-2 h-2 rounded-full bg-red-400"></span> Inactif
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="p-5 text-right">
+                            <div class="flex justify-end gap-2">
+                                <a href="{% url 'inscriptions:modifier_bourse' b.id %}" class="w-8 h-8 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 flex items-center justify-center transition shadow-sm" title="Modifier">
+                                    <i class="fas fa-edit text-xs"></i>
+                                </a>
+                                <a href="{% url 'inscriptions:supprimer_bourse' b.id %}" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition shadow-sm" title="Supprimer">
+                                    <i class="fas fa-trash text-xs"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="p-10 text-center text-gray-400">
+                            <i class="fas fa-hand-holding-usd text-4xl mb-3 block text-gray-200"></i>
+                            Aucune bourse d'études trouvée.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if bourses.has_other_pages %}
+        <div class="bg-gray-50 border-t border-gray-100 px-6 py-4 flex items-center justify-between">
+            <span class="text-xs font-semibold text-gray-400">Page {{ bourses.number }} sur {{ bourses.paginator.num_pages }}</span>
+            <div class="flex gap-2">
+                {% if bourses.has_previous %}
+                <a href="?page={{ bourses.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type_bourse %}&type_bourse={{ request.GET.type_bourse }}{% endif %}{% if request.GET.filiere %}&filiere={{ request.GET.filiere }}{% endif %}" class="bg-white border hover:bg-gray-50 text-gray-700 font-bold px-3 py-1.5 rounded-lg text-xs transition">
+                    Précédent
+                </a>
+                {% endif %}
+                {% if bourses.has_next %}
+                <a href="?page={{ bourses.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.type_bourse %}&type_bourse={{ request.GET.type_bourse }}{% endif %}{% if request.GET.filiere %}&filiere={{ request.GET.filiere }}{% endif %}" class="bg-white border hover:bg-gray-50 text-gray-700 font-bold px-3 py-1.5 rounded-lg text-xs transition">
+                    Suivant
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,4 +1,6 @@
 from django.test import TestCase
+from django.core.management import call_command
+from django.core import mail
 from datetime import date, timedelta
 from apps.etudiants.models import Etudiant, Filiere, AnneeAcademique
 from apps.paiements.models import TranchePaiement
@@ -61,3 +63,18 @@ class PenalitesServicesTestCase(TestCase):
         self.assertEqual(len(penalites['details']), 1)
         self.assertEqual(penalites['details'][0]['semaines_retard'], 2)
         self.assertEqual(penalites['details'][0]['montant'], 3000)
+
+    def test_envoyer_rappels_paiements_command(self):
+        """Vérifie que la commande Django calcule bien les pénalités et envoie un courriel d'avertissement"""
+        # Exécuter la commande
+        call_command('envoyer_rappels_paiements')
+        
+        # Vérifier que le courriel est envoyé dans la boîte d'envoi factice
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        
+        self.assertEqual(email.to, ['testetudiant@iai.com'])
+        self.assertIn("Rappel : Frais de Scolarité et Pénalités", email.subject)
+        # Nettoyer les espaces insécables ou formats possibles du montant
+        self.assertTrue(any(x in email.body for x in ["3 000", "3000"]))
+        self.assertIn("Pré-inscription", email.body)

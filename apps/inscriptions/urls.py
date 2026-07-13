@@ -26,6 +26,7 @@ urlpatterns = [
     path('bourses/', views.liste_bourses, name='liste_bourses'),
     path('bourses/attribuer/', views.attribuer_bourse, name='attribuer_bourse'),
     path('bourses/<int:pk>/modifier/', views.modifier_bourse, name='modifier_bourse'),
+    path('bourses/<int:pk>/supprimer/', views.supprimer_bourse, name='supprimer_bourse'),
     
     # Documents
     path('<int:inscription_id>/documents/ajouter/', views.ajouter_document, name='ajouter_document'),

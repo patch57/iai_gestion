@@ -12,10 +12,10 @@ from django.utils import timezone
 from django.urls import reverse
 
 from .models import (
-    AnneeAcademique, Inscription, DocumentInscription, HistoriqueInscription
+    AnneeAcademique, Inscription, DocumentInscription, HistoriqueInscription, Bourse
 )
 from .forms import (
-    InscriptionForm, DocumentInscriptionForm
+    InscriptionForm, DocumentInscriptionForm, BourseForm
 )
 from apps.etudiants.models import Etudiant, Filiere, Niveau, Classe
 from apps.paiements.models import RecuPaiement, TranchePaiement
@@ -508,40 +508,108 @@ def recu_paiement(request, pk):
 
 @login_required
 def liste_bourses(request):
-    """Liste des bourses"""
+    """Liste des bourses d'études"""
+    bourses = Bourse.objects.all().select_related('etudiant', 'annee_academique', 'etudiant__filiere')
+    
+    # Filtres
+    q = request.GET.get('q', '')
+    if q:
+        bourses = bourses.filter(
+            Q(etudiant__nom__icontains=q) | 
+            Q(etudiant__prenom__icontains=q) | 
+            Q(etudiant__matricule__icontains=q)
+        )
+        
+    type_bourse = request.GET.get('type_bourse', '')
+    if type_bourse:
+        bourses = bourses.filter(type_bourse=type_bourse)
+        
+    filiere = request.GET.get('filiere', '')
+    if filiere:
+        bourses = bourses.filter(etudiant__filiere_id=filiere)
+        
+    paginator = Paginator(bourses, 15)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    filieres = Filiere.objects.filter(est_active=True)
+    types_bourse = Bourse.TYPE_BOURSE_CHOICES
+    
     context = {
-        'titre': 'Liste des bourses',
-        'message': 'Fonctionnalité en cours de développement'
+        'bourses': page_obj,
+        'filieres': filieres,
+        'types_bourse': types_bourse,
+        'titre': 'Gestion des Bourses d\'Études'
     }
-    return render(request, 'inscriptions/en_construction.html', context)
+    return render(request, 'inscriptions/bourses/liste.html', context)
 
 
 @login_required
 def attribuer_bourse(request):
-    """Attribuer une bourse"""
+    """Attribuer une bourse à un étudiant"""
     if request.method == 'POST':
-        messages.success(request, '✅ Bourse attribuée avec succès !')
-        return redirect('inscriptions:liste_bourses')
-    
+        form = BourseForm(request.POST)
+        if form.is_valid():
+            bourse = form.save()
+            # Création d'une notification pour l'étudiant
+            from apps.tableau_bord.models import Notification
+            Notification.objects.create(
+                utilisateur=bourse.etudiant.utilisateur,
+                type='INFO',
+                titre='Bourse d\'études attribuée',
+                message=f'Une bourse d\'études de type {bourse.get_type_bourse_display()} d\'un montant de {bourse.montant:,.0f} FCFA vous a été attribuée.',
+                lien='/inscriptions/'
+            )
+            messages.success(request, f'✅ Bourse d\'études attribuée avec succès à {bourse.etudiant.get_nom_complet()}.')
+            return redirect('inscriptions:liste_bourses')
+    else:
+        form = BourseForm()
+        
     context = {
-        'titre': 'Attribuer une bourse',
-        'message': 'Fonctionnalité en cours de développement'
+        'form': form,
+        'titre': 'Attribuer une bourse d\'études',
+        'page': 'ajout'
     }
-    return render(request, 'inscriptions/en_construction.html', context)
+    return render(request, 'inscriptions/bourses/form.html', context)
 
 
 @login_required
 def modifier_bourse(request, pk):
-    """Modifier une bourse"""
+    """Modifier une bourse d'études existante"""
+    bourse = get_object_or_404(Bourse, pk=pk)
     if request.method == 'POST':
-        messages.success(request, '✅ Bourse modifiée avec succès !')
-        return redirect('inscriptions:liste_bourses')
-    
+        form = BourseForm(request.POST, instance=bourse)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'✏️ La bourse de {bourse.etudiant.get_nom_complet()} a été modifiée.')
+            return redirect('inscriptions:liste_bourses')
+    else:
+        form = BourseForm(instance=bourse)
+        
     context = {
-        'titre': 'Modifier une bourse',
-        'message': 'Fonctionnalité en cours de développement'
+        'form': form,
+        'bourse': bourse,
+        'titre': 'Modifier la bourse d\'études',
+        'page': 'modification'
     }
-    return render(request, 'inscriptions/en_construction.html', context)
+    return render(request, 'inscriptions/bourses/form.html', context)
+
+
+@login_required
+def supprimer_bourse(request, pk):
+    """Supprimer une bourse d'études"""
+    bourse = get_object_or_404(Bourse, pk=pk)
+    if request.method == 'POST':
+        nom_etudiant = bourse.etudiant.get_nom_complet()
+        bourse.delete()
+        messages.success(request, f'🗑️ Bourse d\'études de {nom_etudiant} supprimée avec succès.')
+        return redirect('inscriptions:liste_bourses')
+        
+    context = {
+        'bourse': bourse,
+        'titre': 'Confirmer la suppression de la bourse'
+    }
+    return render(request, 'inscriptions/bourses/confirmer_suppression.html', context)
 
 
 # ==================== CERTIFICATS ====================

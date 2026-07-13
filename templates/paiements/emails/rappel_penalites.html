@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rappel de Paiement - IAI-Cameroun</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+        }
+        .header {
+            background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .header h1 {
+            margin: 10px 0 0 0;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            color: #a7f3d0;
+            font-weight: 500;
+        }
+        .content {
+            padding: 40px 30px;
+            color: #374151;
+            line-height: 1.6;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 20px;
+        }
+        .alert-box {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: #713f12;
+            font-size: 14px;
+        }
+        .alert-box strong {
+            color: #b45309;
+        }
+        .table-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #4b5563;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        th {
+            background-color: #f9fafb;
+            color: #4b5563;
+            font-weight: 700;
+            font-size: 12px;
+            text-transform: uppercase;
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        td {
+            padding: 14px 16px;
+            font-size: 14px;
+            color: #1f2937;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .total-row {
+            background-color: #f0fdf4;
+            font-weight: 700;
+            color: #065f46;
+        }
+        .btn-container {
+            text-align: center;
+            margin: 35px 0 15px 0;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #10B981;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 15px;
+            text-decoration: none;
+            padding: 14px 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            transition: all 0.2s ease;
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 30px 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            line-height: 1.5;
+        }
+        .footer a {
+            color: #10B981;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <!-- Cap icon representation -->
+            <div style="font-size: 40px; margin-bottom: 10px;">🎓</div>
+            <h1>IAI-CAMEROUN</h1>
+            <p>Centre d'Excellence Technologique de Douala</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="greeting">Bonjour {{ etudiant.prenom }} {{ etudiant.nom }},</div>
+            
+            <p>Nous vous contactons concernant la situation de vos frais de scolarité pour l'année académique <strong>{{ etudiant.annee_academique.code }}</strong>.</p>
+            
+            <div class="alert-box">
+                <strong>Attention :</strong> Notre système a détecté des retards de paiement pour certaines de vos tranches de scolarité réglementaires. Des pénalités de retard ont été appliquées conformément au règlement intérieur du centre.
+            </div>
+
+            <div class="table-title">Détail de votre Situation Financière</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tranche / Échéance</th>
+                        <th>Date Limite</th>
+                        <th>Semaines de retard</th>
+                        <th>Pénalités accumulées</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail in penalites_info.details %}
+                    <tr>
+                        <td><strong>{{ detail.tranche }}</strong></td>
+                        <td>{{ detail.date_limite|date:"d F Y" }}</td>
+                        <td style="text-align: center;">{{ detail.semaines_retard }} sem.</td>
+                        <td style="text-align: right; font-weight: bold; color: #b45309;">{{ detail.montant|floatformat:"0" }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="total-row">
+                        <td colspan="3">Pénalités Totales Accumulées</td>
+                        <td style="text-align: right;">{{ penalites_info.total|floatformat:"0" }} FCFA</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Nous vous prions de régulariser cette situation au plus vite pour éviter toute restriction d'accès aux cours ou aux évaluations semestrielles.</p>
+            
+            <p>Vous pouvez régler directement vos pénalités en ligne via Mobile Money (Orange Money / MTN MoMo) en vous connectant à votre espace étudiant.</p>
+
+            <div class="btn-container">
+                <a href="{{ site_url }}/paiements/payer-penalites/" class="btn" style="color: #ffffff;">Régulariser mes Pénalités</a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Ce courriel a été envoyé automatiquement par le système de gestion IAI-Gestion.<br>
+            Merci de ne pas y répondre directement.</p>
+            <p>© {% now "Y" %} <strong>IAI-Cameroun (Douala)</strong>. Tous droits réservés.<br>
+            <a href="{{ site_url }}">Accéder à la plateforme</a> | <a href="mailto:contact@iai-cameroun.com">Support</a></p>
+        </div>
+    </div>
+</body>
+</html>

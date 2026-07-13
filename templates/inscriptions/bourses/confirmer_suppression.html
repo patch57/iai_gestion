@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer la bourse d'études - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 text-center animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 space-y-6">
+        <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto text-red-500 text-3xl">
+            <i class="fas fa-trash-alt animate-pulse"></i>
+        </div>
+        <div>
+            <h1 class="text-2xl font-black text-gray-800">Confirmer la suppression</h1>
+            <p class="text-gray-500 mt-2 text-sm">
+                Êtes-vous sûr de vouloir supprimer la bourse d'études de type <strong class="text-gray-700">{{ bourse.get_type_bourse_display }}</strong> d'un montant de <strong class="text-gray-700">{{ bourse.montant|floatformat:"0" }} FCFA</strong> attribuée à l'étudiant <strong>{{ bourse.etudiant.get_nom_complet }}</strong> ?
+            </p>
+            <p class="text-red-500 mt-2 text-xs font-bold uppercase tracking-wider">
+                <i class="fas fa-exclamation-triangle mr-1"></i> Cette action est irréversible.
+            </p>
+        </div>
+        <form method="POST" class="pt-4 flex gap-3">
+            {% csrf_token %}
+            <a href="{% url 'inscriptions:liste_bourses' %}" 
+               class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl transition text-sm">
+                Annuler
+            </a>
+            <button type="submit" 
+                    class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-md text-sm">
+                Supprimer la bourse
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

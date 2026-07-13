@@ -324,3 +324,69 @@ class HistoriqueInscription(models.Model):
     
     def __str__(self):
         return f"{self.get_action_display()} - {self.inscription} - {self.date_action.strftime('%d/%m/%Y %H:%M')}"
+
+
+class Bourse(models.Model):
+    """Bourses d'études accordées aux étudiants"""
+    TYPE_BOURSE_CHOICES = [
+        ('EXCELLENCE', 'Bourse d\'Excellence (100%)'),
+        ('DEMI_EXCELLENCE', 'Demi-Bourse d\'Excellence (50%)'),
+        ('SOCIALE', 'Aide Sociale'),
+        ('EXONERATION_PARTIELLE', 'Exonération Partielle (Montant spécifique)'),
+        ('PARTENARIAT', 'Réduction Partenariat'),
+    ]
+    
+    etudiant = models.ForeignKey(
+        'etudiants.Etudiant',
+        on_delete=models.CASCADE,
+        related_name='bourses',
+        verbose_name="Étudiant"
+    )
+    type_bourse = models.CharField(
+        max_length=30,
+        choices=TYPE_BOURSE_CHOICES,
+        default='EXCELLENCE',
+        verbose_name="Type de bourse"
+    )
+    montant = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name="Montant de la bourse (FCFA)"
+    )
+    annee_academique = models.ForeignKey(
+        AnneeAcademique,
+        on_delete=models.PROTECT,
+        related_name='bourses',
+        verbose_name="Année académique"
+    )
+    date_attribution = models.DateField(
+        default=timezone.now,
+        verbose_name="Date d'attribution"
+    )
+    est_active = models.BooleanField(
+        default=True,
+        verbose_name="Bourse active"
+    )
+    commentaire = models.TextField(
+        blank=True,
+        verbose_name="Commentaire / Motif"
+    )
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Date de création"
+    )
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Date de modification"
+    )
+
+    class Meta:
+        app_label = 'inscriptions'
+        verbose_name = "Bourse d'études"
+        verbose_name_plural = "Bourses d'études"
+        unique_together = ['etudiant', 'annee_academique']
+        ordering = ['-date_attribution']
+
+    def __str__(self):
+        return f"Bourse {self.get_type_bourse_display()} - {self.etudiant.get_nom_complet()} ({self.annee_academique})"
