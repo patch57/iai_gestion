@@ -355,3 +355,29 @@ class ExportNotesForm(forms.Form):
             Submit('submit', 'Exporter', css_class='px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700'),
             HTML('</div>'),
         )
+
+
+from .models import NoteApprenant
+
+
+class NoteApprenantForm(forms.ModelForm):
+    """Formulaire individuel de saisie de note pour un apprenant"""
+    
+    class Meta:
+        model = NoteApprenant
+        fields = ['note', 'commentaire']
+        widgets = {
+            'note': forms.NumberInput(attrs={'step': '0.25', 'min': '0', 'max': '20', 'class': 'w-full px-2 py-1 border border-gray-300 rounded-lg text-sm'}),
+            'commentaire': forms.TextInput(attrs={'placeholder': 'Observation...', 'class': 'w-full px-2 py-1 border border-gray-300 rounded-lg text-sm'}),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False  # Utilisé dans des formulaires en tableau/liste
+        self.helper.layout = Layout(
+            Row(
+                Column('note', css_class='col-span-4'),
+                Column('commentaire', css_class='col-span-8'),
+            )
+        )

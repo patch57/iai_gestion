@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Soumettre une Requête - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">
+                    <i class="fas fa-paper-plane mr-2 text-yellow-400"></i>Soumettre une nouvelle requête
+                </h1>
+                <p class="text-xs text-green-100 mt-1">Précisez l'objet, la nature et détaillez votre demande</p>
+            </div>
+            <a href="{% url 'requetes:liste_requetes' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Retour
+            </a>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 md:p-8 space-y-6">
+            <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 text-blue-700 text-sm">
+                <p class="font-bold"><i class="fas fa-info-circle mr-1.5"></i>Redirection Automatique :</p>
+                <ul class="list-disc list-inside mt-1 space-y-1 text-xs">
+                    <li>Les demandes de <strong>Scolarité</strong> sont envoyées au <strong>Chef Service Scolarité</strong>.</li>
+                    <li>Les demandes de <strong>Diplômes et Attestations</strong> sont envoyées au <strong>Chef Service des Études</strong>.</li>
+                    <li>Les <strong>Revendications de notes</strong> sont envoyées au <strong>Chef Service de l'Anonymat</strong>.</li>
+                    <li>Les demandes de <strong>Paiements</strong> sont envoyées au <strong>Chef Service de la Comptabilité</strong>.</li>
+                </ul>
+            </div>
+            
+            <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                {% crispy form %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

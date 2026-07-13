@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supports de Formation - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800">
+                <i class="fas fa-folder-open text-green-600 mr-2"></i>Supports de Formation
+            </h1>
+            <p class="text-gray-500 text-sm mt-1">
+                {% if user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}
+                Consultez et téléchargez les supports de cours, TD et TP mis à votre disposition.
+                {% else %}
+                Gérez et ajoutez des documents de formation pour vos apprenants.
+                {% endif %}
+            </p>
+        </div>
+        
+        {% if user.type_utilisateur in 'ENSEIGNANT,PROFESSEUR,ADMIN_SYSTEME' %}
+        <a href="{% url 'cours:ajouter_support_apprenant' %}" class="inline-flex items-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+            <i class="fas fa-upload mr-2 text-yellow-400"></i> Charger un document
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Liste de supports -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for s in supports %}
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300">
+            <div>
+                <!-- Type document badge -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2.5 py-1 text-[10px] font-bold uppercase rounded-full
+                        {% if s.type_document == 'COURS' %}bg-green-100 text-green-700
+                        {% elif s.type_document == 'TD' %}bg-blue-100 text-blue-700
+                        {% else %}bg-purple-100 text-purple-700{% endif %}">
+                        {{ s.get_type_document_display }}
+                    </span>
+                    <span class="text-[10px] text-gray-400 font-semibold">{{ s.date_depot|date:"d M Y" }}</span>
+                </div>
+                
+                <h3 class="font-bold text-gray-800 text-base mb-2 line-clamp-2">{{ s.titre }}</h3>
+                <p class="text-xs text-gray-500 mb-4">
+                    <i class="fas fa-graduation-cap mr-1 text-green-600"></i> {{ s.get_module_formation_display }} <br>
+                    <i class="fas fa-layer-group mr-1 text-green-600"></i> {{ s.get_type_formation_display }}
+                    {% if s.niveau_etude %}<br><i class="fas fa-tag mr-1 text-green-600"></i> Stade : {{ s.niveau_etude }}{% endif %}
+                </p>
+            </div>
+            
+            <div class="border-t pt-4 mt-4 flex items-center justify-between">
+                <span class="text-[10px] text-gray-400 italic">Par {{ s.formateur.get_full_name|default:s.formateur.username }}</span>
+                {% if s.fichier %}
+                <a href="{{ s.fichier.url }}" target="_blank" class="inline-flex bg-green-600 hover:bg-green-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm">
+                    <i class="fas fa-download mr-1.5"></i> Télécharger
+                </a>
+                {% else %}
+                <span class="text-xs text-gray-400">Aucun fichier</span>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full p-12 text-center text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm">
+            <i class="fas fa-folder-open text-5xl mb-4 text-gray-200 block"></i>
+            Aucun support pédagogique n'est disponible pour le moment.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

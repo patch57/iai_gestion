@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Saisie des Notes - Certification - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">
+                    <i class="fas fa-edit mr-2 text-yellow-400"></i>Saisie des Notes (Certifications / Formation Continue)
+                </h1>
+                <p class="text-xs text-green-100 mt-1">Sélectionnez une formation pour attribuer ou modifier les notes d'évaluation</p>
+            </div>
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Tableau de bord
+            </a>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 md:p-8 space-y-6">
+            <!-- Choix de formation -->
+            <form method="GET" class="flex flex-col md:flex-row gap-4 items-end bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Choisir la Formation / Module</label>
+                    <select name="formation_id" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                        <option value="">-- Sélectionnez une formation --</option>
+                        {% for f in formations %}
+                        <option value="{{ f.id }}" {% if formation_selectionnee.id == f.id %}selected{% endif %}>
+                            {{ f.get_nom_display }} ({{ f.get_type_formation_display }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="bg-gray-800 hover:bg-gray-900 text-white font-bold px-6 py-2 rounded-xl text-sm transition">
+                    Charger les apprenants
+                </button>
+            </form>
+
+            {% if formation_selectionnee %}
+            <form method="POST" class="space-y-6">
+                {% csrf_token %}
+                <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                <th class="p-4">Apprenant</th>
+                                <th class="p-4">Email</th>
+                                <th class="p-4 w-32">Note / 20</th>
+                                <th class="p-4">Observations / Appréciation</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 text-sm">
+                            {% for a in apprenants %}
+                            <tr class="hover:bg-gray-50/50 transition">
+                                <td class="p-4 font-bold text-gray-800">
+                                    {{ a.nom_complet }}
+                                </td>
+                                <td class="p-4 text-gray-500">
+                                    {{ a.email }}
+                                </td>
+                                <td class="p-4">
+                                    <!-- Récupérer la note stockée dans le dictionnaire avec le tag custom ou résolu dans le view -->
+                                    <input type="number" name="note_{{ a.id }}" step="0.25" min="0" max="20" 
+                                           value="{% for aid, data in notes_dict.items %}{% if aid == a.id %}{{ data.note }}{% endif %}{% endfor %}"
+                                           placeholder="Note"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-green-500 focus:border-green-500 font-bold text-green-700">
+                                </td>
+                                <td class="p-4">
+                                    <input type="text" name="commentaire_{{ a.id }}" 
+                                           value="{% for aid, data in notes_dict.items %}{% if aid == a.id %}{{ data.commentaire }}{% endif %}{% endfor %}"
+                                           placeholder="Ex: Excellent, Travailleur, etc."
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-green-500 focus:border-green-500">
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="p-10 text-center text-gray-400">
+                                    Aucun apprenant n'est actuellement inscrit à cette formation.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if apprenants %}
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-6 py-3 rounded-xl text-sm shadow-md transition cursor-pointer">
+                        <i class="fas fa-save mr-2 text-yellow-400"></i> Enregistrer toutes les notes
+                    </button>
+                </div>
+                {% endif %}
+            </form>
+            {% else %}
+            <div class="p-12 text-center text-gray-400 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                <i class="fas fa-edit text-5xl mb-4 text-gray-300 block"></i>
+                Veuillez sélectionner une formation dans la liste ci-dessus pour charger la liste des apprenants et attribuer les notes.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

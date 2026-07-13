@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Détail de la Requête #{{ requete.id }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8 animate-fadeInUp">
+    <!-- Retour -->
+    <div class="mb-6">
+        <a href="{% url 'requetes:liste_requetes' %}" class="inline-flex items-center text-sm font-bold text-gray-500 hover:text-green-600 transition">
+            <i class="fas fa-arrow-left mr-2"></i> Retour à la liste
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Informations & Traitement -->
+        <div class="lg:col-span-2 space-y-8">
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <!-- Entête du ticket -->
+                <div class="flex flex-wrap justify-between items-start gap-4 border-b pb-4">
+                    <div>
+                        <span class="text-xs font-mono font-bold text-gray-400 uppercase">Requête #{{ requete.id }}</span>
+                        <h1 class="text-2xl font-black text-gray-800 mt-1">{{ requete.titre }}</h1>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="px-3 py-1 text-xs font-bold rounded-full 
+                            {% if requete.nature == 'SCOLARITE' %}bg-green-100 text-green-700
+                            {% elif requete.nature == 'ETUDES' %}bg-blue-100 text-blue-700
+                            {% elif requete.nature == 'ANONYMAT' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-purple-100 text-purple-700{% endif %}">
+                            {{ requete.get_nature_display }}
+                        </span>
+                        <span class="px-3 py-1 text-xs font-bold rounded-full
+                            {% if requete.statut == 'SOUMIS' %}bg-gray-100 text-gray-600
+                            {% elif requete.statut == 'EN_COURS' %}bg-blue-100 text-blue-700
+                            {% elif requete.statut == 'ESCALADE' %}bg-red-100 text-red-700
+                            {% elif requete.statut == 'RENVOYE' %}bg-orange-100 text-orange-700
+                            {% else %}bg-green-100 text-green-700{% endif %}">
+                            {{ requete.get_statut_display }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Description de la demande</h3>
+                    <div class="bg-gray-50 rounded-2xl p-4 text-gray-700 text-sm whitespace-pre-line border border-gray-100">
+                        {{ requete.description }}
+                    </div>
+                </div>
+
+                <!-- Pièce Jointe -->
+                {% if requete.piece_jointe %}
+                <div class="flex items-center justify-between bg-green-50/50 rounded-2xl p-4 border border-green-100">
+                    <div class="flex items-center gap-3 text-green-800">
+                        <i class="fas fa-file-alt text-2xl"></i>
+                        <div>
+                            <p class="font-bold text-sm">Pièce jointe fournie</p>
+                            <span class="text-xs text-green-600 font-semibold">{{ requete.get_nom_fichier|default:"Visualiser le justificatif" }}</span>
+                        </div>
+                    </div>
+                    <a href="{{ requete.piece_jointe.url }}" target="_blank" class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition">
+                        Télécharger
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- Réponse Interne (si escaladée/renvoyée) -->
+                {% if requete.reponse_interne %}
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-2xl p-4 text-yellow-800">
+                    <p class="font-bold text-sm"><i class="fas fa-sticky-note mr-1.5"></i>Instructions ou notes d'arbitrage interne :</p>
+                    <p class="text-xs mt-1 italic">{{ requete.reponse_interne }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Réponse Finale -->
+                {% if requete.reponse %}
+                <div class="border-t pt-6 space-y-3">
+                    <h3 class="text-sm font-black text-gray-800"><i class="fas fa-reply mr-2 text-green-600"></i>Réponse Finale de l'Administration</h3>
+                    <div class="bg-green-50 border border-green-100 rounded-2xl p-5 text-gray-800 text-sm whitespace-pre-line">
+                        {{ requete.reponse }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Panel d'actions pour le personnel -->
+            {% if form_reponse or form_escalade or form_renvoi %}
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
+                <h2 class="text-lg font-black text-gray-800"><i class="fas fa-toolbox text-green-600 mr-2"></i>Actions de Traitement</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <!-- Formulaire Répondre -->
+                    {% if form_reponse %}
+                    <div class="space-y-4 md:col-span-2">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-check-circle mr-2 text-green-600"></i>Apporter la réponse finale</h3>
+                        <form method="POST" action="{% url 'requetes:repondre_requete' requete.id %}" class="space-y-4">
+                            {% csrf_token %}
+                            {% crispy form_reponse %}
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formulaire Escalader -->
+                    {% if form_escalade %}
+                    <div class="space-y-4 pt-6 border-t md:border-t-0 md:pt-0">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>Escalader au Directeur</h3>
+                        <p class="text-xs text-gray-500">Si la requête surpasse l'entendement de votre service, transférez-la au Chef de Centre.</p>
+                        <form method="POST" action="{% url 'requetes:escalader_requete' requete.id %}" class="space-y-4">
+                            {% csrf_token %}
+                            {% crispy form_escalade %}
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formulaire Renvoyer (Directeur) -->
+                    {% if form_renvoi %}
+                    <div class="space-y-4 md:col-span-2 border-t pt-6">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-reply mr-2 text-yellow-600"></i>Renvoyer la requête à qui de droit</h3>
+                        <p class="text-xs text-gray-500">Transférer ce ticket à un membre du personnel pour qu'il réponde définitivement à l'étudiant.</p>
+                        <form method="POST" action="{% url 'requetes:renvoyer_requete' requete.id %}" class="space-y-4">
+                            {% csrf_token %}
+                            {% crispy form_renvoi %}
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Suivi / Historique -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 space-y-4">
+                <h3 class="font-bold text-lg text-gray-800"><i class="fas fa-history text-green-600 mr-2"></i>Suivi de Traitement</h3>
+                <div class="relative border-l-2 border-gray-100 pl-4 space-y-6 text-sm">
+                    {% for action in requete.historique %}
+                    <div class="relative">
+                        <!-- Dot indication -->
+                        <span class="absolute -left-[21px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white bg-green-500 shadow-sm"></span>
+                        <div>
+                            <div class="flex justify-between items-start">
+                                <span class="font-bold text-gray-800">{{ action.action }}</span>
+                                <span class="text-[10px] text-gray-400">{{ action.date|slice:":10" }}</span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-0.5">{{ action.auteur }} ({{ action.role }})</p>
+                            {% if action.details %}
+                            <p class="text-xs text-gray-500 mt-1 italic">{{ action.details }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 space-y-4">
+                <h3 class="font-bold text-sm text-gray-400 uppercase tracking-wider"><i class="fas fa-user-circle text-green-600 mr-2"></i>Auteur de la requête</h3>
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center font-bold text-white shadow-inner">
+                        {{ requete.auteur.first_name|first|upper }}{{ requete.auteur.last_name|first|upper }}
+                    </div>
+                    <div>
+                        <p class="font-bold text-gray-800">{{ requete.auteur.get_full_name }}</p>
+                        <p class="text-xs text-gray-400">{{ requete.auteur.email }}</p>
+                        <p class="text-xs text-green-600 font-mono">{{ requete.auteur.matricule }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

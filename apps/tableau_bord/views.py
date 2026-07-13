@@ -209,11 +209,28 @@ def enseignant_dashboard(request):
     cours_enseignes = Cours.objects.filter(professeur=professeur)
     emplois = EmploiDuTemps.objects.all()
     
+    # Statistiques et requêtes pour le rôle de Chef de Service Formation Continue/Certifiante
+    from apps.etudiants.models import Apprenant
+    from apps.requetes.models import Requete
+    
+    total_apprenants = Apprenant.objects.count()
+    apprenants_continue = Apprenant.objects.filter(formations__type_formation='CONTINUE').distinct().count()
+    apprenants_certif = Apprenant.objects.filter(formations__type_formation='CERTIFICATION').distinct().count()
+    
+    # Requêtes d'apprenants non closes
+    requetes_apprenants = Requete.objects.filter(
+        auteur__type_utilisateur='APPRENANT'
+    ).exclude(statut='TRAITE').select_related('auteur')
+    
     context = {
         'professeur': professeur,
         'cours_enseignes': cours_enseignes,
         'emplois': emplois,
-        'titre': 'Espace Enseignant'
+        'total_apprenants': total_apprenants,
+        'apprenants_continue': apprenants_continue,
+        'apprenants_certif': apprenants_certif,
+        'requetes_apprenants': requetes_apprenants,
+        'titre': 'Tableau de Bord - Formateur & Chef de Service'
     }
     return render(request, 'tableau_bord/enseignant_dashboard.html', context)
 

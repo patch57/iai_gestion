@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Charger un support pédagogique - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">
+                    <i class="fas fa-file-upload mr-2 text-yellow-400"></i>Charger un support de formation (TP/TD/Cours)
+                </h1>
+                <p class="text-xs text-green-100 mt-1">Ciblez le document selon le niveau, le type de formation et le module</p>
+            </div>
+            <a href="{% url 'cours:liste_supports_apprenant' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                Liste des supports
+            </a>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 md:p-8 space-y-6">
+            <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 text-blue-700 text-sm">
+                <p class="font-bold"><i class="fas fa-info-circle mr-1.5"></i>Ciblage Pédagogique :</p>
+                <p class="text-xs mt-1 text-blue-600">
+                    Les documents chargés ici apparaîtront directement sur l'espace des apprenants correspondant aux filtres choisis (Type de formation, module, et niveau).
+                </p>
+            </div>
+            
+            <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                {% crispy form %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

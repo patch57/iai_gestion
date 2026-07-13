@@ -3,6 +3,9 @@ URLs pour la gestion des cours
 """
 from django.urls import path
 from . import views
+from . import views_apprenants
+
+app_name = 'cours'
 
 urlpatterns = [
     path('', views.liste_cours, name='liste_cours'),
@@ -27,4 +30,10 @@ urlpatterns = [
     
     # Planning
     path('planning-professeur/', views.planning_professeur, name='planning_professeur'),
+    
+    # Apprenants & Certifications
+    path('apprenants/registre/', views_apprenants.liste_apprenants_categories, name='liste_apprenants_categories'),
+    path('apprenants/notes/', views_apprenants.saisir_notes_apprenants, name='saisir_notes_apprenants'),
+    path('apprenants/supports/', views_apprenants.liste_supports_apprenant, name='liste_supports_apprenant'),
+    path('apprenants/supports/ajouter/', views_apprenants.ajouter_support_apprenant, name='ajouter_support_apprenant'),
 ]

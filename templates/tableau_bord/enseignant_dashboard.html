@@ -112,5 +112,111 @@
             </div>
         </div>
     </div>
+
+    <!-- Section Formation Continue & Certifiante (Rôle de Chef de Service) -->
+    <div class="mt-12 bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="bg-gradient-to-r from-green-800 via-green-700 to-yellow-600 p-6 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <span class="bg-yellow-500/30 text-yellow-100 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-yellow-400/20">Rôle Additionnel</span>
+                <h2 class="text-2xl font-black mt-2"><i class="fas fa-certificate text-yellow-400 mr-2"></i>Chef de Service - Formation Continue & Certifiante</h2>
+                <p class="text-xs text-green-100 mt-1">Gérez le registre, les notes, les supports et les requêtes des apprenants</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'cours:liste_apprenants_categories' %}" class="bg-white text-green-800 font-bold px-4 py-2 rounded-xl text-xs shadow transition hover:bg-gray-100">
+                    <i class="fas fa-address-book mr-1.5 text-yellow-500"></i> Registre Apprenants
+                </a>
+                <a href="{% url 'cours:saisir_notes_apprenants' %}" class="bg-white text-green-800 font-bold px-4 py-2 rounded-xl text-xs shadow transition hover:bg-gray-100">
+                    <i class="fas fa-edit mr-1.5 text-yellow-500"></i> Saisie des Notes
+                </a>
+                <a href="{% url 'cours:ajouter_support_apprenant' %}" class="bg-white text-green-800 font-bold px-4 py-2 rounded-xl text-xs shadow transition hover:bg-gray-100">
+                    <i class="fas fa-file-upload mr-1.5 text-yellow-500"></i> Charger Support
+                </a>
+            </div>
+        </div>
+
+        <div class="p-6 md:p-8 space-y-8">
+            <!-- Statistiques rapides -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Total Apprenants -->
+                <div class="bg-gray-50 border border-gray-100 rounded-2xl p-5 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-green-100 text-green-700 rounded-xl flex items-center justify-center text-xl font-bold">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Total Apprenants</span>
+                        <span class="text-2xl font-black text-gray-800">{{ total_apprenants }}</span>
+                    </div>
+                </div>
+
+                <!-- Certifications -->
+                <div class="bg-gray-50 border border-gray-100 rounded-2xl p-5 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center text-xl font-bold">
+                        <i class="fas fa-stamp"></i>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Certifications</span>
+                        <span class="text-2xl font-black text-gray-800">{{ apprenants_certif }}</span>
+                    </div>
+                </div>
+
+                <!-- Formation continue -->
+                <div class="bg-gray-50 border border-gray-100 rounded-2xl p-5 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center text-xl font-bold">
+                        <i class="fas fa-briefcase"></i>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Formation Continue</span>
+                        <span class="text-2xl font-black text-gray-800">{{ apprenants_continue }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requêtes des apprenants -->
+            <div class="space-y-4">
+                <h3 class="font-bold text-lg text-gray-800"><i class="fas fa-envelope-open-text text-yellow-500 mr-2"></i>Requêtes d'Apprenants en attente</h3>
+                <div class="border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                <th class="p-4">Apprenant</th>
+                                <th class="p-4">Objet</th>
+                                <th class="p-4">Soumis le</th>
+                                <th class="p-4">Statut</th>
+                                <th class="p-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 text-sm">
+                            {% for r in requetes_apprenants %}
+                            <tr class="hover:bg-gray-50/50 transition">
+                                <td class="p-4 font-bold text-gray-800">{{ r.auteur.get_full_name|default:r.auteur.username }}</td>
+                                <td class="p-4 text-gray-600">{{ r.titre|truncatechars:40 }}</td>
+                                <td class="p-4 text-gray-400 text-xs">{{ r.date_creation|date:"d M Y à H:i" }}</td>
+                                <td class="p-4">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold
+                                        {% if r.statut == 'SOUMIS' %}bg-gray-100 text-gray-600
+                                        {% elif r.statut == 'ESCALADE' %}bg-red-100 text-red-700
+                                        {% else %}bg-orange-100 text-orange-700{% endif %}">
+                                        {{ r.get_statut_display }}
+                                    </span>
+                                </td>
+                                <td class="p-4 text-right">
+                                    <a href="{% url 'requetes:detail_requete' r.id %}" class="inline-flex bg-green-50 hover:bg-green-100 text-green-700 font-bold px-3 py-1.5 rounded-lg text-xs transition">
+                                        Traiter
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="p-6 text-center text-gray-400">
+                                    Aucune requête d'apprenant en attente de traitement.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

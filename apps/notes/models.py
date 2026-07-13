@@ -640,3 +640,44 @@ class PointInteret(models.Model):
     
     def get_coordonnees(self):
         return f"{self.latitude}, {self.longitude}"
+
+
+class NoteApprenant(models.Model):
+    """Notes d'évaluation des apprenants en certifications / formation continue"""
+    
+    apprenant = models.ForeignKey(
+        'etudiants.Apprenant',
+        on_delete=models.CASCADE,
+        related_name='notes_apprenant',
+        verbose_name="Apprenant"
+    )
+    formation = models.ForeignKey(
+        'etudiants.Formation',
+        on_delete=models.CASCADE,
+        related_name='notes_apprenant',
+        verbose_name="Formation"
+    )
+    formateur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notes_attribuees_apprenants',
+        verbose_name="Formateur / Enseignant"
+    )
+    note = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        verbose_name="Note / 20"
+    )
+    date_evaluation = models.DateField(default=timezone.now, verbose_name="Date d'évaluation")
+    commentaire = models.CharField(max_length=200, blank=True, verbose_name="Appréciation / Commentaire")
+
+    class Meta:
+        app_label = 'notes'
+        verbose_name = "Note Apprenant"
+        verbose_name_plural = "Notes Apprenants"
+        unique_together = ['apprenant', 'formation']
+        ordering = ['-date_evaluation']
+
+    def __str__(self):
+        return f"{self.apprenant.nom_complet} - {self.formation.get_nom_display()} : {self.note}/20"

@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Registre des Apprenants - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp print:m-0 print:p-0">
+    <!-- En-tête (masqué à l'impression si besoin, mais on va le formater proprement pour l'impression) -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 print:mb-4">
+        <div>
+            <div class="hidden print:block text-center mb-4">
+                <h1 class="text-2xl font-bold uppercase tracking-wider text-green-800">IAI-Cameroun Centre de Douala</h1>
+                <p class="text-sm font-semibold uppercase text-gray-500">Institut Africain d'Informatique</p>
+                <div class="border-b-2 border-yellow-500 w-32 mx-auto my-2"></div>
+            </div>
+            <h1 class="text-2xl font-black text-gray-800 print:text-xl print:text-center">
+                <i class="fas fa-address-book text-green-600 mr-2 print:hidden"></i>Registre des Apprenants
+            </h1>
+            <p class="text-gray-500 text-sm mt-1 print:hidden">
+                Consultez et filtrez la liste des apprenants des certifications et de la formation continue.
+            </p>
+        </div>
+        
+        <!-- Actions (masqué à l'impression) -->
+        <div class="flex gap-3 print:hidden">
+            <button onclick="window.print()" class="inline-flex items-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+                <i class="fas fa-print mr-2 text-yellow-400"></i> Imprimer le registre
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtres (masqués à l'impression) -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8 print:hidden">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <!-- Type formation -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Type de Formation</label>
+                <select name="type_formation" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous</option>
+                    {% for code, label in type_formation_choices %}
+                    <option value="{{ code }}" {% if request.GET.type_formation == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Module -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Module de Formation</label>
+                <select name="module" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous</option>
+                    {% for code, label in module_choices %}
+                    <option value="{{ code }}" {% if request.GET.module == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Niveau -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Stade / Niveau d'étude</label>
+                <input type="text" name="niveau" value="{{ request.GET.niveau|default:'' }}" placeholder="Ex: DQP, Professionnel..." class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+            </div>
+
+            <!-- Boutons -->
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-xl text-sm transition">
+                    Filtrer
+                </button>
+                <a href="{% url 'cours:liste_apprenants_categories' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden print:border-0 print:shadow-none print:rounded-none">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider print:bg-gray-100 print:text-gray-800">
+                        <th class="p-5 print:p-2">Nom Complet</th>
+                        <th class="p-5 print:p-2">Contact</th>
+                        <th class="p-5 print:p-2">Email</th>
+                        <th class="p-5 print:p-2">Niveau</th>
+                        <th class="p-5 print:p-2">Formation(s) Suivie(s)</th>
+                        <th class="p-5 print:p-2">Solde Financier</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm print:divide-gray-300">
+                    {% for a in apprenants %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-5 print:p-2 font-bold text-gray-800">
+                            {{ a.nom_complet }}
+                        </td>
+                        <td class="p-5 print:p-2 text-gray-600">
+                            {{ a.contact }}
+                        </td>
+                        <td class="p-5 print:p-2 text-gray-500">
+                            {{ a.email }}
+                        </td>
+                        <td class="p-5 print:p-2 text-gray-600">
+                            {{ a.niveau_etude|default:"Non spécifié" }}
+                        </td>
+                        <td class="p-5 print:p-2">
+                            <div class="flex flex-wrap gap-1">
+                                {% for f in a.formations.all %}
+                                <span class="bg-green-50 text-green-700 px-2 py-0.5 rounded text-[11px] font-bold border border-green-100 print:bg-transparent print:border-0 print:text-black">
+                                    {{ f.get_nom_display }}
+                                </span>
+                                {% empty %}
+                                <span class="text-xs text-gray-400">Aucune formation</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="p-5 print:p-2 font-semibold">
+                            Reste : <span class="text-red-600">{{ a.reste_a_payer|floatformat:0 }} FCFA</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-10 text-center text-gray-400">
+                            Aucun apprenant trouvé.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    /* Cacher les barres latérales, hauts, boutons d'action */
+    #sidebar, #navbar, header, footer, .print\:hidden, button, form {
+        display: none !important;
+    }
+    /* Supprimer les marges externes et centrer */
+    body {
+        background-color: white !important;
+        color: black !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .print\:m-0 {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+}
+</style>
+{% endblock %}

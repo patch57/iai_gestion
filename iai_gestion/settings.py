@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'apps.inscriptions',
     'apps.professeurs',
     'apps.cours',
+    'apps.requetes',
 ]
 
 # Modèle utilisateur personnalisé

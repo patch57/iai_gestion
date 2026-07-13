@@ -220,3 +220,38 @@ class RessourceCoursForm(forms.ModelForm):
                 Submit('submit', 'Ajouter la ressource', css_class='btn btn-primary'),
             )
         )
+
+
+from .models import Salle, Matiere, Cours, SeanceCours, RessourceCours, SupportPedagogiqueApprenant
+
+
+class SupportPedagogiqueApprenantForm(forms.ModelForm):
+    """Formulaire permettant au formateur de charger un support pour les apprenants"""
+    
+    class Meta:
+        model = SupportPedagogiqueApprenant
+        fields = ['titre', 'type_document', 'type_formation', 'module_formation', 'niveau_etude', 'fichier']
+        widgets = {
+            'niveau_etude': forms.TextInput(attrs={'placeholder': 'Ex: DQP, Secrétaire Comptable...'}),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_method = 'post'
+        self.helper.enctype = 'multipart/form-data'
+        self.helper.layout = Layout(
+            'titre',
+            Row(
+                Column('type_document', css_class='col-md-6'),
+                Column('type_formation', css_class='col-md-6'),
+            ),
+            Row(
+                Column('module_formation', css_class='col-md-6'),
+                Column('niveau_etude', css_class='col-md-6'),
+            ),
+            'fichier',
+            ButtonHolder(
+                Submit('submit', 'Ajouter le document', css_class='bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-2.5 rounded-xl shadow-md cursor-pointer transition'),
+            )
+        )

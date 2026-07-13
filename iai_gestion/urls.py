@@ -51,6 +51,7 @@ urlpatterns = [
     path('cours/', include('apps.cours.urls')),
     path('notes/', include('apps.notes.urls')),
     path('inscriptions/', include('apps.inscriptions.urls')),
+    path('requetes/', include('apps.requetes.urls')),
 ]
 
 # Configuration pour les fichiers médias et statiques en développement

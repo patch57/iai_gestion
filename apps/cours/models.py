@@ -268,3 +268,59 @@ class EmploiDuTemps(models.Model):
     
     def __str__(self):
         return f"Emploi du temps - {self.filiere} - {self.annee_academique}"
+
+
+class SupportPedagogiqueApprenant(models.Model):
+    """Supports de cours (TP/TD/Cours) ciblés pour les apprenants en formation continue/certifiante"""
+    
+    TYPE_DOC_CHOICES = [
+        ('COURS', 'Support de Cours'),
+        ('TD', 'Sujet de TD'),
+        ('TP', 'Sujet de TP'),
+    ]
+    
+    TYPE_FORMATION_CHOICES = [
+        ('CERTIFICATION', 'Formation de Certification'),
+        ('CONTINUE', 'Formation Continue'),
+        ('TOUS', 'Toutes les Formations'),
+    ]
+    
+    MODULE_CHOICES = [
+        ('SECRETARIAT', 'Secrétariat bureautique et comptable'),
+        ('MARKETING', 'Marketing digital'),
+        ('INFOGRAPHIE', 'Infographie'),
+        ('MAINTENANCE', 'Maintenance informatique'),
+        ('RESEAUX', 'Réseaux informatiques'),
+        ('WEBMASTER', 'Webmaster'),
+        ('MIJEF', 'Formation continue MIJEF 2035'),
+        ('TOUS', 'Tous les Modules'),
+    ]
+    
+    formateur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='supports_apprenants',
+        verbose_name="Formateur"
+    )
+    titre = models.CharField(max_length=200, verbose_name="Titre du document")
+    type_document = models.CharField(max_length=10, choices=TYPE_DOC_CHOICES, verbose_name="Type de document")
+    type_formation = models.CharField(max_length=20, choices=TYPE_FORMATION_CHOICES, default='TOUS', verbose_name="Type de formation")
+    module_formation = models.CharField(max_length=50, choices=MODULE_CHOICES, default='TOUS', verbose_name="Module de formation")
+    niveau_etude = models.CharField(max_length=100, blank=True, verbose_name="Niveau d'étude", help_text="Laisser vide pour tous les niveaux d'apprenants")
+    fichier = models.FileField(upload_to='cours/apprenants/', verbose_name="Fichier (PDF, ZIP, DOCX...)")
+    date_depot = models.DateTimeField(auto_now_add=True, verbose_name="Date de dépôt")
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Support Pédagogique Apprenant"
+        verbose_name_plural = "Supports Pédagogiques Apprenants"
+        ordering = ['-date_depot']
+
+    def __str__(self):
+        return f"{self.titre} - {self.get_module_formation_display()}"
+
+    def get_nom_fichier(self):
+        import os
+        if self.fichier:
+            return os.path.basename(self.fichier.name)
+        return None
