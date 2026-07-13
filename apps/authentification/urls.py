@@ -17,6 +17,7 @@ urlpatterns = [
     
     # Demandes d'inscription (admin)
     path('demandes/', views.liste_demandes, name='liste_demandes'),
+    path('liste-demandes/', views.liste_demandes, name='liste_demandes_alt'),
     path('demandes/<int:pk>/', views.detail_demande, name='detail_demande'),
     path('demandes/<int:pk>/valider/', views.valider_demande, name='valider_demande'),
     path('demandes/<int:pk>/rejeter/', views.rejeter_demande, name='rejeter_demande'),
