@@ -232,9 +232,9 @@
                             <div class="mb-6">
                                 <label class="block text-sm font-medium text-gray-700 mb-3">Je suis :</label>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <!-- Carte Étudiant -->
-                                    <div class="type-card border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg text-center" data-type="ETUDIANT">
-                                        <input type="radio" name="type_utilisateur" value="ETUDIANT" class="hidden" required>
+                                     <!-- Carte Étudiant -->
+                                     <div class="type-card border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg text-center selected" data-type="ETUDIANT">
+                                         <input type="radio" name="type_utilisateur" value="ETUDIANT" class="hidden" checked>
                                         <div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                             <i class="fas fa-user-graduate text-primary-600 text-2xl"></i>
                                         </div>
@@ -309,8 +309,8 @@
                                     </div>
                                 </div>
 
-                                <!-- Champs spécifiques Étudiant -->
-                                <div id="etudiant-fields" class="hidden space-y-4 p-4 bg-primary-50 rounded-lg">
+                                 <!-- Champs spécifiques Étudiant -->
+                                 <div id="etudiant-fields" class="space-y-4 p-4 bg-primary-50 rounded-lg">
                                     <h3 class="font-semibold text-primary-800 flex items-center">
                                         <i class="fas fa-graduation-cap mr-2"></i>
                                         Informations académiques
@@ -402,7 +402,7 @@
                                     </div>
                                 </div>
                                 
-                                <div id="etudiant-doc-info" class="hidden p-3 bg-primary-50 rounded-lg">
+                                 <div id="etudiant-doc-info" class="p-3 bg-primary-50 rounded-lg">
                                     <div class="flex items-start">
                                         <i class="fas fa-info-circle text-primary-600 mr-2 mt-0.5"></i>
                                         <div class="text-xs text-primary-700">
@@ -474,7 +474,7 @@
     <script>
     // Gestion des étapes
     let currentStep = 1;
-    let selectedUserType = null;
+    let selectedUserType = 'ETUDIANT';
     let selectedFile = null;  // Variable pour stocker le fichier
     
     const step1Content = document.getElementById('step1-content');
@@ -833,12 +833,7 @@
                 submitBtn.disabled = true;
             }
             
-            // Remplacer le formulaire original
-            this.querySelectorAll('input, select, textarea').forEach(field => {
-                if (field.name && field.name !== 'document') {
-                    formData.append(field.name, field.value);
-                }
-            });
+            // Les données du formulaire sont déjà correctement packagées dans formData par new FormData(this)
             
             // Créer une nouvelle requête
             const xhr = new XMLHttpRequest();
