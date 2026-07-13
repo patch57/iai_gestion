@@ -833,50 +833,13 @@
                 return false;
             }
             
-            // S'assurer que le fichier est dans le formulaire
-            const formData = new FormData(this);
-            if (!formData.has('document') && selectedFile) {
-                formData.append('document', selectedFile);
-            }
-            
             const submitBtn = document.getElementById('submitBtn');
             if (submitBtn) {
                 submitBtn.innerHTML = '<div class="loading mr-2"></div>Inscription en cours...';
                 submitBtn.disabled = true;
             }
             
-            // Les données du formulaire sont déjà correctement packagées dans formData par new FormData(this)
-            
-            // Créer une nouvelle requête
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', this.action, true);
-            xhr.setRequestHeader('X-CSRFToken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-            xhr.onload = function() {
-                if (xhr.status === 302 || xhr.status === 200) {
-                    if (xhr.responseURL) {
-                        window.location.href = xhr.responseURL;
-                    } else {
-                        window.location.href = '/authentification/inscription_confirmation/';
-                    }
-                } else {
-                    showAlert('Une erreur est survenue. Veuillez réessayer.');
-                    if (submitBtn) {
-                        submitBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>S\'inscrire';
-                        submitBtn.disabled = false;
-                    }
-                }
-            };
-            xhr.onerror = function() {
-                showAlert('Erreur réseau. Veuillez réessayer.');
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>S\'inscrire';
-                    submitBtn.disabled = false;
-                }
-            };
-            xhr.send(formData);
-            
-            e.preventDefault();
-            return false;
+            return true;
         });
     }
     
