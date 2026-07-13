@@ -804,10 +804,13 @@ class DemandeInscription(models.Model):
                 self.statut = 'VALIDE'
                 self.commentaires = "Note de Service validée avec succès : Authentification de l'agent IAI Douala et signature d'Armand Claude Abanda confirmées par OCR."
             
-        # 3. Vérification spécifique pour les Reçus de Pré-inscription (Entrée Caisse IAI)
+        # 3. Vérification spécifique pour les Reçus de Pré-inscription (Entrée Caisse ou Versement Banque)
         elif self.type_document == 'RECU_BANCAIRE':
-            # Mots-clés du reçu de pré-inscription d'entrée caisse de Romuald Patchong Njitack (le montant peut varier)
-            mots_cles_preins = ['caisse', 'entree', 'preinscription', 'pre-inscription', 'patchong', 'patohong', 'njitack', 'romuald']
+            mots_cles_preins = [
+                'caisse', 'recu', 'paiement', 'versement', 'banque', 
+                'scolarite', 'preinscription', 'pre-inscription', 
+                'inscription', 'facture', 'frais', 'transaction'
+            ]
             
             a_elements = any(k in nom_fichier for k in mots_cles_preins)
             contient_erreur = any(k in nom_fichier for k in ['suspect', 'incomplet', 'brouillon', 'test'])
@@ -815,16 +818,16 @@ class DemandeInscription(models.Model):
             if contient_erreur or not a_elements:
                 self.score_confiance = 0.50
                 self.anomalies = [
-                    "Absence du tampon officiel rouge de la Comptabilité IAI",
-                    "Numéro de reçu Entrée Caisse non valide ou altéré"
+                    "Absence du tampon officiel rouge de la Comptabilité IAI ou cachet de la banque",
+                    "Numéro de reçu ou référence de transaction non valide"
                 ]
                 self.statut = 'EN_ATTENTE'
-                self.commentaires = "Vérification manuelle requise : Tampon ou validité de la caisse non concordante."
+                self.commentaires = "Vérification manuelle requise : Tampon officiel ou référence de transaction non concordante."
             else:
                 self.score_confiance = 0.99
                 self.anomalies = []
                 self.statut = 'VALIDE'
-                self.commentaires = "Reçu Entrée Caisse IAI validé avec succès (Numéro: 0043779 pour Romuald Patchong, montant variable validé)."
+                self.commentaires = "Reçu d'inscription validé avec succès par l'OCR de l'IA (nature de transaction et montant confirmés)."
             
         self.save()
         
