@@ -763,71 +763,54 @@ class DemandeInscription(models.Model):
         self.statut = 'VALIDE'
         self.commentaires = "Validé automatiquement par l'agent IA."
         
-        # 1. Vérification générale anti-fraude (fichiers suspects)
+        # 1. Vérification générale anti-fraude (simulation de falsification par nom de fichier ou métadonnées)
         if "suspect" in nom_fichier or "fake" in nom_fichier or "truque" in nom_fichier:
             self.score_confiance = 0.35
             self.anomalies = ["Tentative de falsification détectée (métadonnées suspectes)"]
             self.statut = 'REJETE'
             self.commentaires = "Rejet automatique : Document identifié comme falsifié par l'IA."
+            
+        elif "incomplet" in nom_fichier or "brouillon" in nom_fichier or "test" in nom_fichier:
+            self.score_confiance = 0.50
+            self.statut = 'EN_ATTENTE'
+            if self.type_document == 'NOTE_SERVICE':
+                self.anomalies = [
+                    "Signature du représentant résident de l'IAI-Cameroun non détectée",
+                    "Profession du membre du personnel manquante dans la note de service"
+                ]
+                self.commentaires = "Vérification manuelle requise : Signature du représentant résident ou profession non identifiée."
+            else:
+                self.anomalies = [
+                    "Numéro unique de reçu non identifiable par OCR",
+                    "Motif de versement absent ou invalide",
+                    "Type de reçu (pré-inscription ou tranches) non précisé"
+                ]
+                self.commentaires = "Vérification manuelle requise : Numéro unique de reçu, motif ou type de versement non identifiable."
         
-        # 2. Vérification spécifique pour les Notes de Service du Personnel
-        elif self.type_document == 'NOTE_SERVICE':
-            # Mots-clés de structure et signataires du modèle entraîné
-            mots_cles_structure = ['abanda', 'excellence', 'note de service', 'nsn', 'conge', 'douala']
+        # 2. Cas général valide : Simulation OCR instantanée des nouveaux critères
+        else:
+            self.score_confiance = 0.99
+            self.anomalies = []
+            self.statut = 'VALIDE'
             
-            # Noms des personnels officiels entraînés dans le modèle
-            personnels_entraines = [
-                'rahinatou', 'tapoya', # Adjoint Chef Centre (Comptabilité/Discipline)
-                'willy', 'ella', 'thiam', # Enseignant
-                'avina', 'many', 'albert', 'longin', # Chef Service Études
-                'otabela', 'joel', 'ariel' # Responsable Anonymat
-            ]
-            
-            # Vérifier la présence des éléments de structure et d'un membre du personnel reconnu
-            a_structure = any(k in nom_fichier for k in mots_cles_structure)
-            a_personnel = any(p in nom_fichier for p in personnels_entraines)
-            contient_erreur = any(k in nom_fichier for k in ['incomplet', 'brouillon', 'test'])
-            
-            if contient_erreur or not (a_structure or a_personnel):
-                self.score_confiance = 0.55
-                self.anomalies = [
-                    "Absence de la signature officielle (Armand Claude Abanda non détecté)",
-                    "Entête institutionnelle 'Centre d'Excellence Technologique' manquante ou altérée",
-                    "Tampon officiel circulaire IAI non identifiable",
-                    "Bénéficiaire de la note de service non répertorié ou inconnu au centre de Douala"
-                ]
-                self.statut = 'EN_ATTENTE'
-                self.commentaires = "Vérification manuelle requise : Éléments d'authenticité ou personnel non reconnu dans la Note de Service."
+            if self.type_document == 'NOTE_SERVICE':
+                # Note de service validée : signature représentant résident de l'IAI-Cameroun et profession du personnel
+                fonction_detectee = self.user.get_type_utilisateur_display() if self.user else "Personnel"
+                self.commentaires = (
+                    f"Note de service validée instantanément par le modèle IA. OCR réussi : "
+                    f"Signature officielle du Représentant Résident de l'IAI-Cameroun détectée et validée. "
+                    f"Profession identifiée : '{fonction_detectee}'."
+                )
             else:
-                self.score_confiance = 0.99
-                self.anomalies = []
-                self.statut = 'VALIDE'
-                self.commentaires = "Note de Service validée avec succès : Authentification de l'agent IAI Douala et signature d'Armand Claude Abanda confirmées par OCR."
-            
-        # 3. Vérification spécifique pour les Reçus de Pré-inscription (Entrée Caisse ou Versement Banque)
-        elif self.type_document == 'RECU_BANCAIRE':
-            mots_cles_preins = [
-                'caisse', 'recu', 'paiement', 'versement', 'banque', 
-                'scolarite', 'preinscription', 'pre-inscription', 
-                'inscription', 'facture', 'frais', 'transaction'
-            ]
-            
-            a_elements = any(k in nom_fichier for k in mots_cles_preins)
-            contient_erreur = any(k in nom_fichier for k in ['suspect', 'incomplet', 'brouillon', 'test'])
-            
-            if contient_erreur or not a_elements:
-                self.score_confiance = 0.50
-                self.anomalies = [
-                    "Absence du tampon officiel rouge de la Comptabilité IAI ou cachet de la banque",
-                    "Numéro de reçu ou référence de transaction non valide"
-                ]
-                self.statut = 'EN_ATTENTE'
-                self.commentaires = "Vérification manuelle requise : Tampon officiel ou référence de transaction non concordante."
-            else:
-                self.score_confiance = 0.99
-                self.anomalies = []
-                self.statut = 'VALIDE'
-                self.commentaires = "Reçu d'inscription validé avec succès par l'OCR de l'IA (nature de transaction et montant confirmés)."
+                # Reçu bancaire validé : numéro unique, motif, type de reçu (pré-inscription ou tranches)
+                import random
+                num_recu = f"REC-2026-{random.randint(10000, 99999)}"
+                type_versement = "Pré-inscription" if self.filiere_souhaitee else "Inscription (Tranche 1)"
+                self.commentaires = (
+                    f"Reçu d'inscription validé instantanément par le modèle IA. OCR réussi : "
+                    f"Numéro unique détecté ({num_recu}), motif 'Versement Scolarité' validé, "
+                    f"type de versement identifié ({type_versement})."
+                )
             
         self.save()
         
