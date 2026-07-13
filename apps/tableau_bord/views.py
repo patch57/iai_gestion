@@ -441,6 +441,18 @@ def dashboard_admin(request):
     # Alertes
     alertes = []
     
+    # Alertes demandes d'inscription en attente
+    from apps.authentification.models import DemandeInscription
+    demandes_attente_count = DemandeInscription.objects.filter(statut='EN_ATTENTE').count()
+    if demandes_attente_count > 0:
+        alertes.append({
+            'type': 'info',
+            'message': f"{demandes_attente_count} demande(s) d'inscription en attente",
+            'icone': 'user-clock',
+            'lien': '/authentification/liste-demandes/',
+            'couleur': '#3B82F6'
+        })
+        
     # Alertes paiements en attente
     recus_attente = RecuPaiement.objects.filter(statut='EN_ATTENTE').count()
     if recus_attente > 0:
@@ -466,12 +478,18 @@ def dashboard_admin(request):
             'lien': '/paiements/tranches/',
             'couleur': '#10B981'
         })
+        
+    # Demandes d'inscription en attente récentes
+    demandes_en_attente = DemandeInscription.objects.filter(
+        statut='EN_ATTENTE'
+    ).select_related('user').order_by('-date_soumission')[:5]
     
     context = {
         'stats': stats,
         'stats_sexe': stats_sexe,
         'effectifs_filiere': effectifs_filiere,
         'inscriptions_recentes': inscriptions_recentes,
+        'demandes_en_attente': demandes_en_attente,
         'paiements_recents': paiements_recents,
         'taches': taches,
         'notifications': notifications,
