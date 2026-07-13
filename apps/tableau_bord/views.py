@@ -55,7 +55,7 @@ def tableau_bord(request):
         return etudiant_dashboard(request)
     elif type_user == 'APPRENANT':
         return apprenant_dashboard(request)
-    elif type_user == 'ENSEIGNANT' or type_user == 'PROFESSEUR':
+    elif type_user in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
         return enseignant_dashboard(request)
     elif type_user == 'CHEF_SCOLARITE':
         return chef_scolarite_dashboard(request)
@@ -169,26 +169,29 @@ def apprenant_dashboard(request):
 
 @login_required
 def enseignant_dashboard(request):
-    professeur = Professeur.objects.filter(utilisateur=request.user).first()
-    if not professeur:
-        from apps.professeurs.models import Departement
-        dept = Departement.objects.first()
-        if not dept:
-            dept = Departement.objects.create(code='INFO', nom='Informatique')
-        professeur = Professeur.objects.create(
-            utilisateur=request.user,
-            matricule='PR202401',
-            nom=request.user.last_name or 'Enseignant',
-            prenom=request.user.first_name or 'IAI',
-            email=request.user.email,
-            telephone='699999999',
-            adresse='Douala',
-            date_naissance=timezone.now().date() - timedelta(days=12000),
-            date_embauche=timezone.now().date(),
-            grade='VACATAIRE',
-            specialite='Génie Logiciel',
-            departement=dept
-        )
+    if request.user.type_utilisateur == 'FORMATEUR':
+        professeur = None
+    else:
+        professeur = Professeur.objects.filter(utilisateur=request.user).first()
+        if not professeur:
+            from apps.professeurs.models import Departement
+            dept = Departement.objects.first()
+            if not dept:
+                dept = Departement.objects.create(code='INFO', nom='Informatique')
+            professeur = Professeur.objects.create(
+                utilisateur=request.user,
+                matricule='PR202401',
+                nom=request.user.last_name or 'Enseignant',
+                prenom=request.user.first_name or 'IAI',
+                email=request.user.email,
+                telephone='699999999',
+                adresse='Douala',
+                date_naissance=timezone.now().date() - timedelta(days=12000),
+                date_embauche=timezone.now().date(),
+                grade='VACATAIRE',
+                specialite='Génie Logiciel',
+                departement=dept
+            )
 
     if request.method == 'POST' and request.FILES.get('ressource_fichier'):
         cours_id = request.POST.get('cours_id')

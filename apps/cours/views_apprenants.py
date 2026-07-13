@@ -14,7 +14,7 @@ from .forms import SupportPedagogiqueApprenantForm
 @login_required
 def liste_apprenants_categories(request):
     """Consulter et imprimer la liste des apprenants par catégories"""
-    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'ADMIN_SYSTEME']:
+    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'ADMIN_SYSTEME']:
         messages.error(request, "Accès refusé.")
         return redirect('tableau_bord:tableau_bord')
         
@@ -49,7 +49,7 @@ def liste_apprenants_categories(request):
 @login_required
 def saisir_notes_apprenants(request):
     """Saisie des notes d'évaluation des apprenants par formation"""
-    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'ADMIN_SYSTEME']:
+    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'ADMIN_SYSTEME']:
         messages.error(request, "Accès refusé.")
         return redirect('tableau_bord:tableau_bord')
         
@@ -112,7 +112,7 @@ def saisir_notes_apprenants(request):
 @login_required
 def ajouter_support_apprenant(request):
     """Dépôt de supports de cours ciblés pour les apprenants"""
-    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'ADMIN_SYSTEME']:
+    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'ADMIN_SYSTEME']:
         messages.error(request, "Accès refusé.")
         return redirect('tableau_bord:tableau_bord')
         
@@ -159,7 +159,7 @@ def liste_supports_apprenant(request):
                 supports = supports.filter(Q(niveau_etude=apprenant.niveau_etude) | Q(niveau_etude=''))
         else:
             supports = supports.none()
-    elif role in ['ENSEIGNANT', 'PROFESSEUR']:
+    elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
         # Le formateur voit ses propres dépôts ou tous
         supports = supports.filter(formateur=user)
         

@@ -95,7 +95,7 @@ class RenvoyerPersonnelForm(forms.ModelForm):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         self.fields['assigne_a'].queryset = User.objects.filter(
-            type_utilisateur__in=['CHEF_SCOLARITE', 'CHEF_ETUDES', 'CHEF_ANONYMAT', 'CHEF_COMPTABILITE', 'ENSEIGNANT', 'PROFESSEUR']
+            type_utilisateur__in=['CHEF_SCOLARITE', 'CHEF_ETUDES', 'CHEF_ANONYMAT', 'CHEF_COMPTABILITE', 'ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']
         ).order_by('first_name')
         
         self.helper = FormHelper()

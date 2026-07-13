@@ -14,6 +14,7 @@ class Utilisateur(AbstractUser):
     TYPE_UTILISATEUR = [
         ('ETUDIANT', '🎓 Étudiant'),
         ('APPRENANT', '🎒 Apprenant (Certifications)'),
+        ('FORMATEUR', '👨‍🏫 Formateur (Certifications)'),
         ('PROFESSEUR', '👨‍🏫 Professeur'),
         ('ENSEIGNANT', '👨‍🏫 Enseignant'),
         ('ADMIN_PEDAGOGIQUE', '📚 Admin Pédagogique'),

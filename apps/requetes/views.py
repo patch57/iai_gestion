@@ -33,7 +33,7 @@ def liste_requetes(request):
         queryset = queryset.filter(nature='ANONYMAT')
     elif role == 'CHEF_COMPTABILITE':
         queryset = queryset.filter(nature='COMPTABILITE')
-    elif role in ['ENSEIGNANT', 'PROFESSEUR']:
+    elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
         # Le formateur gère uniquement les requêtes des apprenants
         queryset = queryset.filter(auteur__type_utilisateur='APPRENANT')
     elif role == 'ADMIN_SYSTEME':
@@ -128,7 +128,7 @@ def detail_requete(request, pk):
             (role == 'CHEF_ETUDES' and requete.nature == 'ETUDES') or
             (role == 'CHEF_ANONYMAT' and requete.nature == 'ANONYMAT') or
             (role == 'CHEF_COMPTABILITE' and requete.nature == 'COMPTABILITE') or
-            (role in ['ENSEIGNANT', 'PROFESSEUR'] and requete.auteur.type_utilisateur == 'APPRENANT')
+            (role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR'] and requete.auteur.type_utilisateur == 'APPRENANT')
         )
         if nature_correspondante:
             form_reponse = ReponsePersonnelForm(instance=requete)

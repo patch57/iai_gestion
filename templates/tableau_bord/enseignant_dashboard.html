@@ -8,11 +8,15 @@
     <!-- Header -->
     <div class="bg-gradient-to-r from-green-700 via-green-600 to-yellow-500 rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
         <div>
-            <span class="bg-white/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/10">Espace Enseignant</span>
-            <h1 class="text-3xl font-extrabold mt-3">Prof. {{ professeur.get_nom_complet }}</h1>
+            <span class="bg-white/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/10">Espace Enseignant / Formateur</span>
+            <h1 class="text-3xl font-extrabold mt-3">{% if professeur %}Prof. {{ professeur.get_nom_complet }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</h1>
             <p class="text-green-100 mt-2">
+                {% if professeur %}
                 <span class="font-semibold">Spécialité:</span> {{ professeur.specialite }} | 
                 <span class="font-semibold">Département:</span> {{ professeur.departement.nom }}
+                {% else %}
+                <span class="font-semibold">Rôle:</span> Formateur (Certifications / Formation Continue)
+                {% endif %}
             </p>
         </div>
     </div>
