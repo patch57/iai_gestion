@@ -5,67 +5,135 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8 animate-fadeInUp">
-    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold"><i class="fas fa-file-upload mr-2"></i>Téléverser un Reçu Bancaire</h1>
-                <p class="text-xs text-green-100 mt-1">Vérification de dossier par agent IA</p>
+    <div class="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-100/80 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-emerald-800 via-green-700 to-emerald-600 p-6 text-white flex justify-between items-center relative overflow-hidden">
+            <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="z-10">
+                <h1 class="text-xl md:text-2xl font-black tracking-tight flex items-center">
+                    <span class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center mr-3 shadow-inner">
+                        <i class="fas fa-file-invoice-dollar text-emerald-200"></i>
+                    </span>
+                    Téléverser un Reçu Bancaire
+                </h1>
+                <p class="text-xs text-emerald-100 mt-1 font-medium">Vérification de dossier instantanée assistée par IA</p>
             </div>
-            <a href="{% url 'tableau_bord:tableau_bord' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
-                Annuler
+            <a href="{% url 'tableau_bord:tableau_bord' %}" 
+               class="z-10 bg-white/15 hover:bg-white/25 border border-white/20 px-3.5 py-2 rounded-xl text-xs font-semibold backdrop-blur-md transition-all duration-200 flex items-center gap-1.5 shadow-sm">
+                <i class="fas fa-times text-xs"></i> Annuler
             </a>
         </div>
 
-        <form method="POST" enctype="multipart/form-data" class="p-6 md:p-8 space-y-6">
+        <form method="POST" enctype="multipart/form-data" id="upload-form" class="p-6 md:p-8 space-y-6">
             {% csrf_token %}
 
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="p-4 rounded-2xl text-xs md:text-sm font-semibold flex items-center gap-3 shadow-sm animate-shake 
+                        {% if message.tags == 'error' %}bg-rose-50 border border-rose-200 text-rose-700{% elif message.tags == 'warning' %}bg-amber-50 border border-amber-200 text-amber-800{% else %}bg-emerald-50 border border-emerald-200 text-emerald-800{% endif %}">
+                        <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle text-rose-500{% elif message.tags == 'warning' %}fa-exclamation-triangle text-amber-500{% else %}fa-check-circle text-emerald-500{% endif %} text-lg"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Tranche Selection -->
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Tranche de paiement *</label>
-                <select name="tranche" required class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                    <option value="">-- Sélectionnez la tranche --</option>
-                    {% for t in tranches %}
-                    <option value="{{ t.id }}">{{ t.get_numero_display }} ({{ t.montant|floatformat:0 }} FCFA)</option>
-                    {% endfor %}
-                </select>
+                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <i class="fas fa-layer-group text-emerald-600"></i> Tranche de paiement <span class="text-rose-500">*</span>
+                </label>
+                <div class="relative">
+                    <select name="tranche" required class="w-full rounded-2xl border border-gray-200 px-4 py-3 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium text-gray-800 transition-all appearance-none cursor-pointer">
+                        <option value="">-- Sélectionnez la tranche concernée --</option>
+                        {% for t in tranches %}
+                        <option value="{{ t.id }}">{{ t.get_numero_display }} ({{ t.montant|floatformat:0 }} FCFA)</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+                </div>
             </div>
 
+            <!-- Amount and Reference -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Montant mentionné (FCFA) *</label>
-                    <input type="number" name="montant_mentionne" required placeholder="Ex: 50000"
-                        class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-bold">
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <i class="fas fa-coins text-emerald-600"></i> Montant versé (FCFA) <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="number" name="montant_mentionne" required min="1" placeholder="Ex: 115000"
+                        class="w-full rounded-2xl border border-gray-200 px-4 py-3 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-bold text-gray-800 transition-all">
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Référence du reçu / Transaction *</label>
-                    <input type="text" name="reference_recu" required placeholder="Ex: FT240710..."
-                        class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <i class="fas fa-barcode text-emerald-600"></i> N° Référence / Bordereau <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" name="reference_recu" required placeholder="Ex: SCB-2024-011261"
+                        class="w-full rounded-2xl border border-gray-200 px-4 py-3 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-semibold text-gray-800 transition-all">
                 </div>
             </div>
 
             <!-- File Upload Dropzone -->
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Fichier du reçu (Image ou PDF) *</label>
-                <div class="border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-green-500 transition-all text-center cursor-pointer relative" id="dropzone">
-                    <input type="file" name="recu_fichier" required accept="image/*,application/pdf" id="file-input"
-                        class="absolute inset-0 opacity-0 cursor-pointer">
-                    <div class="space-y-2">
-                        <i class="fas fa-cloud-upload-alt text-gray-400 text-4xl" id="upload-icon"></i>
-                        <p class="text-sm font-semibold text-gray-700" id="file-name">Glissez-déposez votre reçu ou cliquez pour parcourir</p>
-                        <p class="text-xs text-gray-400">Formats acceptés : PDF, PNG, JPG (Max 5Mo)</p>
+                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span class="flex items-center gap-1"><i class="fas fa-paperclip text-emerald-600"></i> Fichier Scanné du Reçu <span class="text-rose-500">*</span></span>
+                    <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">Max 5 Mo</span>
+                </label>
+                
+                <div class="relative border-2 border-dashed border-gray-300 hover:border-emerald-500 bg-gray-50/30 hover:bg-emerald-50/20 rounded-2xl p-6 transition-all duration-300 text-center cursor-pointer group shadow-inner" id="dropzone">
+                    <input type="file" name="recu_fichier" required accept="image/png,image/jpeg,image/jpg,application/pdf" id="file-input"
+                        class="absolute inset-0 opacity-0 cursor-pointer z-20">
+                    
+                    <div class="space-y-3 z-10 relative pointer-events-none" id="dropzone-prompt">
+                        <div class="w-16 h-16 mx-auto rounded-2xl bg-emerald-100/60 group-hover:scale-110 group-hover:bg-emerald-200/80 transition-all duration-300 flex items-center justify-center text-emerald-600 shadow-sm" id="upload-icon-container">
+                            <i class="fas fa-cloud-arrow-up text-2xl" id="upload-icon"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-gray-800 group-hover:text-emerald-700 transition" id="file-name">
+                                Glissez-déposez votre reçu bancaire ici
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">ou <span class="text-emerald-600 font-semibold underline">parcourez votre appareil</span></p>
+                        </div>
+                        <div class="inline-flex items-center gap-2 text-[11px] text-gray-400 font-medium bg-white px-3 py-1 rounded-full border border-gray-200 shadow-xs">
+                            <i class="fas fa-file-pdf text-red-400"></i> PDF &bull; <i class="fas fa-file-image text-blue-400"></i> PNG, JPG, JPEG
+                        </div>
+                    </div>
+
+                    <!-- Live File Preview Container -->
+                    <div class="hidden space-y-3 z-10 relative" id="preview-container">
+                        <div class="flex items-center justify-center gap-3 bg-white p-3 rounded-xl border border-emerald-200 shadow-sm max-w-sm mx-auto">
+                            <i class="fas fa-file-circle-check text-emerald-500 text-2xl" id="preview-icon"></i>
+                            <div class="text-left overflow-hidden">
+                                <p class="text-xs font-bold text-gray-800 truncate" id="preview-name"></p>
+                                <p class="text-[10px] text-emerald-600 font-semibold" id="preview-size"></p>
+                            </div>
+                        </div>
+                        <span class="inline-block text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-full">
+                            ✓ Fichier valide et prêt pour analyse
+                        </span>
                     </div>
                 </div>
-            </div>
-
-            <!-- Information Alert -->
-            <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 text-xs text-blue-700 leading-relaxed flex">
-                <i class="fas fa-info-circle text-base mr-3 mt-0.5"></i>
-                <p>
-                    <strong>Analyse IA intégrée :</strong> Notre système extrait automatiquement les données de votre reçu pour accélérer sa validation. Les documents falsifiés ou suspects feront l'objet d'un rejet automatique et d'une alerte comptable.
+                <p class="hidden text-xs font-semibold text-rose-600 mt-2 flex items-center gap-1" id="file-error">
+                    <i class="fas fa-circle-exclamation"></i> <span id="file-error-text"></span>
                 </p>
             </div>
 
-            <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition duration-200">
-                Soumettre pour vérification
+            <!-- Information Alert -->
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50/60 border border-blue-200/80 rounded-2xl p-4 text-xs text-blue-900 leading-relaxed flex items-start gap-3 shadow-xs">
+                <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <i class="fas fa-robot text-sm"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-blue-950 mb-0.5">Contrôle Automatique IA SCB Cameroun</h4>
+                    <p class="text-blue-800/90 text-[11px]">
+                        L'algorithme de contrôle OCR vérifie l'authenticité de la banque, de l'agence, du numéro de bordereau et du compte bancaire destinataire. Tout reçu altéré sera automatiquement rejeté.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submit-btn" 
+                class="w-full bg-gradient-to-r from-emerald-700 via-green-600 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white font-extrabold py-4 px-6 rounded-2xl shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 transition duration-300 flex items-center justify-center gap-2 group cursor-pointer text-sm tracking-wide">
+                <span>Soumettre le Reçu pour Vérification</span>
+                <i class="fas fa-paper-plane group-hover:translate-x-1 transition-transform"></i>
             </button>
         </form>
     </div>
@@ -73,19 +141,76 @@
 
 <script>
     const fileInput = document.getElementById('file-input');
-    const fileName = document.getElementById('file-name');
-    const uploadIcon = document.getElementById('upload-icon');
     const dropzone = document.getElementById('dropzone');
+    const dropzonePrompt = document.getElementById('dropzone-prompt');
+    const previewContainer = document.getElementById('preview-container');
+    const previewName = document.getElementById('preview-name');
+    const previewSize = document.getElementById('preview-size');
+    const fileError = document.getElementById('file-error');
+    const fileErrorText = document.getElementById('file-error-text');
+
+    const ALLOWED_EXT = ['pdf', 'png', 'jpg', 'jpeg'];
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+
+    function handleFile(file) {
+        fileError.classList.add('hidden');
+        if (!file) return;
+
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!ALLOWED_EXT.includes(ext)) {
+            fileErrorText.innerText = `Format .${ext} non autorisé. Extensions acceptées : PDF, PNG, JPG, JPEG.`;
+            fileError.classList.remove('hidden');
+            fileInput.value = '';
+            resetPreview();
+            return;
+        }
+
+        if (file.size > MAX_SIZE_BYTES) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            fileErrorText.innerText = `Fichier trop volumineux (${sizeMB} Mo). Taille maximale : 5 Mo.`;
+            fileError.classList.remove('hidden');
+            fileInput.value = '';
+            resetPreview();
+            return;
+        }
+
+        // Display preview
+        previewName.innerText = file.name;
+        previewSize.innerText = `${(file.size / 1024).toFixed(1)} KB`;
+        dropzonePrompt.classList.add('hidden');
+        previewContainer.classList.remove('hidden');
+        dropzone.classList.remove('border-gray-300');
+        dropzone.classList.add('border-emerald-500', 'bg-emerald-50/30');
+    }
+
+    function resetPreview() {
+        dropzonePrompt.classList.remove('hidden');
+        previewContainer.classList.add('hidden');
+        dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/30');
+        dropzone.classList.add('border-gray-300');
+    }
 
     fileInput.addEventListener('change', (e) => {
-        if(fileInput.files.length > 0) {
-            const name = fileInput.files[0].name;
-            fileName.innerText = name;
-            fileName.classList.add('text-green-600');
-            uploadIcon.classList.remove('text-gray-400');
-            uploadIcon.classList.add('text-green-500');
-            dropzone.classList.add('border-green-500', 'bg-green-50/10');
+        if (fileInput.files.length > 0) {
+            handleFile(fileInput.files[0]);
         }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropzone.classList.add('border-emerald-500', 'bg-emerald-100/50', 'scale-[1.01]');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('scale-[1.01]', 'bg-emerald-100/50');
+            if (!fileInput.files.length) {
+                dropzone.classList.remove('border-emerald-500');
+            }
+        }, false);
     });
 </script>
 {% endblock %}

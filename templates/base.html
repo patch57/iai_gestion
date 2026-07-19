@@ -577,6 +577,7 @@
                 });
             }
             
+            {% if user.is_authenticated %}
             // Charger le nombre de notifications non lues
             fetch('/tableau-de-bord/api/notifications-non-lues/')
                 .then(response => {
@@ -600,6 +601,7 @@
                     }
                 })
                 .catch(error => console.error('Erreur chargement notifications:', error));
+            {% endif %}
             
             // Fermer les messages
             document.querySelectorAll('.close-message').forEach(btn => {

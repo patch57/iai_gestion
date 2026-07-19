@@ -24,6 +24,13 @@ urlpatterns = [
     
     # Emplois du temps
     path('emplois-du-temps/', views.emploi_du_temps, name='emploi_du_temps'),
+    path('emploi-du-temps/officiel/', views.emploi_du_temps_officiel, name='emploi_du_temps_officiel'),
+    path('emploi-du-temps/creer/', views.creer_emploi_du_temps_hebdo, name='creer_emploi_du_temps_hebdo'),
+    path('emploi-du-temps/<int:pk>/editer/', views.editer_creneaux_emploi_du_temps, name='editer_creneaux_emploi_du_temps'),
+    path('emploi-du-temps/<int:pk>/soumettre/', views.soumettre_emploi_du_temps, name='soumettre_emploi_du_temps'),
+    path('emploi-du-temps/<int:pk>/approuver/', views.approuver_emploi_du_temps, name='approuver_emploi_du_temps'),
+    path('emploi-du-temps/<int:pk>/imprimer/', views.imprimer_emploi_du_temps_officiel, name='imprimer_emploi_du_temps_officiel'),
+
     
     # Présences
     path('seance/<int:seance_id>/presence/', views.feuille_presence, name='feuille_presence'),

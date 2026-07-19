@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        header, nav, footer, .no-print, #sidebar {
+            display: none !important;
+        }
+        body {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .print-container {
+            box-shadow: none !important;
+            border: none !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+    }
+</style>
+
+<div class="max-w-7xl mx-auto px-2 sm:px-4 py-6 animate-fadeInUp">
+
+    <!-- Action & Approval Bar (Non imprimable) -->
+    <div class="no-print bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'cours:emploi_du_temps_officiel' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold px-3 py-2 rounded-xl transition">
+                <i class="fas fa-arrow-left mr-1"></i> Retour à la liste
+            </a>
+            <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider
+                {% if emploi.statut == 'VALIDE' %}bg-emerald-100 text-emerald-800 border border-emerald-300
+                {% elif emploi.statut == 'EN_ATTENTE_VALIDATION' %}bg-amber-100 text-amber-800 border border-amber-300
+                {% elif emploi.statut == 'REJETE' %}bg-rose-100 text-rose-800 border border-rose-300
+                {% else %}bg-gray-100 text-gray-800 border border-gray-300{% endif %}">
+                Statut : {{ emploi.get_statut_display }}
+            </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            {% if role == 'CHEF_ETUDES' or role == 'ADMIN_SYSTEME' or role == 'DIRECTEUR' %}
+                <a href="{% url 'cours:editer_creneaux_emploi_du_temps' emploi.pk %}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
+                    <i class="fas fa-edit"></i> Éditer la Grille
+                </a>
+            {% endif %}
+
+            {% if emploi.statut == 'BROUILLON' or emploi.statut == 'REJETE' %}
+                {% if role == 'CHEF_ETUDES' or role == 'ADMIN_SYSTEME' %}
+                    <a href="{% url 'cours:soumettre_emploi_du_temps' emploi.pk %}" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
+                        <i class="fas fa-paper-plane"></i> Soumettre au Directeur
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if emploi.statut == 'EN_ATTENTE_VALIDATION' and role == 'DIRECTEUR' or role == 'ADMIN_SYSTEME' %}
+                <form method="POST" action="{% url 'cours:approuver_emploi_du_temps' emploi.pk %}" class="inline-flex gap-2">
+                    {% csrf_token %}
+                    <button type="submit" name="action" value="approuver" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                        <i class="fas fa-check-circle"></i> Approuver & Redistribuer
+                    </button>
+                    <button type="button" onclick="document.getElementById('modal-rejet').classList.remove('hidden')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                        <i class="fas fa-times-circle"></i> Rejeter
+                    </button>
+                </form>
+            {% endif %}
+
+            <button onclick="window.print()" class="bg-gray-800 hover:bg-black text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                <i class="fas fa-print"></i> Imprimer / Exporter PDF
+            </button>
+        </div>
+    </div>
+
+    {% if emploi.statut == 'REJETE' and emploi.motif_rejet %}
+    <div class="no-print bg-rose-50 border-l-4 border-rose-500 rounded-2xl p-4 mb-6 shadow-sm flex items-start gap-3">
+        <i class="fas fa-exclamation-triangle text-rose-500 text-lg mt-0.5"></i>
+        <div>
+            <h4 class="font-bold text-rose-900 text-xs uppercase tracking-wider mb-1">Emploi du temps renvoyé par le Directeur pour révision</h4>
+            <p class="text-xs text-rose-800 font-medium leading-relaxed">
+                <strong>Motif du rejet / Remarques :</strong> {{ emploi.motif_rejet }}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal de Rejet par le Directeur (Non imprimable) -->
+    <div id="modal-rejet" class="hidden fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Motif du Rejet / À réviser</h3>
+            <form method="POST" action="{% url 'cours:approuver_emploi_du_temps' emploi.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="rejeter">
+                <textarea name="motif_rejet" required placeholder="Expliquez les modifications demandées..." class="w-full rounded-2xl border border-gray-300 p-3 text-sm mb-4 focus:ring-2 focus:ring-rose-500" rows="3"></textarea>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('modal-rejet').classList.add('hidden')" class="bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs">Annuler</button>
+                    <button type="submit" class="bg-rose-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md">Confirmer le rejet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Feuille d'Emploi du Temps Officiel IAI-Cameroun (Reproduction exacte) -->
+    <div class="print-container bg-white rounded-3xl shadow-xl border border-gray-200 p-6 md:p-8 overflow-hidden text-gray-900">
+        
+        <!-- En-Tête Institutionnel -->
+        <div class="text-center space-y-1 mb-6 border-b border-gray-200 pb-4">
+            <!-- Armoiries / Logo Simulé -->
+            <div class="w-12 h-12 mx-auto mb-1 flex items-center justify-center rounded-full bg-emerald-700 text-amber-300 font-black text-xl shadow-md border-2 border-amber-400">
+                IAI
+            </div>
+            <p class="text-[11px] font-bold tracking-tight uppercase text-gray-700">Etablissement Inter – Etats d’Enseignement Supérieur</p>
+            <p class="text-[10px] font-semibold text-gray-600">Représentation du Cameroun</p>
+            <h2 class="text-sm md:text-base font-black tracking-wide text-gray-900 uppercase">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</h2>
+            <p class="text-[10px] text-gray-500">BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57 • 242 72 99 58 &bull; Centre de Douala</p>
+            <p class="text-[10px] text-gray-500 font-medium">Site web: www.iaicameroun.com • E-mail: contact@iaicameroun.com</p>
+
+            <!-- Titre Dynamic Hebdomadaire -->
+            <div class="mt-4 pt-2 border-t border-gray-200">
+                <h3 class="text-sm md:text-base font-black tracking-wider text-black uppercase">
+                    {{ emploi.titre_semaine|upper }} &bull; {{ emploi.get_niveau_display|upper }} – {{ emploi.filiere.code }}
+                    {% if emploi.salle %}(SALLE: {{ emploi.salle.code }}){% endif %}
+                </h3>
+            </div>
+        </div>
+
+        <!-- Table Emploi du Temps -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-center border-collapse border border-gray-800 text-xs font-semibold">
+                <thead>
+                    <tr class="bg-gray-900 text-white uppercase text-[11px]">
+                        <th class="border border-gray-800 p-2.5 w-28 font-bold">Heures / Jours</th>
+                        <th class="border border-gray-800 p-2.5">Lundi</th>
+                        <th class="border border-gray-800 p-2.5">Mardi</th>
+                        <th class="border border-gray-800 p-2.5">Mercredi</th>
+                        <th class="border border-gray-800 p-2.5">Jeudi</th>
+                        <th class="border border-gray-800 p-2.5">Vendredi</th>
+                        <th class="border border-gray-800 p-2.5">Samedi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plage_code, plage_label in plages %}
+                        {% if plage_code == 'PAUSE' %}
+                            <!-- Ligne de PAUSE (Jaune continu) -->
+                            <tr class="bg-amber-100/90 text-amber-950 font-bold border border-gray-800">
+                                <td class="border border-gray-800 p-2 font-black text-[10px] bg-amber-200/80">11:30 - 12:45</td>
+                                <td colspan="6" class="border border-gray-800 p-2 tracking-widest text-xs uppercase font-extrabold text-amber-900">
+                                    PAUSE
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr class="h-20 border border-gray-800">
+                                <!-- Heure -->
+                                <td class="border border-gray-800 p-2 font-black text-[11px] bg-gray-100 text-gray-900 flex-col justify-center">
+                                    {{ plage_label }}
+                                </td>
+                                
+                                {% for jour_code, jour_label in jours %}
+                                    {% with key=jour_code|add:","|add:plage_code %}
+                                    <!-- Traitement du créneau pour (jour, plage) -->
+                                    <td class="border border-gray-800 p-2 align-middle relative">
+                                        {% for c_key, creneau in grid.items %}
+                                            {% if c_key.0 == jour_code and c_key.1 == plage_code %}
+                                                <div class="h-full w-full flex flex-col justify-between p-1.5 rounded-lg text-left shadow-2xs 
+                                                    {% if creneau.type_evenement == 'EVALUATION' %}bg-rose-50 border-l-4 border-rose-500 text-rose-950{% else %}bg-sky-50/90 border-l-4 border-sky-600 text-sky-950{% endif %}">
+                                                    <div>
+                                                        <p class="font-extrabold text-[11px] leading-tight text-gray-900 uppercase">
+                                                            {{ creneau.intitule }}
+                                                        </p>
+                                                        {% if creneau.enseignant_nom %}
+                                                            <p class="text-[10px] font-semibold text-gray-700 mt-0.5">
+                                                                {{ creneau.enseignant_nom }}
+                                                            </p>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="flex justify-between items-end text-[9px] mt-1 pt-1 border-t border-gray-200/60 font-mono">
+                                                        {% if creneau.salle_nom %}
+                                                            <span class="text-blue-700 font-bold">Location: {{ creneau.salle_nom }}</span>
+                                                        {% endif %}
+                                                        {% if creneau.progression_heures %}
+                                                            <span class="text-amber-700 font-bold">{{ creneau.progression_heures }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    {% endwith %}
+                                {% endfor %}
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pied de Page Officiel - 4 Signatures -->
+        <div class="mt-12 pt-6 border-t border-gray-300">
+            <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-bold text-gray-800 uppercase tracking-tight">
+                <div class="p-2 border border-gray-200 rounded-xl bg-gray-50/50">
+                    <p class="mb-8">Directeur Adjoint Filière GL</p>
+                    <div class="h-8"></div>
+                </div>
+                <div class="p-2 border border-gray-200 rounded-xl bg-gray-50/50">
+                    <p class="mb-8">Directeur Adjoint Filière SR</p>
+                    <div class="h-8"></div>
+                </div>
+                <div class="p-2 border border-gray-200 rounded-xl bg-gray-50/50">
+                    <p class="mb-8">Directeur des Affaires Académiques</p>
+                    <div class="h-8"></div>
+                </div>
+                <div class="p-2 border border-gray-200 rounded-xl bg-gray-50/50">
+                    <p class="mb-8">Représentant Résident</p>
+                    <div class="h-8"></div>
+                </div>
+            </div>
+
+            <!-- Horodatage de Génération -->
+            <div class="flex justify-between items-center text-[9px] text-gray-400 font-mono mt-4 pt-2">
+                <span>IAI-Gestion • Centre de Douala</span>
+                <span>Généré le : {% if emploi.date_approbation %}{{ emploi.date_approbation|date:"d/m/Y H:i" }}{% else %}{% now "d/m/Y" %}{% endif %}</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

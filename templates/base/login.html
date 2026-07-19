@@ -126,17 +126,24 @@
 {% endblock %}
 
 {% block public_content %}
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 via-green-800 to-yellow-700">
-    <div class="w-full max-w-md p-8 animate-fadeIn">
-        <!-- Logo -->
-        <div class="text-center mb-8">
-            <div class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform hover:scale-105 transition-transform duration-300 animate-pulse-slow">
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 via-green-800 to-yellow-700 relative p-4">
+    <!-- Bouton Retour Accueil -->
+    <a href="{% url 'accueil' %}" 
+       class="absolute top-6 left-6 inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs py-2 px-4 rounded-xl border border-white/20 backdrop-blur-md transition-all shadow-md">
+        <i class="fas fa-arrow-left"></i>
+        <span>Retour à l'accueil</span>
+    </a>
+
+    <div class="w-full max-w-md p-4 md:p-8 animate-fadeIn">
+        <!-- Logo (Cliquable vers l'accueil) -->
+        <a href="{% url 'accueil' %}" class="block text-center mb-8 group cursor-pointer">
+            <div class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-105 transition-transform duration-300 animate-pulse-slow">
                 <i class="fas fa-graduation-cap text-green-600 text-4xl"></i>
             </div>
-            <h1 class="text-3xl font-bold text-white mb-2">IAI-Cameroun</h1>
+            <h1 class="text-3xl font-bold text-white mb-2 group-hover:text-yellow-300 transition">IAI-Cameroun</h1>
             <p class="text-green-100">Centre de Douala</p>
             <p class="text-yellow-200 text-sm mt-2">Système de Gestion Universitaire</p>
-        </div>
+        </a>
         
         <!-- Login form -->
         <div class="glass-card rounded-2xl shadow-2xl p-8">
@@ -235,9 +242,13 @@
                 <p class="text-xs text-gray-500 mt-3">
                     Inscription ouverte aux étudiants et au personnel de l'IAI-Cameroun
                 </p>
-                <!-- Lien Géolocalisation public -->
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                    <a href="{% url 'tableau_bord:geolocalisation' %}" class="inline-flex items-center text-sm font-semibold text-green-700 hover:text-green-800 transition-colors">
+                <!-- Liens publics : Retour Accueil & Géolocalisation -->
+                <div class="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
+                    <a href="{% url 'accueil' %}" class="inline-flex items-center text-sm font-bold text-emerald-700 hover:text-emerald-800 transition-colors">
+                        <i class="fas fa-home mr-2 text-emerald-600"></i>
+                        Retourner à la page d'accueil
+                    </a>
+                    <a href="{% url 'tableau_bord:geolocalisation' %}" class="inline-flex items-center text-xs font-semibold text-gray-600 hover:text-green-700 transition-colors">
                         <i class="fas fa-map-marked-alt mr-2 text-yellow-500"></i>
                         Localiser le centre de Douala (PK10)
                     </a>

@@ -324,3 +324,85 @@ class SupportPedagogiqueApprenant(models.Model):
         if self.fichier:
             return os.path.basename(self.fichier.name)
         return None
+
+
+class EmploiDuTempsHebdomadaire(models.Model):
+    """Emploi du temps hebdomadaire officiel - IAI Cameroun Centre de Douala"""
+    NIVEAU_CHOICES = [
+        ('LEVEL_1', 'Niveau 1 (LEVEL 1)'),
+        ('LEVEL_2', 'Niveau 2 (LEVEL 2)'),
+    ]
+    
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon (Chef des Études)'),
+        ('EN_ATTENTE_VALIDATION', 'Soumis pour approbation au Directeur'),
+        ('VALIDE', 'Approuvé & Publié (Directeur)'),
+        ('REJETE', 'Rejeté / À réviser'),
+    ]
+    
+    filiere = models.ForeignKey('etudiants.Filiere', on_delete=models.CASCADE, related_name='emplois_du_temps_hebdo')
+    salle = models.ForeignKey(Salle, on_delete=models.SET_NULL, null=True, blank=True, related_name='emplois_du_temps')
+    niveau = models.CharField(max_length=10, choices=NIVEAU_CHOICES, default='LEVEL_1')
+    titre_semaine = models.CharField(max_length=100, help_text="Ex: SEMAINE: 11 MAI - 16 MAI 2026")
+    date_debut_semaine = models.DateField()
+    date_fin_semaine = models.DateField()
+    annee_academique = models.CharField(max_length=9, default='2024-2025')
+    statut = models.CharField(max_length=25, choices=STATUT_CHOICES, default='BROUILLON')
+    
+    soumis_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='emplois_soumis')
+    approuve_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='emplois_approuves')
+    date_approbation = models.DateTimeField(null=True, blank=True)
+    motif_rejet = models.TextField(blank=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Emploi du Temps Hebdomadaire"
+        verbose_name_plural = "Emplois du Temps Hebdomadaires"
+        ordering = ['-date_debut_semaine', 'filiere']
+
+    def __str__(self):
+        return f"{self.titre_semaine} - {self.filiere.code} ({self.get_niveau_display()}) [{self.get_statut_display()}]"
+
+
+class CreneauEmploiDuTemps(models.Model):
+    """Créneau individuel d'un emploi du temps hebdomadaire (Lundi à Samedi)"""
+    JOUR_CHOICES = [
+        ('LUNDI', 'Lundi'),
+        ('MARDI', 'Mardi'),
+        ('MERCREDI', 'Mercredi'),
+        ('JEUDI', 'Jeudi'),
+        ('VENDREDI', 'Vendredi'),
+        ('SAMEDI', 'Samedi'),
+    ]
+    
+    PLAGE_CHOICES = [
+        ('P1', '07:30 - 09:30'),
+        ('P2', '09:30 - 11:30'),
+        ('PAUSE', '11:30 - 12:45 (PAUSE)'),
+        ('P3', '12:45 - 14:45'),
+        ('P4', '14:45 - 16:45'),
+    ]
+    
+    TYPE_EVENEMENT_CHOICES = [
+        ('COURS', 'Cours / TP standard (Bleu)'),
+        ('EVALUATION', 'Devoir / Contrôle Continu (CA) / Rattrapage (Rose)'),
+        ('PAUSE', 'Pause (Jaune)'),
+        ('AUTRE', 'Autre (Sport, Activité)'),
+    ]
+    
+    emploi_du_temps = models.ForeignKey(EmploiDuTempsHebdomadaire, on_delete=models.CASCADE, related_name='creneaux')
+    jour = models.CharField(max_length=10, choices=JOUR_CHOICES)
+    plage = models.CharField(max_length=10, choices=PLAGE_CHOICES)
+    
+    intitule = models.CharField(max_length=200, blank=True, help_text="Ex: TP(TRAVAUX PRATIQUE), Devoir Séminaire")
+    enseignant_nom = models.CharField(max_length=100, blank=True, help_text="Ex: M NNANGA, M DASSY, Mme MELLA")
+    salle_nom = models.CharField(max_length=50, blank=True, help_text="Ex: GL3D, Stadium")
+    progression_heures = models.CharField(max_length=50, blank=True, help_text="Ex: 28/30 hrs, 70/300 hrs")
+    type_evenement = models.CharField(max_length=20, choices=TYPE_EVENEMENT_CHOICES, default='COURS')
+    
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Créneau d'Emploi du Temps"
+        verbose_name_plural = "Créneaux d'Emploi du Temps"
+        unique_together = ['emploi_du_temps', 'jour', 'plage']

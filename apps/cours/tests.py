@@ -109,3 +109,109 @@ class ApprenantsPedagogieTestCase(TestCase):
         self.assertEqual(note_obj.commentaire, 'Excellent apprenant')
         self.assertEqual(note_obj.formateur, self.formateur)
         self.client.logout()
+
+
+from apps.etudiants.models import Filiere
+from apps.cours.models import EmploiDuTempsHebdomadaire, CreneauEmploiDuTemps, Salle
+
+class EmploiDuTempsOfficielTestCase(TestCase):
+    def setUp(self):
+        self.chef_etudes = User.objects.create_user(
+            username='chef_etudes',
+            email='chef_etudes@iai.com',
+            password='password123',
+            type_utilisateur='CHEF_ETUDES',
+            matricule='CHE.CMR.D001.2024.A'
+        )
+        self.directeur = User.objects.create_user(
+            username='directeur',
+            email='directeur@iai.com',
+            password='password123',
+            type_utilisateur='ADMIN_SYSTEME',
+            matricule='DIR.CMR.D001.2024.A'
+        )
+        self.filiere = Filiere.objects.create(code='GL', nom='Génie Logiciel', duree_ans=2)
+        self.salle = Salle.objects.create(code='GL3D', nom='Salle GL3D', capacite=35)
+        self.client = Client()
+
+    def test_workflow_creation_soumission_approbation(self):
+        """Vérifie le cycle de vie : Création Brouillon -> Soumission Directeur -> Approbation/Publication (Lundi au Samedi)"""
+        # 1. Création par le Chef des Études
+        emploi = EmploiDuTempsHebdomadaire.objects.create(
+            filiere=self.filiere,
+            salle=self.salle,
+            niveau='LEVEL_1',
+            titre_semaine='SEMAINE: 11 MAI - 16 MAI 2026',
+            date_debut_semaine='2026-05-11',
+            date_fin_semaine='2026-05-16',
+            soumis_par=self.chef_etudes,
+            statut='BROUILLON'
+        )
+        self.assertEqual(emploi.statut, 'BROUILLON')
+
+        # 2. Ajout de créneaux du Lundi au Samedi
+        creneau_lundi = CreneauEmploiDuTemps.objects.create(
+            emploi_du_temps=emploi,
+            jour='LUNDI',
+            plage='P1',
+            intitule='Revue de projets',
+            enseignant_nom='M NNANGA',
+            salle_nom='GL3D',
+            progression_heures='28/30 hrs',
+            type_evenement='COURS'
+        )
+        creneau_samedi = CreneauEmploiDuTemps.objects.create(
+            emploi_du_temps=emploi,
+            jour='SAMEDI',
+            plage='P2',
+            intitule='TP(TRAVAUX PRATIQUE)',
+            enseignant_nom='TPL3',
+            salle_nom='GL3D',
+            progression_heures='72/300 hrs',
+            type_evenement='COURS'
+        )
+        self.assertEqual(emploi.creneaux.count(), 2)
+
+        # 3. Soumission par le Chef des Études au Directeur
+        self.client.login(username='chef_etudes', password='password123')
+        response = self.client.get(reverse('cours:soumettre_emploi_du_temps', args=[emploi.pk]))
+        self.assertEqual(response.status_code, 302)
+        emploi.refresh_from_db()
+        self.assertEqual(emploi.statut, 'EN_ATTENTE_VALIDATION')
+        self.client.logout()
+
+        # 4. Approbation par le Directeur et redistribution
+        self.client.login(username='directeur', password='password123')
+        response = self.client.post(reverse('cours:approuver_emploi_du_temps', args=[emploi.pk]), {'action': 'approuver'})
+        self.assertEqual(response.status_code, 302)
+        emploi.refresh_from_db()
+        self.assertEqual(emploi.statut, 'VALIDE')
+        self.assertEqual(emploi.approuve_par, self.directeur)
+        self.client.logout()
+
+    def test_rejet_emploi_du_temps_avec_motif(self):
+        """Vérifie le rejet par le Directeur avec enregistrement du motif"""
+        emploi = EmploiDuTempsHebdomadaire.objects.create(
+            filiere=self.filiere,
+            salle=self.salle,
+            niveau='LEVEL_2',
+            titre_semaine='SEMAINE: 18 MAI - 23 MAI 2026',
+            date_debut_semaine='2026-05-18',
+            date_fin_semaine='2026-05-23',
+            soumis_par=self.chef_etudes,
+            statut='EN_ATTENTE_VALIDATION'
+        )
+        
+        self.client.login(username='directeur', password='password123')
+        data = {
+            'action': 'rejeter',
+            'motif_rejet': 'Veuillez déplacer le cours de Réseaux du Lundi après-midi au Mardi matin.'
+        }
+        response = self.client.post(reverse('cours:approuver_emploi_du_temps', args=[emploi.pk]), data)
+        self.assertEqual(response.status_code, 302)
+        emploi.refresh_from_db()
+        self.assertEqual(emploi.statut, 'REJETE')
+        self.assertEqual(emploi.motif_rejet, 'Veuillez déplacer le cours de Réseaux du Lundi après-midi au Mardi matin.')
+        self.client.logout()
+
+

@@ -4,59 +4,66 @@
 
 {% block content %}
 <div class="min-h-screen flex items-center justify-center py-12 bg-gray-50">
-    <div class="max-w-md w-full mx-auto px-4">
-        <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+    <div class="max-w-lg w-full mx-auto px-4">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 text-center border border-gray-100">
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                 <i class="fas fa-check-circle text-green-600 text-4xl"></i>
             </div>
             
-            <h1 class="text-2xl font-bold text-gray-900 mb-2">Inscription confirmée !</h1>
-            <p class="text-gray-600 mb-6">
-                Votre demande d'inscription a bien été enregistrée.
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Inscription Réussie !</h1>
+            <p class="text-gray-600 mb-6 text-sm">
+                Votre compte a été créé et vos accès ont été générés instantanément.
             </p>
             
+            {% if info and info.matricule %}
+            <!-- Carte d'Accès Instantané -->
+            <div class="bg-gradient-to-br from-green-800 via-green-700 to-yellow-600 rounded-2xl p-6 text-white text-left shadow-xl mb-6 space-y-4">
+                <div class="flex items-center justify-between border-b border-white/20 pb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-green-200">Carte d'accès instantané</span>
+                    <span class="bg-white/20 text-xs px-2.5 py-1 rounded-full text-white font-semibold">{{ info.type_utilisateur }}</span>
+                </div>
+                
+                <div>
+                    <p class="text-xs text-green-200 uppercase tracking-wide">Nom complet</p>
+                    <p class="text-lg font-bold text-white">{{ info.nom_complet }}</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <div class="bg-black/20 p-3 rounded-xl border border-white/10">
+                        <p class="text-xs text-yellow-300 font-bold uppercase"><i class="fas fa-id-card mr-1"></i> Matricule Unique</p>
+                        <p class="text-base font-extrabold tracking-wider text-white mt-1">{{ info.matricule }}</p>
+                    </div>
+                    
+                    <div class="bg-black/20 p-3 rounded-xl border border-white/10">
+                        <p class="text-xs text-yellow-300 font-bold uppercase"><i class="fas fa-key mr-1"></i> Mot de passe</p>
+                        <p class="text-base font-extrabold tracking-wider text-white mt-1">{{ info.password }}</p>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-white/10 flex items-center text-xs text-green-100">
+                    <i class="fas fa-shield-alt text-yellow-300 mr-2 text-sm"></i>
+                    <span>Vous pourrez modifier ce mot de passe à tout moment dans votre <strong>Dashboard &gt; Mon Profil</strong>.</span>
+                </div>
+            </div>
+            {% else %}
             <div class="bg-gradient-to-r from-green-50 to-yellow-50 rounded-xl p-4 mb-6">
-                <div class="flex items-center justify-center mb-3">
+                <div class="flex items-center justify-center mb-2">
                     <i class="fas fa-envelope text-green-600 mr-2"></i>
-                    <span class="font-medium">Email de confirmation envoyé</span>
+                    <span class="font-medium text-gray-800">Email de confirmation envoyé</span>
                 </div>
                 <p class="text-sm text-gray-600">
-                    Un email contenant vos identifiants temporaires vous a été envoyé.
-                    Vérifiez votre boîte de réception (et vos spams).
+                    Un email contenant vos accès vous a été envoyé.
                 </p>
             </div>
+            {% endif %}
             
-            <div class="space-y-3 text-left mb-6">
-                <div class="flex items-start">
-                    <i class="fas fa-clock text-yellow-600 mr-3 mt-0.5"></i>
-                    <div>
-                        <p class="font-medium">En attente de validation</p>
-                        <p class="text-sm text-gray-500">Votre document justificatif sera vérifié dans un délai de 24-48h.</p>
-                    </div>
-                </div>
-                <div class="flex items-start">
-                    <i class="fas fa-id-card text-green-600 mr-3 mt-0.5"></i>
-                    <div>
-                        <p class="font-medium">Attribution du matricule</p>
-                        <p class="text-sm text-gray-500">Après validation, votre matricule unique vous sera attribué.</p>
-                    </div>
-                </div>
-                <div class="flex items-start">
-                    <i class="fas fa-bell text-yellow-600 mr-3 mt-0.5"></i>
-                    <div>
-                        <p class="font-medium">Notification par email</p>
-                        <p class="text-sm text-gray-500">Vous recevrez un email dès que votre compte sera activé.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <a href="{% url 'login' %}" class="block w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all text-center">
+            <a href="{% url 'login' %}" class="block w-full py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold rounded-2xl shadow-lg transition-all transform hover:scale-105 text-center text-base">
                 <i class="fas fa-sign-in-alt mr-2"></i>
-                Se connecter
+                Se connecter maintenant avec mes accès
             </a>
             
             <p class="text-xs text-gray-400 mt-6">
-                Une question ? Contactez-nous à <a href="mailto:support@iai-cameroun.com" class="text-green-600">support@iai-cameroun.com</a>
+                Besoin d'assistance ? Contactez-nous à <a href="mailto:support@iai-cameroun.com" class="text-green-600 font-semibold">support@iai-cameroun.com</a>
             </p>
         </div>
     </div>

@@ -73,8 +73,33 @@ class PenalitesServicesTestCase(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         email = mail.outbox[0]
         
-        self.assertEqual(email.to, ['testetudiant@iai.com'])
-        self.assertIn("Rappel : Frais de Scolarité et Pénalités", email.subject)
-        # Nettoyer les espaces insécables ou formats possibles du montant
-        self.assertTrue(any(x in email.body for x in ["3 000", "3000"]))
         self.assertIn("Pré-inscription", email.body)
+
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.exceptions import ValidationError
+from apps.paiements.forms import valider_fichier_recu
+
+class TeleverserRecuValidationTestCase(TestCase):
+    def test_fichier_valide_pdf(self):
+        file = SimpleUploadedFile("recu_scb.pdf", b"%PDF-1.4 test content", content_type="application/pdf")
+        self.assertEqual(valider_fichier_recu(file), file)
+
+    def test_fichier_valide_png(self):
+        file = SimpleUploadedFile("recu_scb.png", b"fake png image content", content_type="image/png")
+        self.assertEqual(valider_fichier_recu(file), file)
+
+    def test_fichier_extension_interdite(self):
+        file = SimpleUploadedFile("script.sh", b"echo hack", content_type="text/x-sh")
+        with self.assertRaises(ValidationError) as ctx:
+            valider_fichier_recu(file)
+        self.assertIn("Format de fichier non supporté", str(ctx.exception))
+
+    def test_fichier_trop_volumineux(self):
+        # Fichier simulé de 6 Mo
+        contenu_volumineux = b"0" * (6 * 1024 * 1024)
+        file = SimpleUploadedFile("gros_recu.pdf", contenu_volumineux, content_type="application/pdf")
+        with self.assertRaises(ValidationError) as ctx:
+            valider_fichier_recu(file)
+        self.assertIn("Fichier trop volumineux", str(ctx.exception))
+

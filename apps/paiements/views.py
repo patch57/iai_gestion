@@ -35,6 +35,9 @@ def liste_recus(request):
     return render(request, 'paiements/recus/liste.html', context)
 
 
+from django.core.exceptions import ValidationError
+from .forms import valider_fichier_recu
+
 @login_required
 def televerser_recu(request, etudiant_id):
     """Téléverser un reçu"""
@@ -50,6 +53,16 @@ def televerser_recu(request, etudiant_id):
         if not file or not tranche_id or not montant:
             messages.error(request, 'Veuillez remplir tous les champs obligatoires.')
         else:
+            try:
+                valider_fichier_recu(file)
+            except ValidationError as e:
+                messages.error(request, f"❌ {e.message}")
+                return render(request, 'paiements/recus/televerser.html', {
+                    'etudiant': etudiant,
+                    'tranches': tranches,
+                    'titre': 'Téléverser un reçu'
+                })
+            
             tranche = get_object_or_404(TranchePaiement, pk=tranche_id)
             recu = RecuPaiement.objects.create(
                 etudiant=etudiant,

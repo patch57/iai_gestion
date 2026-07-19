@@ -101,8 +101,12 @@ def inscription(request):
         if not accept_conditions:
             errors.append("Vous devez accepter les conditions d'utilisation.")
         
-        if email and Utilisateur.objects.filter(email=email).exists():
-            errors.append("Cet email est déjà utilisé. Veuillez vous connecter.")
+        # Vérification d'unicité de l'email
+        existing_user = Utilisateur.objects.filter(email=email).first()
+        if existing_user:
+            if existing_user.is_active:
+                errors.append("Un compte actif existe déjà avec cette adresse email. Veuillez vous connecter.")
+            # Si le compte est inactif, nous réutilisons cet enregistrement pour la nouvelle tentative sans renvoyer d'erreur.
         
         # Validation spécifique pour les étudiants
         if type_utilisateur == 'ETUDIANT' and not errors:
@@ -182,23 +186,33 @@ L'équipe administrative IAI-Cameroun
                 return redirect('login')
                 
             else:
-                alphabet = string.ascii_letters + string.digits
-                temp_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+                # Si un mot de passe est fourni par l'utilisateur, l'utiliser, sinon générer un mot de passe temporaire
+                if not password:
+                    alphabet = string.ascii_letters + string.digits
+                    temp_password = ''.join(secrets.choice(alphabet) for _ in range(10))
+                else:
+                    temp_password = password
                 
-                # Créer l'utilisateur (étudiant ou personnel) inactif au départ
-                user = Utilisateur.objects.create_user(
-                    username=email,
-                    email=email,
-                    password=temp_password,
-                    first_name=prenom,
-                    last_name=nom,
-                    telephone=telephone,
-                    is_active=False,
-                    type_utilisateur=type_utilisateur,
-                    statut_inscription='DOCUMENT_EN_COURS'
-                )
-                
-                user.save()
+                if existing_user and not existing_user.is_active:
+                    user = existing_user
+                    user.first_name = prenom
+                    user.last_name = nom
+                    user.telephone = telephone
+                    user.type_utilisateur = type_utilisateur
+                    user.set_password(temp_password)
+                    user.save()
+                else:
+                    user = Utilisateur.objects.create_user(
+                        username=email,
+                        email=email,
+                        password=temp_password,
+                        first_name=prenom,
+                        last_name=nom,
+                        telephone=telephone,
+                        is_active=False,
+                        type_utilisateur=type_utilisateur,
+                        statut_inscription='DOCUMENT_EN_COURS'
+                    )
                 
                 # Créer la demande d'inscription
                 demande = DemandeInscription.objects.create(
@@ -216,10 +230,20 @@ L'équipe administrative IAI-Cameroun
                 # Traitement par l'Agent IA en tâche de fond immédiate
                 demande.analyser_par_ia()
                 
+                # Stocker les infos d'accès instantané en session
+                request.session['inscription_info'] = {
+                    'matricule': user.matricule or "En cours de génération",
+                    'password': temp_password,
+                    'email': email,
+                    'nom_complet': f"{prenom} {nom}",
+                    'statut': demande.statut,
+                    'type_utilisateur': user.get_type_utilisateur_display()
+                }
+                
                 if demande.statut == 'VALIDE':
                     messages.success(
                         request,
-                        f"✅ Inscription validée automatiquement par l'IA ! Votre matricule unique est : {user.matricule}.\nUn email contenant vos accès vous a été envoyé."
+                        f"✅ Inscription validée automatiquement par l'IA ! Votre matricule est : {user.matricule}."
                     )
                 else:
                     messages.warning(
@@ -282,8 +306,13 @@ def envoyer_email_confirmation(user, temp_password, demande_id):
 
 
 def inscription_confirmation(request):
-    """Page de confirmation d'inscription"""
-    return render(request, 'authentification/inscription_confirmation.html', {'titre': 'Inscription confirmée'})
+    """Page de confirmation d'inscription avec affichage instantané du matricule et mot de passe"""
+    info = request.session.get('inscription_info', {})
+    context = {
+        'titre': 'Inscription confirmée',
+        'info': info,
+    }
+    return render(request, 'authentification/inscription_confirmation.html', context)
 
 
 def login_view(request):

@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Emplois du Temps Officiels - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-900 flex items-center gap-2">
+                <i class="fas fa-calendar-alt text-emerald-600"></i> Emplois du Temps Hebdomadaires
+            </h1>
+            <p class="text-gray-500 text-sm mt-1">
+                Gestion des emplois du temps du Centre de Douala (Niveaux 1 & 2 - Lundi au Samedi)
+            </p>
+        </div>
+
+        {% if role == 'CHEF_ETUDES' or role == 'ADMIN_SYSTEME' or role == 'DIRECTEUR' %}
+        <a href="{% url 'cours:creer_emploi_du_temps_hebdo' %}" 
+           class="inline-flex items-center bg-gradient-to-r from-emerald-700 to-green-600 hover:from-emerald-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition gap-2">
+            <i class="fas fa-plus-circle"></i> Créer un Emploi du Temps
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Filtres -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Filière</label>
+                <select name="filiere" class="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="">Toutes les filières</option>
+                    {% for f in filieres %}
+                    <option value="{{ f.id }}" {% if request.GET.filiere == f.id|stringformat:"s" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Niveau</label>
+                <select name="niveau" class="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="">Tous les niveaux</option>
+                    {% for code, label in niveaux %}
+                    <option value="{{ code }}" {% if request.GET.niveau == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if role == 'CHEF_ETUDES' or role == 'ADMIN_SYSTEME' or role == 'DIRECTEUR' %}
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Statut</label>
+                <select name="statut" class="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="">Tous les statuts</option>
+                    {% for code, label in statuts %}
+                    <option value="{{ code }}" {% if request.GET.statut == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-gray-900 hover:bg-black text-white font-bold py-2 rounded-xl text-sm transition">
+                    Filtrer
+                </button>
+                <a href="{% url 'cours:emploi_du_temps_officiel' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des Emplois du Temps -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for e in emplois %}
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col justify-between p-6">
+            <div>
+                <div class="flex justify-between items-start mb-3">
+                    <span class="px-3 py-1 rounded-full text-xs font-extrabold 
+                        {% if e.statut == 'VALIDE' %}bg-emerald-100 text-emerald-800 border border-emerald-200
+                        {% elif e.statut == 'EN_ATTENTE_VALIDATION' %}bg-amber-100 text-amber-800 border border-amber-200
+                        {% elif e.statut == 'REJETE' %}bg-rose-100 text-rose-800 border border-rose-200
+                        {% else %}bg-gray-100 text-gray-700 border border-gray-200{% endif %}">
+                        {{ e.get_statut_display }}
+                    </span>
+                    <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                        {{ e.get_niveau_display }}
+                    </span>
+                </div>
+
+                <h3 class="text-base font-extrabold text-gray-900 mb-1 leading-snug">
+                    {{ e.titre_semaine }}
+                </h3>
+                <p class="text-xs text-gray-500 font-semibold mb-4">
+                    Filière : <strong class="text-gray-800">{{ e.filiere.nom }} ({{ e.filiere.code }})</strong>
+                </p>
+
+                <div class="space-y-1.5 text-xs text-gray-600 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                    <p class="flex items-center gap-2">
+                        <i class="fas fa-[#059669] fa-door-open text-emerald-600"></i>
+                        <span>Salle : <strong>{{ e.salle.nom|default:"Non spécifiée" }}</strong></span>
+                    </p>
+                    <p class="flex items-center gap-2">
+                        <i class="fas fa-calendar-week text-emerald-600"></i>
+                        <span>Période : {{ e.date_debut_semaine|date:"d/m/Y" }} - {{ e.date_fin_semaine|date:"d/m/Y" }}</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                <span class="text-[11px] text-gray-400">
+                    Créé par : {{ e.soumis_par.get_full_name|default:e.soumis_par.username|default:"Chef des Études" }}
+                </span>
+                <a href="{% url 'cours:imprimer_emploi_du_temps_officiel' e.pk %}" 
+                   class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1">
+                    <span>Consulter</span>
+                    <i class="fas fa-chevron-right text-[10px]"></i>
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full text-center py-12 bg-white rounded-3xl shadow-sm border border-gray-100">
+            <i class="fas fa-calendar-times text-gray-300 text-4xl mb-3"></i>
+            <p class="text-base font-bold text-gray-700">Aucun emploi du temps disponible</p>
+            <p class="text-xs text-gray-400 mt-1">Aucun emploi du temps publié ne correspond à vos critères de recherche.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
