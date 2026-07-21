@@ -237,7 +237,8 @@ MATRICULE_CONFIG = {
 # Configuration des tranches de paiement
 PAIEMENT_CONFIG = {
     'TRANCHES': {
-        1: {'nom': 'Pré-inscription', 'montant': 50000},
+        1: {'nom': 'Pré-inscription', 'montant': 84000},
+
         2: {'nom': '1ère Tranche', 'montant': 150000},
         3: {'nom': '2ème Tranche', 'montant': 150000},
         4: {'nom': '3ème Tranche', 'montant': 150000},

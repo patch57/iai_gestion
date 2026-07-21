@@ -22,6 +22,23 @@ urlpatterns = [
     path('tranches/<int:pk>/modifier/', views.modifier_tranche, name='modifier_tranche'),
     path('tranches/<int:pk>/supprimer/', views.supprimer_tranche, name='supprimer_tranche'),
     
+    # Sessions de concours (Niveau 1) & Résultats
+    path('sessions-concours/', views.gestion_sessions_concours, name='gestion_sessions_concours'),
+    path('sessions-concours/creer/', views.creer_session_concours, name='creer_session_concours'),
+    path('sessions-concours/<int:pk>/', views.detail_session_concours, name='detail_session_concours'),
+    path('sessions-concours/<int:pk>/echeances/', views.editer_echeances_session, name='editer_echeances_session'),
+    path('sessions-concours/<int:pk>/importer/', views.importer_resultats_concours, name='importer_resultats_concours'),
+    path('sessions-concours/<int:pk>/exporter/', views.exporter_resultats_concours, name='exporter_resultats_concours'),
+    path('sessions-concours/<int:pk>/exporter-pdf/', views.exporter_resultats_concours_pdf, name='exporter_resultats_concours_pdf'),
+    path('resultats-concours/<int:pk>/payer-preinscription/', views.marquer_preinscription_payee, name='marquer_preinscription_payee'),
+    path('resultats-concours/<int:pk>/payer-tranche/<int:tranche_num>/', views.marquer_tranche_payee, name='marquer_tranche_payee'),
+
+
+    path('resultats-concours/<int:pk>/supprimer/', views.supprimer_resultat_concours, name='supprimer_resultat_concours'),
+    path('telecharger-modele-concours/', views.telecharger_modele_csv_concours, name='telecharger_modele_csv_concours'),
+
+
+    
     # Statistiques
     path('statistiques/', views.statistiques_paiements, name='statistiques_paiements'),
     

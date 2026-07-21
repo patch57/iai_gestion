@@ -299,27 +299,77 @@ def chef_anonymat_dashboard(request):
 @login_required
 def chef_comptabilite_dashboard(request):
     recus_attente = RecuPaiement.objects.filter(statut__in=['EN_ATTENTE', 'IA_VERIFIE'])
+    annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+    annee_str = annee_active.code if annee_active else '2024-2025'
     
     if request.method == 'POST':
         recu_id = request.POST.get('recu_id')
-        action = request.POST.get('action')
-        recu = get_object_or_404(RecuPaiement, id=recu_id)
-        
-        if action == 'valider':
-            recu.statut = 'VALIDE'
-            recu.save()
-            messages.success(request, f"Reçu de {recu.etudiant.get_nom_complet()} validé.")
-        elif action == 'rejeter':
-            recu.statut = 'REJETE'
-            recu.save()
-            messages.warning(request, f"Reçu de {recu.etudiant.get_nom_complet()} rejeté.")
+        tranche_num = request.POST.get('tranche')
+        tranche_id = request.POST.get('tranche_id')
+        formation_nom = request.POST.get('formation_nom')
+
+        if recu_id:
+            action = request.POST.get('action')
+            recu = get_object_or_404(RecuPaiement, id=recu_id)
+            
+            if action == 'valider':
+                recu.statut = 'VALIDE'
+                recu.save()
+                messages.success(request, f"Reçu de {recu.etudiant.get_nom_complet()} validé.")
+            elif action == 'rejeter':
+                recu.statut = 'REJETE'
+                recu.save()
+                messages.warning(request, f"Reçu de {recu.etudiant.get_nom_complet()} rejeté.")
+
+        elif tranche_id and request.POST.get('date_limite'):
+            d_limite = request.POST.get('date_limite')
+            desc = request.POST.get('description', '')
+            tranche = get_object_or_404(TranchePaiement, id=tranche_id)
+            tranche.date_limite = d_limite
+            if desc:
+                tranche.description = desc
+            tranche.save()
+            messages.success(request, f"✅ Échéance Niveau 2 ({tranche.get_numero_display()}) mise à jour au {d_limite}.")
+
+        elif tranche_num and request.POST.get('date_limite'):
+            d_limite = request.POST.get('date_limite')
+            desc = request.POST.get('description', '')
+            tr_int = int(tranche_num)
+            
+            montants_std = {1: 71000, 2: 175000, 3: 115000, 4: 100000}
+            tranche, created = TranchePaiement.objects.update_or_create(
+                numero=tr_int,
+                annee_academique=annee_str,
+                defaults={
+                    'date_limite': d_limite,
+                    'montant': montants_std.get(tr_int, 71000),
+                    'description': desc,
+                    'est_actif': True
+                }
+            )
+            messages.success(request, f"✅ Échéance Niveau 2 ({tranche.get_numero_display()}) enregistrée au {d_limite}.")
+
+        elif formation_nom and request.POST.get('tarif'):
+            tarif_val = request.POST.get('tarif')
+            formation, created = Formation.objects.update_or_create(
+                nom=formation_nom,
+                defaults={'tarif': tarif_val, 'est_active': True}
+            )
+            messages.success(request, f"✅ Tarif de la formation '{formation.get_nom_display()}' mis à jour à {tarif_val} FCFA.")
+            
         return redirect('tableau_bord:tableau_bord')
         
+    tranches_niveau2 = TranchePaiement.objects.filter(annee_academique=annee_str).order_by('numero')
+
     context = {
         'recus_attente': recus_attente,
+        'tranches_niveau2': tranches_niveau2,
+        'annee_code': annee_str,
         'titre': "Espace Chef de la Comptabilité"
     }
     return render(request, 'tableau_bord/chef_comptabilite_dashboard.html', context)
+
+
 
 
 @login_required

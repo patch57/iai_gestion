@@ -76,10 +76,11 @@ class TranchePaiement(models.Model):
     
     def clean(self):
         """Validation des montants selon les nouvelles tranches IAI-Cameroun"""
-        if self.numero == 1 and self.montant != 50000:
+        if self.numero == 1 and self.montant not in [71000, 84000, 50000]:
             raise ValidationError({
-                'montant': 'La pré-inscription doit être de 50 000 FCFA'
+                'montant': 'La pré-inscription doit être de 71 000 FCFA pour le Niveau 2'
             })
+
         elif self.numero == 2 and self.montant != 175000:
             raise ValidationError({
                 'montant': 'La 1ère tranche doit être de 175 000 FCFA'
@@ -109,6 +110,16 @@ class TranchePaiement(models.Model):
             return 0
         delta = self.date_limite - timezone.now().date()
         return delta.days
+
+    def semaines_depassement(self):
+        """Nombre de semaines de dépassement de l'échéance"""
+        if not self.est_depassee():
+            return 0
+        from django.utils import timezone
+        delta_days = (timezone.now().date() - self.date_limite).days
+        w = delta_days // 7
+        return w if w >= 1 else 1
+
 
 
 class RecuPaiement(models.Model):
@@ -443,3 +454,144 @@ class HistoriquePaiement(models.Model):
     
     def __str__(self):
         return f"{self.get_action_display()} - {self.recu} - {self.date_action.strftime('%d/%m/%Y %H:%M')}"
+
+
+class SessionConcours(models.Model):
+    """
+    Sessions de Concours d'Entrée pour les Étudiants de Niveau 1 (IAI-Cameroun)
+    """
+    nom = models.CharField(max_length=100, verbose_name="Nom de la session", help_text="Ex: Session de Juin 2026, Session d'Août 2026")
+    code = models.CharField(max_length=30, unique=True, verbose_name="Code unique", help_text="Ex: SESS_JUIN_2026")
+    date_concours = models.DateField(verbose_name="Date d'organisation du concours")
+    annee_academique = models.CharField(max_length=20, default='2024-2025', verbose_name="Année académique")
+    est_active = models.BooleanField(default=True, verbose_name="Session active")
+    description = models.TextField(blank=True, verbose_name="Description / Remarques")
+    date_creation = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        app_label = 'paiements'
+        verbose_name = "Session de Concours (Niveau 1)"
+        verbose_name_plural = "Sessions de Concours (Niveau 1)"
+        ordering = ['date_concours']
+
+    def __str__(self):
+        return f"{self.nom} ({self.date_concours.strftime('%d/%m/%Y')})"
+
+
+class EcheanceSessionNiveau1(models.Model):
+    """
+    Échéances de paiement spécifiques par Session de Concours pour les étudiants du Niveau 1
+    """
+    session_concours = models.ForeignKey(SessionConcours, on_delete=models.CASCADE, related_name='echeances')
+    tranche_numero = models.IntegerField(choices=TranchePaiement.NUMERO_TRANCHE, verbose_name="Tranche de paiement")
+    montant = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant (FCFA)")
+    date_limite = models.DateField(verbose_name="Date limite de paiement")
+    description = models.CharField(max_length=200, blank=True, verbose_name="Remarques / Conditions")
+    
+    class Meta:
+        app_label = 'paiements'
+        verbose_name = "Échéance Niveau 1 par Session"
+        verbose_name_plural = "Échéances Niveau 1 par Session"
+        unique_together = ['session_concours', 'tranche_numero']
+        ordering = ['session_concours', 'tranche_numero']
+
+    def __str__(self):
+        return f"{self.session_concours.nom} - Tranche {self.tranche_numero} : {self.date_limite.strftime('%d/%m/%Y')}"
+
+
+class ResultatConcours(models.Model):
+    """
+    Résultats d'admission au concours d'entrée (Niveau 1) importés par le Chef Comptabilité
+    """
+    STATUT_ADMISSION_CHOICES = [
+        ('ADMIS', 'Admis'),
+        ('LISTE_ATTENTE', 'Liste d\'attente'),
+    ]
+
+    STATUT_PREINSCRIPTION_CHOICES = [
+        ('NON_PAYE', 'Non payé'),
+        ('PAYE', 'Payé (84 000 FCFA)'),
+    ]
+
+
+    session_concours = models.ForeignKey(
+        SessionConcours,
+        on_delete=models.CASCADE,
+        related_name='resultats',
+        verbose_name="Session de Concours"
+    )
+    numero_table = models.CharField(
+        max_length=50,
+        verbose_name="N° de Table / Dossier",
+        help_text="N° Anonymat ou N° de dossier du candidat"
+    )
+    nom = models.CharField(max_length=100, verbose_name="Nom")
+    prenom = models.CharField(max_length=100, verbose_name="Prénom")
+    email = models.EmailField(blank=True, null=True, verbose_name="Adresse Email")
+    telephone = models.CharField(max_length=30, blank=True, null=True, verbose_name="Téléphone")
+    filiere = models.ForeignKey(
+        'etudiants.Filiere',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Filière d'affectation"
+    )
+    statut_admission = models.CharField(
+        max_length=20,
+        choices=STATUT_ADMISSION_CHOICES,
+        default='ADMIS',
+        verbose_name="Statut d'admission"
+    )
+    statut_preinscription = models.CharField(
+        max_length=20,
+        choices=STATUT_PREINSCRIPTION_CHOICES,
+        default='NON_PAYE',
+        verbose_name="Statut 1ère Tranche (Pré-inscription 84k)"
+    )
+    statut_tranche2 = models.CharField(
+        max_length=20,
+        choices=[('NON_PAYE', 'Non payé'), ('PAYE', 'Payé')],
+        default='NON_PAYE',
+        verbose_name="Statut 2ème Tranche"
+    )
+    statut_tranche3 = models.CharField(
+        max_length=20,
+        choices=[('NON_PAYE', 'Non payé'), ('PAYE', 'Payé')],
+        default='NON_PAYE',
+        verbose_name="Statut 3ème Tranche"
+    )
+    statut_tranche4 = models.CharField(
+        max_length=20,
+        choices=[('NON_PAYE', 'Non payé'), ('PAYE', 'Payé')],
+        default='NON_PAYE',
+        verbose_name="Statut 4ème Tranche"
+    )
+
+
+    etudiant_cree = models.ForeignKey(
+        'etudiants.Etudiant',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resultat_concours',
+        verbose_name="Profil Étudiant Associé"
+    )
+    date_importation = models.DateTimeField(auto_now_add=True, verbose_name="Date d'importation")
+    importe_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Importé par"
+    )
+
+    class Meta:
+        app_label = 'paiements'
+        verbose_name = "Résultat de Concours"
+        verbose_name_plural = "Résultats de Concours"
+        ordering = ['session_concours', 'nom', 'prenom']
+        unique_together = ['session_concours', 'numero_table']
+
+    def __str__(self):
+        return f"{self.numero_table} - {self.nom} {self.prenom} ({self.get_statut_admission_display()})"
+

@@ -1,0 +1,602 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ session.nom }} - Résultats & Suivi Financier - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    
+    <!-- Navigation Breadcrumb -->
+    <div class="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-4">
+        <a href="{% url 'paiements:gestion_sessions_concours' %}" class="hover:text-emerald-700 transition flex items-center gap-1">
+            <i class="fas fa-calendar-alt"></i> Sessions de Concours
+        </a>
+        <i class="fas fa-chevron-right text-[10px] text-gray-400"></i>
+        <span class="text-emerald-800 font-bold">{{ session.nom }}</span>
+    </div>
+    <!-- En-tête principal ultra-stylé avec Glassmorphism, Dégradés et Badges néons -->
+    <div class="relative bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 rounded-3xl p-6 md:p-10 text-white shadow-2xl mb-8 border border-emerald-500/20 border-t-emerald-400/40 backdrop-blur-xl overflow-hidden group">
+        
+        <!-- Effets de lueurs décoratives animées en arrière-plan -->
+        <div class="absolute -right-16 -bottom-16 w-80 h-80 bg-gradient-to-br from-emerald-500/20 to-teal-500/10 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-700"></div>
+        <div class="absolute right-1/3 -top-20 w-64 h-64 bg-amber-400/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-400/25 transition-all duration-700"></div>
+        <div class="absolute left-10 -bottom-10 w-48 h-48 bg-emerald-600/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 relative z-10">
+            
+            <!-- Informations de la Session -->
+            <div class="space-y-4 max-w-3xl">
+                
+                <!-- Badges Néo-design -->
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <span class="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider shadow-inner">
+                        <i class="fas fa-graduation-cap text-emerald-400 text-xs"></i>
+                        {{ session.annee_academique }}
+                    </span>
+
+                    <span class="inline-flex items-center gap-1.5 bg-amber-400/15 text-amber-300 border border-amber-400/30 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-mono font-black shadow-inner">
+                        <i class="fas fa-hashtag text-amber-400 text-[10px]"></i>
+                        Code: {{ session.code }}
+                    </span>
+
+                    <span class="inline-flex items-center gap-1.5 bg-teal-500/15 text-teal-200 border border-teal-400/30 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-semibold">
+                        <i class="fas fa-calendar-alt text-amber-300"></i>
+                        Concours le {{ session.date_concours|date:"d F Y" }}
+                    </span>
+                </div>
+
+                <!-- Titre avec icône 3D & effet de gradient de texte -->
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-500 text-emerald-950 flex items-center justify-center text-2xl md:text-3xl font-black shadow-lg shadow-amber-500/25 border border-white/30 shrink-0 transform group-hover:rotate-3 transition-transform duration-300">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl md:text-4xl lg:text-5xl font-black tracking-tight bg-gradient-to-r from-white via-emerald-100 to-amber-200 bg-clip-text text-transparent">
+                            {{ session.nom }}
+                        </h1>
+                    </div>
+                </div>
+
+                <!-- Subtitle avec carte translucide -->
+                <div class="bg-emerald-950/40 border border-emerald-500/20 rounded-2xl p-3.5 text-emerald-100/90 text-xs md:text-sm font-medium backdrop-blur-sm shadow-inner flex items-start gap-2.5">
+                    <i class="fas fa-info-circle text-amber-400 text-base shrink-0 mt-0.5"></i>
+                    <span>Gestion des résultats d'admission (Centre de Douala) et suivi des encaissements de la pré-inscription (<strong class="text-amber-300 font-extrabold">84 000 FCFA</strong> par candidat admis).</span>
+                </div>
+            </div>
+
+            <!-- Boutons d'actions rapides ultra-ergonomiques & attrayants -->
+            <div class="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto shrink-0">
+                
+                <!-- Bouton d'importation principal (Glow Gold) -->
+                <button onclick="document.getElementById('modal-importer').classList.remove('hidden')" 
+                        class="bg-gradient-to-r from-amber-400 via-amber-500 to-emerald-400 hover:from-amber-300 hover:to-emerald-300 text-emerald-950 font-black px-6 py-3.5 rounded-2xl text-xs md:text-sm shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 transform hover:-translate-y-1 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2.5 cursor-pointer ring-2 ring-amber-400/30">
+                    <i class="fas fa-file-import text-base animate-pulse"></i>
+                    <span>Importer Admis Douala (CSV / PDF)</span>
+                </button>
+
+                <!-- Bouton PDF (Rose Red Velvet) -->
+                <a href="{% url 'paiements:exporter_resultats_concours_pdf' session.id %}?{{ request.GET.urlencode }}" target="_blank"
+                   class="bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold px-5 py-3.5 rounded-2xl text-xs md:text-sm shadow-lg shadow-rose-600/25 hover:shadow-rose-600/40 transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2 border border-rose-400/30">
+                    <i class="fas fa-file-pdf text-amber-300 text-base"></i>
+                    <span>Exporter PDF</span>
+                </a>
+
+
+                <!-- Bouton CSV (Emerald Translucent) -->
+                <a href="{% url 'paiements:exporter_resultats_concours' session.id %}?{{ request.GET.urlencode }}" 
+                   class="bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-200 hover:text-white border border-emerald-400/30 font-bold px-5 py-3.5 rounded-2xl text-xs md:text-sm shadow-md hover:shadow-emerald-500/20 transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-md">
+                    <i class="fas fa-file-csv text-emerald-400 text-base"></i>
+                    <span>Export CSV</span>
+                </a>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- Messages Flash -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="p-4 rounded-2xl text-xs md:text-sm font-semibold mb-6 flex items-center justify-between shadow-sm animate-fade-in
+                {% if message.tags == 'error' %}bg-rose-50 border border-rose-200 text-rose-800{% else %}bg-emerald-50 border border-emerald-200 text-emerald-900{% endif %}">
+                <div class="flex items-center gap-3">
+                    <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle text-rose-500{% else %}fa-check-circle text-emerald-500{% endif %} text-lg"></i>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- KPIs Statistiques Financières -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        
+        <!-- Total Candidats Admis -->
+        <div class="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Admis (Douala)</p>
+                    <h3 class="text-2xl font-black text-gray-900 mt-1">{{ total_admis }}</h3>
+                    <p class="text-[11px] text-gray-500 mt-0.5">Candidats répertoriés</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pré-inscriptions Payées -->
+        <div class="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-emerald-700">Pré-inscriptions Validées</p>
+                    <h3 class="text-2xl font-black text-emerald-600 mt-1">{{ total_preinscrits_payes }} <span class="text-xs font-normal text-gray-400">/ {{ total_admis }}</span></h3>
+                    <p class="text-[11px] text-emerald-800 font-semibold mt-0.5">84 000 FCFA réglés</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- En Attente de Règlement -->
+        <div class="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-amber-600">En Attente de Paiement</p>
+                    <h3 class="text-2xl font-black text-amber-500 mt-1">{{ total_preinscrits_non_payes }}</h3>
+                    <p class="text-[11px] text-amber-700 font-medium mt-0.5">Relances nécessaires</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-xl font-bold">
+                    <i class="fas fa-clock"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Encaissé -->
+        <div class="bg-gradient-to-br from-emerald-900 to-teal-800 text-white rounded-3xl p-5 shadow-lg relative overflow-hidden">
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-emerald-200">Total Encaissé (84k)</p>
+                    <h3 class="text-xl font-black text-amber-300 mt-1">{{ montant_recouvre|floatformat:0 }} FCFA</h3>
+                    <div class="w-full bg-emerald-950/50 rounded-full h-1.5 mt-2 overflow-hidden">
+                        <div class="bg-amber-400 h-1.5 rounded-full transition-all duration-500" style="width: {{ taux_recouvrement }}%"></div>
+                    </div>
+                    <p class="text-[10px] text-emerald-200 mt-1 font-mono font-bold">{{ taux_recouvrement }}% de recouvrement</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-white/10 text-amber-300 flex items-center justify-center text-lg shrink-0">
+                    <i class="fas fa-coins"></i>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Barre de Recherche & Filtres Multi-Tranches Ergonomique -->
+    <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mb-6">
+        <form method="GET" class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 w-full">
+                <!-- Recherche texte -->
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                    <input type="text" name="q" value="{{ search_q }}" placeholder="Nom, prénom, email..." 
+                           class="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white transition outline-none">
+                </div>
+
+                <!-- Filtre Filière -->
+                <select name="filiere" class="py-2 px-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white transition outline-none">
+                    <option value="">Toutes les filières</option>
+                    {% for f in filieres %}
+                        <option value="{{ f.id }}" {% if filiere_id == f.id|stringformat:"i" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Filtre Pré-inscription -->
+                <select name="statut_t1" class="py-2 px-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white transition outline-none">
+                    <option value="">Pré-inscription (Tous)</option>
+                    <option value="PAYE" {% if statut_t1 == 'PAYE' %}selected{% endif %}>Pré-inscription: Payé (84k)</option>
+                    <option value="NON_PAYE" {% if statut_t1 == 'NON_PAYE' %}selected{% endif %}>Pré-inscription: Non Payé</option>
+                </select>
+
+                <!-- Filtre 1ère Tranche -->
+                <select name="statut_t2" class="py-2 px-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white transition outline-none">
+                    <option value="">1ère Tranche (Tous)</option>
+                    <option value="PAYE" {% if statut_t2 == 'PAYE' %}selected{% endif %}>1ère Tranche: Payé</option>
+                    <option value="NON_PAYE" {% if statut_t2 == 'NON_PAYE' %}selected{% endif %}>1ère Tranche: Non Payé</option>
+                </select>
+
+                <!-- Filtre 2ème Tranche -->
+                <select name="statut_t3" class="py-2 px-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white transition outline-none">
+                    <option value="">2ème Tranche (Tous)</option>
+                    <option value="PAYE" {% if statut_t3 == 'PAYE' %}selected{% endif %}>2ème Tranche: Payé</option>
+                    <option value="NON_PAYE" {% if statut_t3 == 'NON_PAYE' %}selected{% endif %}>2ème Tranche: Non Payé</option>
+                </select>
+
+                <!-- Filtre 3ème Tranche -->
+                <select name="statut_t4" class="py-2 px-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white transition outline-none">
+                    <option value="">3ème Tranche (Tous)</option>
+                    <option value="PAYE" {% if statut_t4 == 'PAYE' %}selected{% endif %}>3ème Tranche: Payé</option>
+                    <option value="NON_PAYE" {% if statut_t4 == 'NON_PAYE' %}selected{% endif %}>3ème Tranche: Non Payé</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+                <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <i class="fas fa-filter"></i> Filtrer
+                </button>
+                {% if search_q or filiere_id or statut_t1 or statut_t2 or statut_t3 or statut_t4 %}
+                    <a href="{% url 'paiements:detail_session_concours' session.id %}" class="text-xs text-rose-600 hover:underline font-semibold whitespace-nowrap">
+                        Réinitialiser
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau Responsive des Résultats -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[950px]">
+                <thead>
+                    <tr class="bg-gradient-to-r from-emerald-900 to-teal-900 text-white text-[11px] uppercase tracking-wider font-extrabold">
+                        <th class="py-4 px-5">Candidat Lauréat</th>
+                        <th class="py-4 px-3">Filière</th>
+                        <th class="py-4 px-3 text-center">Pré-inscription (84k)</th>
+                        <th class="py-4 px-3 text-center">1ère Tranche</th>
+                        <th class="py-4 px-3 text-center">2ème Tranche</th>
+                        <th class="py-4 px-3 text-center">3ème Tranche</th>
+                        <th class="py-4 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-xs">
+                    {% for r in resultats %}
+                    <tr class="hover:bg-emerald-50/40 transition-colors group">
+                        
+                        <!-- Identité Candidat -->
+                        <td class="py-4 px-5">
+                            <div class="font-extrabold text-gray-900 group-hover:text-emerald-900 transition flex items-center gap-2">
+                                <span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-[10px] shrink-0">
+                                    {{ forloop.counter }}
+                                </span>
+                                <div class="flex items-center flex-wrap gap-1.5">
+                                    <span>{{ r.nom }} {{ r.prenom }}</span>
+                                    {% if r.statut_admission == 'LISTE_ATTENTE' %}
+                                        <span class="inline-flex items-center gap-1 bg-amber-500 text-white font-extrabold px-2.5 py-0.5 rounded-full text-[10px] uppercase shadow-xs">
+                                            <i class="fas fa-hourglass-half text-[9px]"></i> En attente
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px] uppercase">
+                                            <i class="fas fa-check text-[9px]"></i> Admis
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-1 pl-9 flex items-center gap-3">
+                                {% if r.email %}<span><i class="fas fa-envelope"></i> {{ r.email }}</span>{% endif %}
+                                {% if r.telephone %}<span><i class="fas fa-phone"></i> {{ r.telephone }}</span>{% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Filière d'affectation -->
+                        <td class="py-4 px-3">
+                            {% if r.filiere %}
+                                <span class="bg-emerald-100/80 text-emerald-900 font-extrabold px-2.5 py-1 rounded-xl text-xs border border-emerald-200/60 shadow-xs">
+                                    {{ r.filiere.code }}
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400 italic text-[11px]">Non spécifiée</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Pré-inscription (84 000 FCFA) -->
+                        <td class="py-4 px-3 text-center">
+                            <div class="inline-flex items-center gap-1.5">
+                                {% if r.statut_preinscription == 'PAYE' %}
+                                    <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[11px] border border-emerald-200">
+                                        <i class="fas fa-check-circle text-emerald-600"></i> Payé
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[11px] border border-rose-200">
+                                        <i class="fas fa-times-circle text-rose-500"></i> Non Payé
+                                    </span>
+                                {% endif %}
+                                <a href="{% url 'paiements:marquer_tranche_payee' r.id 1 %}" 
+                                   title="Changer le statut de la Pré-inscription"
+                                   class="p-1 rounded-lg border text-xs hover:bg-emerald-50 hover:text-emerald-700 transition text-gray-500">
+                                    <i class="fas fa-sync-alt"></i>
+                                </a>
+                            </div>
+                        </td>
+
+                        <!-- 1ère Tranche -->
+                        <td class="py-4 px-3 text-center">
+                            <div class="inline-flex items-center gap-1.5">
+                                {% if r.statut_tranche2 == 'PAYE' %}
+                                    <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[11px] border border-emerald-200">
+                                        <i class="fas fa-check-circle text-emerald-600"></i> Payé
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 bg-gray-100 text-gray-600 font-bold px-2 py-0.5 rounded-full text-[11px] border border-gray-200">
+                                        <i class="fas fa-clock text-gray-400"></i> Non Payé
+                                    </span>
+                                {% endif %}
+                                
+                                {% if r.statut_preinscription == 'PAYE' %}
+                                    <a href="{% url 'paiements:marquer_tranche_payee' r.id 2 %}" 
+                                       title="Changer statut 1ère Tranche"
+                                       class="p-1 rounded-lg border text-xs hover:bg-gray-100 transition text-gray-500">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </a>
+                                {% else %}
+                                    <span title="Pré-inscription (84k) requise au préalable pour autoriser ce versement"
+                                          class="p-1 rounded-lg border border-amber-200/80 bg-amber-50 text-amber-600 text-xs opacity-80 cursor-not-allowed">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- 2ème Tranche -->
+                        <td class="py-4 px-3 text-center">
+                            <div class="inline-flex items-center gap-1.5">
+                                {% if r.statut_tranche3 == 'PAYE' %}
+                                    <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[11px] border border-emerald-200">
+                                        <i class="fas fa-check-circle text-emerald-600"></i> Payé
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 bg-gray-100 text-gray-600 font-bold px-2 py-0.5 rounded-full text-[11px] border border-gray-200">
+                                        <i class="fas fa-clock text-gray-400"></i> Non Payé
+                                    </span>
+                                {% endif %}
+
+                                {% if r.statut_preinscription == 'PAYE' %}
+                                    <a href="{% url 'paiements:marquer_tranche_payee' r.id 3 %}" 
+                                       title="Changer statut 2ème Tranche"
+                                       class="p-1 rounded-lg border text-xs hover:bg-gray-100 transition text-gray-500">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </a>
+                                {% else %}
+                                    <span title="Pré-inscription (84k) requise au préalable pour autoriser ce versement"
+                                          class="p-1 rounded-lg border border-amber-200/80 bg-amber-50 text-amber-600 text-xs opacity-80 cursor-not-allowed">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- 3ème Tranche -->
+                        <td class="py-4 px-3 text-center">
+                            <div class="inline-flex items-center gap-1.5">
+                                {% if r.statut_tranche4 == 'PAYE' %}
+                                    <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[11px] border border-emerald-200">
+                                        <i class="fas fa-check-circle text-emerald-600"></i> Payé
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 bg-gray-100 text-gray-600 font-bold px-2 py-0.5 rounded-full text-[11px] border border-gray-200">
+                                        <i class="fas fa-clock text-gray-400"></i> Non Payé
+                                    </span>
+                                {% endif %}
+
+                                {% if r.statut_preinscription == 'PAYE' %}
+                                    <a href="{% url 'paiements:marquer_tranche_payee' r.id 4 %}" 
+                                       title="Changer statut 3ème Tranche"
+                                       class="p-1 rounded-lg border text-xs hover:bg-gray-100 transition text-gray-500">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </a>
+                                {% else %}
+                                    <span title="Pré-inscription (84k) requise au préalable pour autoriser ce versement"
+                                          class="p-1 rounded-lg border border-amber-200/80 bg-amber-50 text-amber-600 text-xs opacity-80 cursor-not-allowed">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="py-4 px-4 text-right">
+                            <a href="{% url 'paiements:supprimer_resultat_concours' r.id %}" 
+                               onclick="return confirm('Êtes-vous sûr de vouloir retirer ce candidat des résultats ?');"
+                               title="Supprimer"
+                               class="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-gray-400">
+                            <div class="max-w-sm mx-auto flex flex-col items-center">
+                                <i class="fas fa-folder-open text-4xl text-gray-300 mb-3"></i>
+                                <p class="text-sm font-bold text-gray-600">Aucun résultat trouvé avec les filtres sélectionnés.</p>
+                                <p class="text-xs text-gray-400 mt-1">Modifiez vos critères de recherche ou réinitialisez les filtres.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODALE D'IMPORTATION DRAG & DROP DES RÉSULTATS -->
+<div id="modal-importer" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden animate-fadeIn">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 border border-gray-100 relative">
+        
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-black text-gray-900 flex items-center gap-2">
+                <i class="fas fa-file-import text-emerald-600"></i> Importation des Résultats du Concours
+            </h3>
+            <button onclick="document.getElementById('modal-importer').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <p class="text-xs text-gray-500 mb-6">
+            Glissez-déposez le fichier des candidats admis au concours pour la session <strong class="text-emerald-800">{{ session.nom }}</strong>.
+        </p>
+
+        <form method="POST" action="{% url 'paiements:importer_resultats_concours' session.id %}" enctype="multipart/form-data" onsubmit="lancerAnimationOCR()" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Zone de Drag & Drop avec animations CSS -->
+            <div id="drop-zone" 
+                 class="border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-3xl p-8 text-center cursor-pointer transition-all duration-300 group">
+                <input type="file" id="fichier_csv" name="fichier_csv" accept=".csv, .txt, .pdf" class="hidden" onchange="handleFileSelect(this)">
+                
+                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                    <i class="fas fa-cloud-upload-alt text-2xl"></i>
+                </div>
+                
+                <p id="file-label" class="text-xs md:text-sm font-extrabold text-emerald-950">
+                    Glissez votre fichier CSV / PDF ici ou <span class="text-emerald-600 underline">parcourez vos fichiers</span>
+                </p>
+                <p class="text-[11px] text-gray-400 mt-1">Formats acceptés : .CSV, .PDF, .TXT (séparateurs ; ou ,)</p>
+
+            </div>
+
+            <!-- Modèle CSV à télécharger -->
+            <div class="flex justify-between items-center bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-xs">
+                <span class="text-gray-600 font-medium">Besoin de la structure modèle ?</span>
+                <a href="{% url 'paiements:telecharger_modele_csv_concours' %}" class="text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1">
+                    <i class="fas fa-download"></i> Télécharger modèle CSV
+                </a>
+            </div>
+
+            <!-- Saisie Manuelle de Secours -->
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">
+                    Ou collez le texte CSV directement ci-dessous :
+                </label>
+                <textarea name="saisie_manuelle" rows="3" placeholder="N2026-001;KAMGA;Jean Marc;jean@example.com;699000111;GL;ADMIS" 
+                          class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            </div>
+
+            <!-- Boutons de soumission -->
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="document.getElementById('modal-importer').classList.add('hidden')" 
+                        class="px-5 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition">
+                    Annuler
+                </button>
+                <button type="submit" 
+                        class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-lg shadow-emerald-600/20 transition flex items-center gap-2">
+                    <i class="fas fa-check"></i> Valider & Importer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODALE LOADER SPINNER OCR ANIMÉE ET SUPERBEMENT STYLÉE (CENTRE DE DOUALA) -->
+<div id="modal-ocr-loader" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden transition-all duration-500">
+    <div class="bg-gradient-to-b from-slate-900 via-emerald-950 to-slate-900 border border-emerald-500/30 rounded-3xl p-8 md:p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+        
+        <!-- Halo lumineux d'arrière-plan -->
+        <div class="absolute -top-12 -left-12 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-12 -right-12 w-40 h-40 bg-teal-500/20 rounded-full blur-3xl"></div>
+
+        <!-- Cercle de Progression OCR Numérique Animé -->
+        <div class="relative w-36 h-36 mx-auto mb-6 flex items-center justify-center">
+            
+            <!-- Anneau 1 : Pulse Extérieur -->
+            <div class="absolute inset-0 rounded-full border-4 border-emerald-500/30 animate-ping"></div>
+            
+            <!-- Anneau 2 : SVG Gradient Ring Spinner avec rotation CSS -->
+            <svg class="w-full h-full transform -rotate-90 animate-spin" viewBox="0 0 100 100">
+                <defs>
+                    <linearGradient id="ocrGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#10B981" />
+                        <stop offset="50%" stop-color="#14B8A6" />
+                        <stop offset="100%" stop-color="#F59E0B" />
+                    </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="42" stroke="currentColor" stroke-width="6" class="text-emerald-950/70" fill="transparent" />
+                <circle cx="50" cy="50" r="42" stroke="url(#ocrGradient)" stroke-width="6" stroke-dasharray="264" stroke-dashoffset="66" stroke-linecap="round" fill="transparent" />
+            </svg>
+
+            <!-- Icône centrale Scanner OCR -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-emerald-400">
+                <i class="fas fa-file-invoice text-3xl animate-bounce mb-1"></i>
+                <span class="text-[9px] font-black tracking-widest uppercase text-emerald-300">OCR SCANNER</span>
+            </div>
+        </div>
+
+        <!-- Titre & Descriptions -->
+        <h4 class="text-base font-black text-white mb-2 flex items-center justify-center gap-2">
+            <i class="fas fa-brain text-amber-400 animate-pulse"></i> Moteur OCR IAI Douala...
+        </h4>
+        <p class="text-xs text-emerald-200/80 mb-5 font-medium leading-relaxed">
+            Extraction et analyse automatique des lauréats du <strong>Centre de Douala</strong> en cours.
+        </p>
+
+        <!-- Barre de progression simulée fluide -->
+        <div class="w-full bg-slate-800/90 rounded-full h-2.5 overflow-hidden border border-emerald-500/30 p-0.5 mb-3">
+            <div id="ocr-bar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 h-full rounded-full w-1/4 transition-all duration-700"></div>
+        </div>
+
+        <p id="ocr-status-text" class="text-[11px] text-amber-300/90 font-mono animate-pulse">
+            ⚡ Numérisation et détection des lauréats en cours...
+        </p>
+    </div>
+</div>
+
+<!-- Script JS pour Drag & Drop et Animation OCR -->
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('fichier_csv');
+    const fileLabel = document.getElementById('file-label');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-emerald-600', 'bg-emerald-100/60');
+    });
+
+    ['dragleave', 'dragend'].forEach(type => {
+        dropZone.addEventListener(type, () => {
+            dropZone.classList.remove('border-emerald-600', 'bg-emerald-100/60');
+        });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-emerald-600', 'bg-emerald-100/60');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect(fileInput);
+        }
+    });
+
+    function handleFileSelect(input) {
+        if (input.files && input.files[0]) {
+            fileLabel.innerHTML = `Fichier sélectionné : <span class="text-emerald-700 font-black">${input.files[0].name}</span> (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+        }
+    }
+
+    function lancerAnimationOCR() {
+        document.getElementById('modal-importer').classList.add('hidden');
+        const loader = document.getElementById('modal-ocr-loader');
+        loader.classList.remove('hidden');
+        
+        const bar = document.getElementById('ocr-bar');
+        const statusText = document.getElementById('ocr-status-text');
+        
+        let progress = 10;
+        const interval = setInterval(() => {
+            progress += Math.floor(Math.random() * 15) + 10;
+            if (progress >= 90) progress = 92;
+            if (bar) bar.style.width = progress + '%';
+            
+            if (progress > 30 && progress < 60 && statusText) {
+                statusText.innerText = "🔍 OCR : Extraction des lauréats (Centre de Douala)...";
+            } else if (progress >= 60 && statusText) {
+                statusText.innerText = "📊 Enregistrement et structuration des paiements...";
+            }
+        }, 350);
+    }
+</script>
+{% endblock %}
+

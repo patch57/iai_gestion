@@ -27,8 +27,9 @@ def site_config(request):
         'LOGOUT_URL': '/logout/',
         
         # Configuration IAI
-        'MONTANT_PREINSCRIPTION': 50000,
+        'MONTANT_PREINSCRIPTION': 84000,
         'MONTANT_TOTAL_ANNUEL': 500000,
+
         'DEVISE': 'FCFA',
     }
 
