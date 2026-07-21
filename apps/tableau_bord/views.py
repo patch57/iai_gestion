@@ -1066,6 +1066,8 @@ def geolocalisation(request):
         'titre': 'Géolocalisation du Centre IAI-Douala',
         'latitude': 4.0483,  # Latitude précise de PK10 Douala
         'longitude': 9.7845, # Longitude précise de PK10 Douala
-        'description': "Le centre IAI-Cameroun de Douala est actuellement situé à PK10, entre les supermarchés BAO et SAKER, juste derrière la nouvelle station-service MAMAYAKO."
+        'plus_code': '2QXC+9CG',
+        'destination_adresse': 'Pk10, 2QXC+9CG, Douala',
+        'description': "Le centre IAI-Cameroun de Douala est actuellement situé à Pk10, 2QXC+9CG, Douala, entre les supermarchés BAO et SAKER, juste derrière la nouvelle station-service MAMAYAKO."
     }
     return render(request, 'tableau_bord/geolocalisation.html', context)
