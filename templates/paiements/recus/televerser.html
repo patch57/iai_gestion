@@ -141,6 +141,39 @@
     </div>
 </div>
 
+<!-- Loader Overlay (analyse IA) -->
+<div id="ocr-loader-overlay" class="hidden fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full text-center space-y-6 shadow-2xl border border-gray-100 animate-fadeInUp">
+        <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+            <div class="absolute inset-0 border-4 border-emerald-100 rounded-full"></div>
+            <div class="absolute inset-0 border-4 border-emerald-600 rounded-full animate-spin border-t-transparent"></div>
+            <div class="absolute inset-0 flex items-center justify-center text-emerald-600">
+                <i class="fas fa-robot text-2xl animate-pulse"></i>
+            </div>
+        </div>
+        <div>
+            <h3 class="font-extrabold text-lg text-gray-800">Analyse OCR en cours...</h3>
+            <p class="text-[11px] text-gray-500 mt-2 leading-relaxed">
+                Notre intelligence artificielle extrait et valide les informations de votre reçu bancaire (Montant, Référence, Date). Veuillez patienter quelques instants...
+            </p>
+        </div>
+        <!-- Barre de chargement factice pour donner de la vie -->
+        <div class="w-full bg-gray-100 rounded-full h-1 overflow-hidden">
+            <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-1 rounded-full animate-pulse-progress" style="width: 75%"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes pulse-progress {
+        0%, 100% { width: 10%; opacity: 0.5; }
+        50% { width: 95%; opacity: 1; }
+    }
+    .animate-pulse-progress {
+        animation: pulse-progress 2.5s ease-in-out infinite;
+    }
+</style>
+
 <script>
     const fileInput = document.getElementById('file-input');
     const dropzone = document.getElementById('dropzone');
@@ -150,9 +183,18 @@
     const previewSize = document.getElementById('preview-size');
     const fileError = document.getElementById('file-error');
     const fileErrorText = document.getElementById('file-error-text');
+    const uploadForm = document.getElementById('upload-form');
+    const ocrLoaderOverlay = document.getElementById('ocr-loader-overlay');
 
     const ALLOWED_EXT = ['pdf', 'png', 'jpg', 'jpeg'];
     const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+
+    // Afficher l'overlay d'analyse lors de la soumission valide
+    uploadForm.addEventListener('submit', (e) => {
+        if (fileInput.files.length > 0) {
+            ocrLoaderOverlay.classList.remove('hidden');
+        }
+    });
 
     function handleFile(file) {
         fileError.classList.add('hidden');

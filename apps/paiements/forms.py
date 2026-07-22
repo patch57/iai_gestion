@@ -18,6 +18,30 @@ def valider_fichier_recu(file):
         raise ValidationError(
             f"Fichier trop volumineux ({round(file.size / (1024 * 1024), 2)} Mo). Taille maximale : 5 Mo."
         )
+    
+    # Vérification robuste des signatures magiques (Magic Numbers)
+    try:
+        file.seek(0)
+        header = file.read(8)
+        file.seek(0)  # Repositionner au début
+        
+        is_valid = False
+        if ext == '.pdf' and header.startswith(b'%PDF'):
+            is_valid = True
+        elif ext == '.png' and header.startswith(b'\x89PNG\r\n\x1a\n'):
+            is_valid = True
+        elif ext in ['.jpg', '.jpeg'] and header.startswith(b'\xff\xd8\xff'):
+            is_valid = True
+            
+        if not is_valid:
+            raise ValidationError(
+                f"Le fichier '{file.name}' ne correspond pas à un format {ext.upper()} authentique."
+            )
+    except ValidationError as ve:
+        raise ve
+    except Exception:
+        raise ValidationError("Erreur lors de la validation du contenu du fichier.")
+        
     return file
 
 class RecuPaiementForm(forms.ModelForm):

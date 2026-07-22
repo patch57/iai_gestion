@@ -132,8 +132,11 @@ def inscription(request):
             if not document:
                 errors.append("Le document justificatif (Reçu ou Note de service) est obligatoire.")
             else:
-                if document.size > 5 * 1024 * 1024:
-                    errors.append("Le document ne doit pas dépasser 5 Mo.")
+                from apps.paiements.forms import valider_fichier_recu
+                try:
+                    valider_fichier_recu(document)
+                except ValidationError as ve:
+                    errors.extend(ve.messages)
         else:
             # Pour l'apprenant, le mot de passe est obligatoire
             if not password:

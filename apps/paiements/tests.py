@@ -87,7 +87,7 @@ class TeleverserRecuValidationTestCase(TestCase):
         self.assertEqual(valider_fichier_recu(file), file)
 
     def test_fichier_valide_png(self):
-        file = SimpleUploadedFile("recu_scb.png", b"fake png image content", content_type="image/png")
+        file = SimpleUploadedFile("recu_scb.png", b"\x89PNG\r\n\x1a\nfake png image content", content_type="image/png")
         self.assertEqual(valider_fichier_recu(file), file)
 
     def test_fichier_extension_interdite(self):
