@@ -26,16 +26,16 @@ def liste_requetes(request):
     if role in ['ETUDIANT', 'APPRENANT']:
         queryset = queryset.filter(auteur=user)
     elif role == 'CHEF_SCOLARITE':
-        queryset = queryset.filter(nature='SCOLARITE')
+        queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, nature='SCOLARITE'))
     elif role == 'CHEF_ETUDES':
-        queryset = queryset.filter(nature='ETUDES')
+        queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, nature='ETUDES'))
     elif role == 'CHEF_ANONYMAT':
-        queryset = queryset.filter(nature='ANONYMAT')
+        queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, nature='ANONYMAT'))
     elif role == 'CHEF_COMPTABILITE':
-        queryset = queryset.filter(nature='COMPTABILITE')
+        queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, nature='COMPTABILITE'))
     elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
-        # Le formateur gère uniquement les requêtes des apprenants
-        queryset = queryset.filter(auteur__type_utilisateur='APPRENANT')
+        # L'enseignant gère uniquement ce qui lui est assigné ou ce qui concerne les apprenants non assignés
+        queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, auteur__type_utilisateur='APPRENANT'))
     elif role == 'ADMIN_SYSTEME':
         # Le Directeur voit tout, mais on peut filtrer
         pass
@@ -113,9 +113,33 @@ def detail_requete(request, pk):
     role = user.type_utilisateur
     
     # Sécurité de lecture
-    if role in ['ETUDIANT', 'APPRENANT'] and requete.auteur != user:
-        messages.error(request, "Accès refusé.")
-        return redirect('requetes:liste_requetes')
+    if role in ['ETUDIANT', 'APPRENANT']:
+        if requete.auteur != user:
+            messages.error(request, "Accès refusé.")
+            return redirect('requetes:liste_requetes')
+    elif role == 'ADMIN_SYSTEME':
+        # Le Directeur a accès à tout
+        pass
+    else:
+        # Personnel autre : vérifier s'il est l'assigné direct, ou si la requête n'est pas assignée et concerne son service
+        est_autorise = False
+        if requete.assigne_a == user:
+            est_autorise = True
+        elif requete.assigne_a is None:
+            if role == 'CHEF_SCOLARITE' and requete.nature == 'SCOLARITE':
+                est_autorise = True
+            elif role == 'CHEF_ETUDES' and requete.nature == 'ETUDES':
+                est_autorise = True
+            elif role == 'CHEF_ANONYMAT' and requete.nature == 'ANONYMAT':
+                est_autorise = True
+            elif role == 'CHEF_COMPTABILITE' and requete.nature == 'COMPTABILITE':
+                est_autorise = True
+            elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR'] and requete.auteur.type_utilisateur == 'APPRENANT':
+                est_autorise = True
+        
+        if not est_autorise:
+            messages.error(request, "Accès refusé : cette requête ne vous est pas destinée.")
+            return redirect('requetes:liste_requetes')
         
     form_reponse = None
     form_escalade = None

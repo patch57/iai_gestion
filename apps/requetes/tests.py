@@ -132,3 +132,67 @@ class RequetesTestCase(TestCase):
         requete.refresh_from_db()
         self.assertEqual(requete.statut, 'TRAITE')
         self.assertEqual(requete.reponse, "Corrigé par l'administrateur après traitement.")
+
+    def test_securite_acces_personnel_requetes(self):
+        """Vérifie le filtrage strict et les accès interdits pour le personnel"""
+        # Création de deux requêtes de nature différente
+        req_scolarite = Requete.objects.create(
+            auteur=self.etudiant_user,
+            titre='Requete Scolarité',
+            nature='SCOLARITE',
+            description='Test Scolarité',
+            statut='SOUMIS'
+        )
+        req_compta = Requete.objects.create(
+            auteur=self.etudiant_user,
+            titre='Requete Comptabilité',
+            nature='COMPTABILITE',
+            description='Test Comptabilité',
+            statut='SOUMIS'
+        )
+        
+        # Utilisateur Comptabilité
+        compta_user = User.objects.create_user(
+            username='compta_test',
+            email='compta@test.com',
+            password='password123',
+            type_utilisateur='CHEF_COMPTABILITE',
+            matricule='CCO.CMR.D003.2024.A'
+        )
+        
+        # 1. Le Chef Scolarité ne doit voir que la requête Scolarité
+        self.client.login(username='scolarite_test', password='password123')
+        response = self.client.get(reverse('requetes:liste_requetes'))
+        self.assertEqual(response.status_code, 200)
+        requetes_liste = list(response.context['requetes'].object_list)
+        self.assertIn(req_scolarite, requetes_liste)
+        self.assertNotIn(req_compta, requetes_liste)
+        
+        # 2. Le Chef Scolarité ne doit pas pouvoir accéder au détail de la requête de Comptabilité
+        response = self.client.get(reverse('requetes:detail_requete', args=[req_compta.id]))
+        self.assertEqual(response.status_code, 302)  # Redirection avec message d'erreur
+        
+        # 3. Si la requête de Scolarité est assignée au Chef Comptabilité par le Directeur, le Chef Scolarité ne doit plus la voir
+        req_scolarite.assigne_a = compta_user
+        req_scolarite.save()
+        
+        response = self.client.get(reverse('requetes:liste_requetes'))
+        requetes_liste = list(response.context['requetes'].object_list)
+        self.assertNotIn(req_scolarite, requetes_liste)
+        
+        # Et s'il tente d'y accéder en direct, l'accès lui est refusé
+        response = self.client.get(reverse('requetes:detail_requete', args=[req_scolarite.id]))
+        self.assertEqual(response.status_code, 302)
+        
+        # 4. Le Chef Comptabilité doit par contre voir cette requête Scolarité qui lui est affectée
+        self.client.logout()
+        self.client.login(username='compta_test', password='password123')
+        response = self.client.get(reverse('requetes:liste_requetes'))
+        requetes_liste = list(response.context['requetes'].object_list)
+        self.assertIn(req_scolarite, requetes_liste)
+        
+        # Et il doit pouvoir accéder au détail
+        response = self.client.get(reverse('requetes:detail_requete', args=[req_scolarite.id]))
+        self.assertEqual(response.status_code, 200)
+        self.client.logout()
+
