@@ -555,3 +555,42 @@ class AlertePaiement(models.Model):
                     alertes_crees += 1
         
         return alertes_crees
+
+
+class ReglementInterieur(models.Model):
+    """
+    Modèle de stockage du règlement intérieur de l'établissement.
+    Seul le règlement le plus récent marqué comme actif sera téléchargeable par les utilisateurs.
+    """
+    titre = models.CharField(
+        max_length=150,
+        default="Règlement Intérieur IAI-Cameroun",
+        verbose_name="Titre"
+    )
+    fichier = models.FileField(
+        upload_to='reglements/',
+        verbose_name="Fichier PDF"
+    )
+    date_televersement = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Date de téléversement"
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name="Règlement actif"
+    )
+
+    class Meta:
+        app_label = 'tableau_bord'
+        verbose_name = "Règlement Intérieur"
+        verbose_name_plural = "Règlements Intérieurs"
+        ordering = ['-date_televersement']
+
+    def __str__(self):
+        return f"{self.titre} - {self.date_televersement.strftime('%d/%m/%Y')}"
+
+    def save(self, *args, **kwargs):
+        # Désactiver les autres règlements si celui-ci est actif
+        if self.est_actif:
+            ReglementInterieur.objects.filter(est_actif=True).exclude(pk=self.pk).update(est_actif=False)
+        super().save(*args, **kwargs)

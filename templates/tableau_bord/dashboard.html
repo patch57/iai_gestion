@@ -107,9 +107,9 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Étudiants</p>
-                    <h3 class="text-4xl font-bold stat-number">{{ stats.total_etudiants }}</h3>
+                    <h3 id="stat-total-etudiants" class="text-4xl font-bold stat-number">{{ stats.total_etudiants }}</h3>
                     <p class="text-xs text-green-600 mt-2">
-                        <i class="fas fa-arrow-up mr-1"></i>Actifs {{ stats.total_etudiants_annee }} cette année
+                        <i class="fas fa-arrow-up mr-1"></i>Actifs <span id="stat-total-etudiants-annee">{{ stats.total_etudiants_annee }}</span> cette année
                     </p>
                 </div>
                 <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -123,7 +123,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Professeurs</p>
-                    <h3 class="text-4xl font-bold text-gray-900">{{ stats.total_professeurs }}</h3>
+                    <h3 id="stat-total-professeurs" class="text-4xl font-bold text-gray-900">{{ stats.total_professeurs }}</h3>
                     <p class="text-xs text-yellow-600 mt-2">
                         <i class="fas fa-check-circle mr-1"></i>Enseignants actifs
                     </p>
@@ -139,7 +139,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Filières</p>
-                    <h3 class="text-4xl font-bold text-gray-900">{{ stats.total_filieres }}</h3>
+                    <h3 id="stat-total-filieres" class="text-4xl font-bold text-gray-900">{{ stats.total_filieres }}</h3>
                     <p class="text-xs text-green-600 mt-2">
                         <i class="fas fa-book mr-1"></i>Programmes disponibles
                     </p>
@@ -155,7 +155,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Taux de Remplissage</p>
-                    <h3 class="text-4xl font-bold text-gray-900">{{ taux_remplissage }}<span class="text-xl">%</span></h3>
+                    <h3 id="stat-taux-remplissage" class="text-4xl font-bold text-gray-900">{{ taux_remplissage }}<span class="text-xl">%</span></h3>
                     <p class="text-xs text-yellow-600 mt-2">
                         <i class="fas fa-chart-line mr-1"></i>Des classes
                     </p>
@@ -441,7 +441,7 @@
                 <div class="mt-4 pt-4 border-t border-gray-200">
                     <div class="flex items-center justify-between">
                         <span class="text-sm font-semibold text-gray-600">Recettes du mois</span>
-                        <span class="text-xl font-bold text-green-600">{{ recettes_mois|floatformat:0 }} FCFA</span>
+                        <span id="stat-recettes-mois" class="text-xl font-bold text-green-600">{{ recettes_mois|floatformat:0 }} FCFA</span>
                     </div>
                     <div class="mt-2">
                         <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -456,7 +456,7 @@
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <p class="text-sm font-semibold opacity-90">Pénalités Impayées</p>
-                        <p class="text-3xl font-bold mt-2">{{ penalites_total|floatformat:0 }} FCFA</p>
+                        <p id="stat-penalites-total" class="text-3xl font-bold mt-2">{{ penalites_total|floatformat:0 }} FCFA</p>
                     </div>
                     <div class="w-14 h-14 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center">
                         <i class="fas fa-exclamation-triangle text-2xl"></i>
@@ -523,6 +523,61 @@
                 bar.style.width = width;
             }, 100);
         });
+        
+        // Actualisation dynamique des stats en temps réel
+        function actualiserStatsTempsReel() {
+            fetch('/tableau-de-bord/api/statistiques-rapides/')
+                .then(response => response.json())
+                .then(res => {
+                    if (res.success && res.data) {
+                        const data = res.data;
+                        
+                        // Mettre à jour les cartes avec une transition fluide de surbrillance
+                        const animerChangement = (elemId, nouvelleValeur) => {
+                            const elem = document.getElementById(elemId);
+                            if (elem && nouvelleValeur !== undefined && elem.textContent.trim() !== String(nouvelleValeur).trim()) {
+                                elem.textContent = nouvelleValeur;
+                                elem.classList.add('scale-110', 'text-yellow-600');
+                                setTimeout(() => {
+                                    elem.classList.remove('scale-110', 'text-yellow-600');
+                                }, 1000);
+                            }
+                        };
+
+                        animerChangement('stat-total-etudiants', data.total_etudiants);
+                        animerChangement('stat-total-professeurs', data.total_professeurs);
+                        animerChangement('stat-total-filieres', data.total_filieres);
+                        
+                        const remplissageElem = document.getElementById('stat-taux-remplissage');
+                        if (remplissageElem && data.taux_remplissage !== undefined) {
+                            const ancienneValeur = remplissageElem.textContent.replace('%', '').trim();
+                            if (ancienneValeur !== String(data.taux_remplissage).trim()) {
+                                remplissageElem.innerHTML = `${data.taux_remplissage}<span class="text-xl">%</span>`;
+                                remplissageElem.classList.add('scale-110', 'text-yellow-600');
+                                setTimeout(() => {
+                                    remplissageElem.classList.remove('scale-110', 'text-yellow-600');
+                                }, 1000);
+                            }
+                        }
+
+                        const recettesElem = document.getElementById('stat-recettes-mois');
+                        if (recettesElem && data.recettes_mois !== undefined) {
+                            const formatedRecettes = new Intl.NumberFormat().format(data.recettes_mois) + ' FCFA';
+                            if (recettesElem.textContent.trim() !== formatedRecettes) {
+                                recettesElem.textContent = formatedRecettes;
+                                recettesElem.classList.add('scale-110', 'text-yellow-600');
+                                setTimeout(() => {
+                                    recettesElem.classList.remove('scale-110', 'text-yellow-600');
+                                }, 1000);
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error("Erreur lors du rafraîchissement temps réel :", err));
+        }
+
+        // Rafraîchir toutes les 10 secondes pour un temps réel optimal
+        setInterval(actualiserStatsTempsReel, 10000);
     });
 </script>
 {% endblock %}

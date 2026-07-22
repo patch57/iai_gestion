@@ -400,7 +400,7 @@
     const usernameInput = document.getElementById('id_username');
     const usernameError = document.getElementById('username-error');
     const usernameValid = document.getElementById('username-valid');
-    const matriculePattern = /^((GL|SR|PA|PR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]?|[A-Z]{3}\.CMR\.D\d{3}\.\d{4}\.[A-Z])$/;
+    const matriculePattern = /^((GL|SR|PA|PR)\.CMR\.(D\d{3}|DO\d{2}|D014)\.\d{4}[A-Z]?|[A-Z]{2,3}\.CMR\.D\d{3}\.\d{4}\.[A-Z])$/;
     
     usernameInput?.addEventListener('input', function(e) {
         const matricule = e.target.value.trim().toUpperCase();
@@ -455,7 +455,7 @@
         if (!matriculePattern.test(matricule)) {
             e.preventDefault();
             usernameInput.classList.add('input-invalid');
-            usernameError.textContent = 'Format de matricule invalide. Exemples : GL.CMR.DO14.2425A ou DIR.CMR.D111.2024.B';
+            usernameError.textContent = 'Format de matricule invalide. Exemples : GL.CMR.D043.2324A ou DIR.CMR.D111.2024.B';
             usernameError.classList.remove('hidden');
             usernameInput.focus();
             return false;

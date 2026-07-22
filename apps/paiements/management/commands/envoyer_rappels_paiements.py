@@ -26,6 +26,53 @@ class Command(BaseCommand):
             if penalites_info['total'] > 0:
                 compteur_insolvables += 1
                 
+                # Synchroniser également les notifications système en base de données
+                if etudiant.utilisateur:
+                    from apps.tableau_bord.models import Notification
+                    from django.utils import timezone
+                    
+                    notifs_existantes = {
+                        n.titre: n for n in Notification.objects.filter(
+                            utilisateur=etudiant.utilisateur,
+                            type='WARNING',
+                            est_lue=False
+                        )
+                    }
+                    
+                    tranches_en_retard = set()
+                    
+                    for detail in penalites_info.get('details', []):
+                        nom_tranche = detail['tranche']
+                        tranches_en_retard.add(nom_tranche)
+                        titre_notif = f"Retard de paiement - {nom_tranche}"
+                        message_notif = (
+                            f"Vous avez accumulé {detail['montant']:,} FCFA de pénalités pour la {nom_tranche} "
+                            f"en raison de {detail['semaines_retard']} semaine(s) de retard. "
+                            f"Date limite dépassée : {detail['date_limite'].strftime('%d/%m/%Y')}."
+                        )
+                        
+                        if titre_notif in notifs_existantes:
+                            notif = notifs_existantes[titre_notif]
+                            if notif.message != message_notif:
+                                notif.message = message_notif
+                                notif.save()
+                        else:
+                            Notification.objects.create(
+                                utilisateur=etudiant.utilisateur,
+                                type='WARNING',
+                                titre=titre_notif,
+                                message=message_notif,
+                                lien='/inscriptions/'
+                            )
+                    
+                    for titre, notif in notifs_existantes.items():
+                        if titre.startswith("Retard de paiement - "):
+                            nom_tranche = titre.replace("Retard de paiement - ", "")
+                            if nom_tranche not in tranches_en_retard:
+                                notif.est_lue = True
+                                notif.date_lecture = timezone.now()
+                                notif.save()
+                
                 # Vérifier si l'étudiant a un e-mail valide
                 destinataire = etudiant.email
                 if not destinataire and etudiant.utilisateur:

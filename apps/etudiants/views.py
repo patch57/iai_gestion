@@ -35,9 +35,8 @@ from apps.inscriptions.models import Inscription
 
 @login_required
 def tableau_de_bord(request):
-    """Tableau de bord moderne avec graphiques et indicateurs"""
-    annee_active = AnneeAcademique.get_active()
-    annee_code = annee_active.code if annee_active else '2024-2025'
+    from apps.inscriptions.utils import get_current_academic_year_code
+    annee_code = annee_active.code if annee_active else get_current_academic_year_code()
     
     # Statistiques principales
     stats = {
@@ -966,8 +965,8 @@ def supprimer_document_obligatoire(request, pk):
 
 @login_required
 def statistiques_etudiants(request):
-    """Statistiques avancées avec graphiques"""
-    annee = request.GET.get('annee', AnneeAcademique.get_active().code if AnneeAcademique.get_active() else '2024-2025')
+    from apps.inscriptions.utils import get_current_academic_year_code
+    annee = request.GET.get('annee', AnneeAcademique.get_active().code if AnneeAcademique.get_active() else get_current_academic_year_code())
     
     stats = {
         'total': Etudiant.objects.filter(annee_academique=annee).count(),
@@ -994,15 +993,18 @@ def statistiques_etudiants(request):
 
 @login_required
 def exporter_etudiants(request):
-    """Exporter les étudiants en CSV"""
+    """Exporter les étudiants en CSV / Excel"""
     format_export = request.GET.get('format', 'csv')
     filiere_id = request.GET.get('filiere')
+    niveau_num = request.GET.get('niveau')
     statut = request.GET.get('statut')
     
-    queryset = Etudiant.objects.select_related('filiere', 'classe')
+    queryset = Etudiant.objects.select_related('filiere', 'classe', 'niveau')
     
     if filiere_id:
         queryset = queryset.filter(filiere_id=filiere_id)
+    if niveau_num:
+        queryset = queryset.filter(niveau__numero=niveau_num)
     if statut:
         queryset = queryset.filter(statut=statut)
     
@@ -1495,8 +1497,8 @@ def statistiques_par_filiere(request):
 
 @login_required
 def statistiques_paiements(request):
-    """Statistiques des paiements"""
-    annee = request.GET.get('annee', AnneeAcademique.get_active().code if AnneeAcademique.get_active() else '2024-2025')
+    from apps.inscriptions.utils import get_current_academic_year_code
+    annee = request.GET.get('annee', AnneeAcademique.get_active().code if AnneeAcademique.get_active() else get_current_academic_year_code())
     
     # Statistiques globales
     total_etudiants = Etudiant.objects.filter(annee_academique=annee).count()

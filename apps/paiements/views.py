@@ -41,9 +41,8 @@ from .forms import valider_fichier_recu
 
 @login_required
 def televerser_recu(request, etudiant_id):
-    """Téléverser un reçu"""
-    etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
-    tranches = TranchePaiement.objects.filter(annee_academique=etudiant.annee_academique.code if etudiant.annee_academique else '2024-2025', est_active=True)
+    from apps.inscriptions.utils import get_current_academic_year_code
+    tranches = TranchePaiement.objects.filter(annee_academique=etudiant.annee_academique.code if etudiant.annee_academique else get_current_academic_year_code(), est_active=True)
     
     if request.method == 'POST':
         tranche_id = request.POST.get('tranche')
@@ -64,92 +63,58 @@ def televerser_recu(request, etudiant_id):
                     'titre': 'Téléverser un reçu'
                 })
             
-            tranche = get_object_or_404(TranchePaiement, pk=tranche_id)
+            tranche = None
+            commentaires = ""
+            
+            if tranche_id in ['totalite', 'autre']:
+                commentaires = f"OPTION:{tranche_id.upper()}"
+            else:
+                try:
+                    tranche = TranchePaiement.objects.get(pk=tranche_id)
+                except (TranchePaiement.DoesNotExist, ValueError):
+                    pass
+
             recu = RecuPaiement.objects.create(
                 etudiant=etudiant,
                 tranche=tranche,
                 recu_fichier=file,
                 montant_mentionne=montant,
                 reference_recu=reference,
-                statut='EN_ATTENTE'
+                statut='EN_ATTENTE',
+                commentaires=commentaires
             )
             
-            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Romuald Patchong)
-            nom_fichier = file.name.lower()
+            # Analyse OCR réelle du reçu
+            recu.analyser_par_ia()
             
-            # Détection de fraude/suspicion
-            est_suspect = any(k in nom_fichier for k in ['suspect', 'fake', 'truque', 'falsifie'])
-            
-            # Détection de la banque, compte et remettant authentiques (l'agence peut changer)
-            a_mots_cles_scb = 'scb' in nom_fichier and any(k in nom_fichier for k in ['patchong', 'njitack', 'romuald'])
-            
-            # Détection dynamique de l'agence bancaire SCB
-            agence_detectee = 'BESSENGUE'
-            for a in ['akwa', 'bonanjo', 'bessengue', 'deido', 'yaounde', 'douala']:
-                if a in nom_fichier:
-                    agence_detectee = a.upper()
-                    break
-            
-            if est_suspect:
-                recu.analyser_par_ia({
-                    'extraction': {
-                        'montant': float(montant),
-                        'reference': reference or '000000',
-                        'date_paiement': timezone.now().date().isoformat()
-                    },
-                    'score_confiance': 0.35,
-                    'anomalies': {'anomalies': ["Filigrane bancaire SCB non concordant", "Altération numérique suspecte du montant"]},
-                    'version': '1.3'
-                })
-                messages.warning(request, '⚠️ Reçu téléversé. Des anomalies critiques ont été détectées par notre système de vérification IA.')
-            elif a_mots_cles_scb:
-                # Distinguer le reçu selon le montant ou motif
-                est_deuxieme_tranche = any(k in nom_fichier for k in ['115', 'deuxieme', '2eme', 'tranche_3']) or float(montant) == 115000.0
-                
-                if est_deuxieme_tranche:
-                    donnees = {
-                        'montant': 115000.0,
-                        'reference': '011261',
-                        'date_paiement': '2024-04-09',
-                        'remettant': 'PATCHONG NJITACK ROMUALD',
-                        'banque': 'SCB Cameroun',
-                        'agence': agence_detectee,
-                        'compte_dest': '12167083150-53',
-                        'motif': '2EME TRANCHE'
-                    }
-                else:
-                    donnees = {
-                        'montant': 200000.0,
-                        'reference': '024356',
-                        'date_paiement': '2025-10-07',
-                        'remettant': 'PATCHONG NJITACK ROMUALD',
-                        'banque': 'SCB Cameroun',
-                        'agence': agence_detectee,
-                        'compte_dest': '12167083150-53',
-                        'motif': 'DROITS UNIVERSITAIRES'
-                    }
-                
-                recu.analyser_par_ia({
-                    'extraction': donnees,
-                    'score_confiance': 0.99,
-                    'anomalies': {'anomalies': []},
-                    'version': '1.3'
-                })
-                messages.success(request, f"✅ Reçu SCB Cameroun ({donnees['motif']}) agence {donnees['agence']} de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% !")
+            # Message basé sur le résultat réel
+            if recu.statut == 'VALIDE':
+                montant_detecte = recu.verification_ia.get('montant_principal', '')
+                banque = recu.verification_ia.get('banque', 'Banque détectée')
+                messages.success(
+                    request,
+                    f"✅ Reçu analysé par OCR — Score de confiance : {recu.score_confiance:.0%}. "
+                    f"{'Montant: {:,.0f} FCFA. '.format(montant_detecte) if montant_detecte else ''}"
+                    f"{'Banque: ' + banque + '. ' if banque else ''}"
+                    f"Vérifié et validé automatiquement !"
+                )
+            elif recu.score_confiance and recu.score_confiance >= 0.50:
+                messages.warning(
+                    request,
+                    f"⏳ Reçu téléversé (score OCR : {recu.score_confiance:.0%}). "
+                    f"Vérification manuelle requise par le service comptabilité."
+                )
             else:
-                recu.analyser_par_ia({
-                    'extraction': {
-                        'montant': float(montant),
-                        'reference': reference or '024356',
-                        'date_paiement': timezone.now().date().isoformat()
-                    },
-                    'score_confiance': 0.96,
-                    'anomalies': {'anomalies': []},
-                    'version': '1.3'
-                })
-                messages.success(request, '✅ Reçu téléversé et vérifié par l\'IA avec succès !')
+                anomalies = recu.anomalies_detectees.get('anomalies', []) if isinstance(recu.anomalies_detectees, dict) else []
+                messages.warning(
+                    request,
+                    f"⚠️ Reçu téléversé mais score faible ({recu.score_confiance:.0%}). "
+                    f"{anomalies[0] if anomalies else 'Document peu lisible.'} "
+                    f"Vérification manuelle requise."
+                )
                 
             return redirect('tableau_bord:tableau_bord')
+
             
     context = {
         'etudiant': etudiant,
@@ -181,80 +146,34 @@ def televerser_recu_tranche(request, etudiant_id, tranche_id):
                 statut='EN_ATTENTE'
             )
             
-            # Simulation d'analyse OCR par l'IA basée sur les reçus SCB Cameroun (Romuald Patchong)
-            nom_fichier = file.name.lower()
+            # Analyse OCR réelle du reçu
+            recu.analyser_par_ia()
             
-            # Détection de fraude/suspicion
-            est_suspect = any(k in nom_fichier for k in ['suspect', 'fake', 'truque', 'falsifie'])
-            
-            # Détection de la banque, compte et remettant authentiques (l'agence peut changer)
-            a_mots_cles_scb = 'scb' in nom_fichier and any(k in nom_fichier for k in ['patchong', 'njitack', 'romuald'])
-            
-            # Détection dynamique de l'agence bancaire SCB
-            agence_detectee = 'BESSENGUE'
-            for a in ['akwa', 'bonanjo', 'bessengue', 'deido', 'yaounde', 'douala']:
-                if a in nom_fichier:
-                    agence_detectee = a.upper()
-                    break
-            
-            if est_suspect:
-                recu.analyser_par_ia({
-                    'extraction': {
-                        'montant': float(tranche.montant),
-                        'reference': reference or '000000',
-                        'date_paiement': timezone.now().date().isoformat()
-                    },
-                    'score_confiance': 0.35,
-                    'anomalies': {'anomalies': ["Filigrane bancaire SCB suspect"]},
-                    'version': '1.3'
-                })
-                messages.warning(request, '⚠️ Reçu téléversé. Des anomalies ont été détectées par notre système de vérification IA.')
-            elif a_mots_cles_scb:
-                # Distinguer le reçu selon le montant ou motif
-                est_deuxieme_tranche = any(k in nom_fichier for k in ['115', 'deuxieme', '2eme', 'tranche_3']) or float(tranche.montant) == 115000.0
-                
-                if est_deuxieme_tranche:
-                    donnees = {
-                        'montant': 115000.0,
-                        'reference': '011261',
-                        'date_paiement': '2024-04-09',
-                        'remettant': 'PATCHONG NJITACK ROMUALD',
-                        'banque': 'SCB Cameroun',
-                        'agence': agence_detectee,
-                        'compte_dest': '12167083150-53',
-                        'motif': '2EME TRANCHE'
-                    }
-                else:
-                    donnees = {
-                        'montant': 200000.0,
-                        'reference': '024356',
-                        'date_paiement': '2025-10-07',
-                        'remettant': 'PATCHONG NJITACK ROMUALD',
-                        'banque': 'SCB Cameroun',
-                        'agence': agence_detectee,
-                        'compte_dest': '12167083150-53',
-                        'motif': 'DROITS UNIVERSITAIRES'
-                    }
-                
-                recu.analyser_par_ia({
-                    'extraction': donnees,
-                    'score_confiance': 0.99,
-                    'anomalies': {'anomalies': []},
-                    'version': '1.3'
-                })
-                messages.success(request, f"✅ Reçu SCB Cameroun ({donnees['motif']}) agence {donnees['agence']} de PATCHONG NJITACK ROMUALD authentifié avec succès à 99% !")
+            # Message basé sur le résultat réel
+            if recu.score_confiance and recu.score_confiance >= 0.90:
+                montant_detecte = recu.verification_ia.get('montant_principal', '')
+                banque = recu.verification_ia.get('banque', '')
+                messages.success(
+                    request,
+                    f"✅ Reçu analysé par OCR — Score : {recu.score_confiance:.0%}. "
+                    f"{'Montant: {:,.0f} FCFA. '.format(montant_detecte) if montant_detecte else ''}"
+                    f"{'Banque: ' + banque + '. ' if banque else ''}"
+                    f"Vérifié automatiquement !"
+                )
+            elif recu.score_confiance and recu.score_confiance >= 0.50:
+                messages.warning(
+                    request,
+                    f"⏳ Reçu téléversé (score OCR : {recu.score_confiance:.0%}). "
+                    f"Vérification manuelle requise par le service comptabilité."
+                )
             else:
-                recu.analyser_par_ia({
-                    'extraction': {
-                        'montant': float(tranche.montant),
-                        'reference': reference or '024356',
-                        'date_paiement': timezone.now().date().isoformat()
-                    },
-                    'score_confiance': 0.98,
-                    'anomalies': {'anomalies': []},
-                    'version': '1.3'
-                })
-                messages.success(request, '✅ Reçu téléversé et vérifié par l\'IA avec succès !')
+                anomalies = recu.anomalies_detectees.get('anomalies', []) if isinstance(recu.anomalies_detectees, dict) else []
+                messages.warning(
+                    request,
+                    f"⚠️ Reçu téléversé mais score faible ({recu.score_confiance:.0%}). "
+                    f"{anomalies[0] if anomalies else 'Document peu lisible.'} "
+                    f"Vérification manuelle requise."
+                )
                 
             return redirect('tableau_bord:tableau_bord')
             
@@ -392,18 +311,24 @@ def api_recus_attente(request):
 
 
 from .services import calculer_penalites_etudiant
-from .momo_service import MobileMoneyPaymentService
+from .momo_service import CinetPayService
+from .models import TransactionPaiement
+import json as json_module
+import logging
+
+logger_paiement = logging.getLogger(__name__)
+
 
 @login_required
 def payer_penalites(request):
     """Page de checkout pour payer les pénalités accumulées"""
     etudiant = get_object_or_404(Etudiant, utilisateur=request.user)
     penalites_info = calculer_penalites_etudiant(etudiant)
-    
+
     if penalites_info['total'] <= 0:
         messages.info(request, "Vous n'avez aucune pénalité en attente de paiement.")
         return redirect('tableau_bord:tableau_bord')
-        
+
     context = {
         'etudiant': etudiant,
         'penalites_info': penalites_info,
@@ -415,45 +340,150 @@ def payer_penalites(request):
 
 @login_required
 def initier_paiement_momo(request):
-    """API endpoint pour démarrer la transaction MoMo/OM (POST)"""
+    """Initialise le paiement via CinetPay et retourne l'URL de redirection."""
     if request.method != 'POST':
         return JsonResponse({'status': 'FAILED', 'message': 'Méthode non autorisée.'}, status=405)
-        
-    import json
-    data = json.loads(request.body)
-    operator = data.get('operator')
-    phone = data.get('phone')
-    amount = data.get('amount')
-    
+
     etudiant = get_object_or_404(Etudiant, utilisateur=request.user)
-    
-    res = MobileMoneyPaymentService.initier_paiement(operator, phone, amount, f"Pénalités {etudiant.matricule}")
+    penalites_info = calculer_penalites_etudiant(etudiant)
+    amount = penalites_info['total']
+
+    if amount <= 0:
+        return JsonResponse({'status': 'FAILED', 'message': 'Aucune pénalité à payer.'})
+
+    # Créer la transaction en base
+    transaction = TransactionPaiement(
+        etudiant=etudiant,
+        transaction_id=TransactionPaiement.generer_transaction_id(),
+        montant=amount,
+        type_paiement='PENALITE',
+    )
+    transaction.save()
+
+    # URLs de callback
+    from django.conf import settings as django_settings
+    base_url = django_settings.SITE_BASE_URL.rstrip('/')
+    notify_url = base_url + reverse('paiements:webhook_cinetpay')
+    return_url = base_url + reverse('paiements:paiement_succes') + f'?transaction_id={transaction.transaction_id}'
+
+    # Appeler CinetPay
+    res = CinetPayService.initier_paiement(
+        transaction_id=transaction.transaction_id,
+        amount=amount,
+        description=f"Pénalités de retard - {etudiant.get_nom_complet()} ({etudiant.matricule})",
+        notify_url=notify_url,
+        return_url=return_url,
+        customer_name=etudiant.get_nom_complet(),
+        customer_email=getattr(etudiant.utilisateur, 'email', ''),
+    )
+
+    if res['status'] == 'PENDING':
+        transaction.cinetpay_payment_token = res.get('payment_token', '')
+        transaction.payment_url = res.get('payment_url', '')
+        transaction.save(update_fields=['cinetpay_payment_token', 'payment_url'])
+
     return JsonResponse(res)
 
 
 @login_required
 def verifier_paiement_momo(request):
-    """API endpoint pour vérifier le statut de la transaction (POST)"""
+    """Vérifie le statut d'une transaction CinetPay (polling côté client)."""
     if request.method != 'POST':
         return JsonResponse({'status': 'FAILED', 'message': 'Méthode non autorisée.'}, status=405)
-        
-    import json
-    data = json.loads(request.body)
+
+    data = json_module.loads(request.body)
     transaction_id = data.get('transaction_id')
-    operator = data.get('operator')
-    phone = data.get('phone')
-    amount = float(data.get('amount'))
-    
-    etudiant = get_object_or_404(Etudiant, utilisateur=request.user)
-    
-    res = MobileMoneyPaymentService.verifier_statut_paiement(transaction_id)
-    
-    if res['status'] == 'SUCCESS':
-        MobileMoneyPaymentService.regler_penalites_etudiant(etudiant, operator, phone, amount)
-        res['redirect_url'] = reverse('paiements:paiement_succes')
-        messages.success(request, f"Félicitations ! Votre paiement de {amount:,.0f} FCFA a été traité avec succès.")
-        
+
+    if not transaction_id:
+        return JsonResponse({'status': 'FAILED', 'message': 'ID de transaction manquant.'})
+
+    try:
+        transaction = TransactionPaiement.objects.get(transaction_id=transaction_id)
+    except TransactionPaiement.DoesNotExist:
+        return JsonResponse({'status': 'FAILED', 'message': 'Transaction introuvable.'})
+
+    # Si déjà traitée, retourner le statut
+    if transaction.statut == 'SUCCESS':
+        return JsonResponse({
+            'status': 'SUCCESS',
+            'message': 'Paiement déjà confirmé.',
+            'redirect_url': reverse('paiements:paiement_succes') + f'?transaction_id={transaction_id}'
+        })
+
+    # Vérifier auprès de CinetPay
+    res = CinetPayService.verifier_statut_paiement(transaction_id)
+
+    if res['status'] == 'SUCCESS' and transaction.statut != 'SUCCESS':
+        tx_data = res.get('data', {})
+        transaction.marquer_succes(cinetpay_data=tx_data)
+        CinetPayService.regler_penalites_etudiant(
+            etudiant=transaction.etudiant,
+            cinetpay_data=tx_data,
+            amount_to_pay=float(transaction.montant)
+        )
+        messages.success(request, f"Paiement de {transaction.montant:,.0f} FCFA confirmé avec succès !")
+        res['redirect_url'] = reverse('paiements:paiement_succes') + f'?transaction_id={transaction_id}'
+
+    elif res['status'] in ('FAILED', 'CANCELLED'):
+        transaction.marquer_echec(cinetpay_data=res.get('data', {}))
+
     return JsonResponse(res)
+
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def webhook_cinetpay(request):
+    """
+    Webhook CinetPay — reçoit les notifications de paiement automatiques.
+    Pas de CSRF car appelé par les serveurs CinetPay.
+    """
+    if request.method == 'POST':
+        try:
+            # CinetPay envoie les données en POST form-encoded ou JSON
+            cpm_trans_id = request.POST.get('cpm_trans_id') or ''
+            if not cpm_trans_id and request.body:
+                try:
+                    body = json_module.loads(request.body)
+                    cpm_trans_id = body.get('cpm_trans_id', '')
+                except (json_module.JSONDecodeError, ValueError):
+                    pass
+
+            if not cpm_trans_id:
+                logger_paiement.warning("[Webhook] Notification sans cpm_trans_id")
+                return JsonResponse({'status': 'error', 'message': 'Missing transaction ID'})
+
+            # Retrouver la transaction
+            try:
+                transaction = TransactionPaiement.objects.get(transaction_id=cpm_trans_id)
+            except TransactionPaiement.DoesNotExist:
+                logger_paiement.warning(f"[Webhook] Transaction inconnue: {cpm_trans_id}")
+                return JsonResponse({'status': 'error', 'message': 'Unknown transaction'})
+
+            # Vérifier le statut réel auprès de CinetPay (ne jamais faire confiance au webhook seul)
+            res = CinetPayService.verifier_statut_paiement(cpm_trans_id)
+
+            if res['status'] == 'SUCCESS' and transaction.statut != 'SUCCESS':
+                tx_data = res.get('data', {})
+                transaction.marquer_succes(cinetpay_data=tx_data)
+                CinetPayService.regler_penalites_etudiant(
+                    etudiant=transaction.etudiant,
+                    cinetpay_data=tx_data,
+                    amount_to_pay=float(transaction.montant)
+                )
+                logger_paiement.info(f"[Webhook] Paiement confirmé: {cpm_trans_id}")
+
+            elif res['status'] in ('FAILED', 'CANCELLED') and transaction.statut == 'PENDING':
+                transaction.marquer_echec(cinetpay_data=res.get('data', {}))
+                logger_paiement.info(f"[Webhook] Paiement échoué/annulé: {cpm_trans_id}")
+
+            return JsonResponse({'status': 'ok'})
+
+        except Exception as e:
+            logger_paiement.exception(f"[Webhook] Erreur: {e}")
+            return JsonResponse({'status': 'error'}, status=500)
+
+    return JsonResponse({'status': 'error', 'message': 'POST only'}, status=405)
 
 
 from .models import SessionConcours, EcheanceSessionNiveau1
@@ -491,7 +521,8 @@ def creer_session_concours(request):
         nom = request.POST.get('nom')
         code = request.POST.get('code')
         date_concours = request.POST.get('date_concours')
-        annee = request.POST.get('annee_academique', '2024-2025')
+        from apps.inscriptions.utils import get_current_academic_year_code
+        annee = request.POST.get('annee_academique', get_current_academic_year_code())
         description = request.POST.get('description', '')
         
         # Dates des 4 tranches
@@ -582,9 +613,18 @@ def editer_echeances_session(request, pk):
 
 @login_required
 def paiement_succes(request):
-    """Page de succès après le paiement en ligne"""
+    """Page de succès après le paiement en ligne. Affiche les détails de la transaction."""
+    transaction_id = request.GET.get('transaction_id')
+    transaction = None
+    if transaction_id:
+        try:
+            transaction = TransactionPaiement.objects.get(transaction_id=transaction_id)
+        except TransactionPaiement.DoesNotExist:
+            pass
+
     context = {
-        'titre': 'Paiement Réussi'
+        'titre': 'Paiement Réussi',
+        'transaction': transaction,
     }
     return render(request, 'paiements/recus/paiement_succes.html', context)
 

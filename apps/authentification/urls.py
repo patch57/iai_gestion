@@ -21,4 +21,10 @@ urlpatterns = [
     path('demandes/<int:pk>/', views.detail_demande, name='detail_demande'),
     path('demandes/<int:pk>/valider/', views.valider_demande, name='valider_demande'),
     path('demandes/<int:pk>/rejeter/', views.rejeter_demande, name='rejeter_demande'),
+    
+    # Gestion du personnel (Directeur & Admin)
+    path('personnel/', views.liste_personnel, name='liste_personnel'),
+    path('personnel/ajouter/', views.ajouter_personnel, name='ajouter_personnel'),
+    path('personnel/<int:pk>/modifier/', views.modifier_personnel, name='modifier_personnel'),
+    path('personnel/<int:pk>/supprimer/', views.supprimer_personnel, name='supprimer_personnel'),
 ]

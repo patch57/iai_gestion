@@ -54,7 +54,7 @@
                     <div class="flex justify-between items-center p-3 rounded-2xl border {% if etudiant.recu_preinscription_valide %}border-green-200 bg-green-50/50{% else %}border-gray-200{% endif %}">
                         <div>
                             <p class="font-bold text-gray-800">Pré-inscription</p>
-                            <p class="text-xs text-gray-500">50 000 FCFA</p>
+                            <p class="text-xs text-gray-500">71 000 FCFA</p>
                         </div>
                         {% if etudiant.recu_preinscription_valide %}
                         <span class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-check mr-1"></i>Validé</span>
@@ -63,9 +63,7 @@
                         {% endif %}
                     </div>
                     
-                    <!-- Tranche 2, 3, 4 -->
-                    {% for number, name, amount in tranches_info|default_filter_empty %}
-                    {% endfor %}
+                    <!-- Tranches supplémentaires -->
                     
                     <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
                         <div>
@@ -98,11 +96,13 @@
                     {% csrf_token %}
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner la tranche</label>
-                        <select name="tranche_num" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
-                            <option value="1">Pré-inscription (50 000 FCFA)</option>
+                        <select name="tranche_num" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 font-semibold text-sm">
+                            <option value="1">Pré-inscription (71 000 FCFA)</option>
                             <option value="2">1ère Tranche (175 000 FCFA)</option>
                             <option value="3">2ème Tranche (115 000 FCFA)</option>
                             <option value="4">3ème Tranche (100 000 FCFA)</option>
+                            <option value="totalite">Totalité (Scolarité complète - 461 000 FCFA)</option>
+                            <option value="autre">Autre (Paiement libre / partiel)</option>
                         </select>
                     </div>
                     <div>
@@ -144,9 +144,15 @@
                         <p class="text-sm text-gray-500">Prenez connaissance des règles de vie et de discipline de l'établissement.</p>
                     </div>
                     <div class="mt-6">
-                        <a href="#" class="flex items-center justify-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200">
+                        {% if reglement_actif %}
+                        <a href="{{ reglement_actif.fichier.url }}" target="_blank" class="flex items-center justify-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200">
                             <i class="fas fa-eye mr-2"></i>Consulter le Règlement
                         </a>
+                        {% else %}
+                        <button disabled class="w-full flex items-center justify-center bg-gray-100 text-gray-400 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
+                            <i class="fas fa-ban mr-2"></i>Indisponible
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>

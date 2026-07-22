@@ -55,8 +55,8 @@ class Utilisateur(AbstractUser):
     ]
     
     matricule_validator = RegexValidator(
-        regex=r'^((GL|SR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]?|[A-Z]{3}\.CMR\.D\d{3}\.\d{4}\.[A-Z])$',
-        message='Format de matricule invalide. Exemples : GL.CMR.DO14.2425 ou CSE.CMR.D123.2026.A'
+        regex=r'^((GL|SR)\.CMR\.(D\d{3}|DO\d{2}|D014)\.\d{4}[A-Z]?|[A-Z]{2,3}\.CMR\.D\d{3}\.\d{4}\.[A-Z])$',
+        message='Format de matricule invalide. Exemples : GL.CMR.D043.2324A ou CSE.CMR.D123.2026.A'
     )
     
     telephone_validator = RegexValidator(
@@ -282,10 +282,10 @@ class Utilisateur(AbstractUser):
             return
             
         if self.type_utilisateur == 'ETUDIANT':
-            pattern = r'^(GL|SR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]$'
+            pattern = r'^(GL|SR)\.CMR\.(D\d{3}|DO\d{2}|D014)\.\d{4}[A-Z]$'
             if not re.match(pattern, self.matricule):
                 raise ValidationError({
-                    'matricule': _('Format invalide. Format attendu: GL.CMR.D014.2324A ou SR.CMR.D014.2324A')
+                    'matricule': _('Format invalide. Format attendu: GL.CMR.D043.2324A ou SR.CMR.D014.2324A')
                 })
             
             filiere_code = self.matricule.split('.')[0]
@@ -754,9 +754,7 @@ class DemandeInscription(models.Model):
             return f"{abbrev}.CMR.D{digits}.{year_hiring}.{letter}"
 
     def analyser_par_ia(self):
-        """Analyse le document justificatif avec l'IA (nom de fichier et variations de montant ignorés)"""
-        import random
-        
+        """Analyse le document justificatif par OCR réel (pdfplumber + pytesseract)"""
         if not self.document:
             self.score_confiance = 0.0
             self.anomalies = ["Aucun document téléversé"]
@@ -765,32 +763,72 @@ class DemandeInscription(models.Model):
             self.save()
             return
 
-        # Le nom du fichier et les légères variations de montant sont totalement ignorés.
-        # Rigueur maximale uniquement sur : Référence unique, authenticité du reçu / signature officielle.
-        self.score_confiance = 0.99
-        self.anomalies = []
-        self.statut = 'VALIDE'
-        
-        if self.type_document == 'NOTE_SERVICE':
-            fonction_detectee = self.user.get_type_utilisateur_display() if self.user else "Personnel"
+        from apps.paiements.ocr_service import analyser_recu
+
+        nom_etudiant = f"{self.user.last_name} {self.user.first_name}" if self.user else ""
+
+        # Montant attendu selon le type de document
+        if self.type_document == 'RECU_BANCAIRE':
+            montant_attendu = 84000.0
+            # Détecter si c'est un étudiant de Niveau 2 pour appliquer le montant de 71 000 FCFA
+            from apps.etudiants.models import Etudiant
+            etudiant = Etudiant.objects.filter(utilisateur=self.user).first()
+            if etudiant and etudiant.niveau and etudiant.niveau.numero == 2:
+                montant_attendu = 71000.0
+        else:
+            montant_attendu = None
+
+        resultat = analyser_recu(
+            self.document,
+            montant_attendu=montant_attendu,
+            nom_etudiant=nom_etudiant
+        )
+
+        self.score_confiance = resultat.get('score', 0)
+        self.anomalies = resultat.get('anomalies', [])
+        extraction = resultat.get('extraction', {})
+
+        # Construire le commentaire avec les données extraites
+        details = []
+        if extraction.get('banque'):
+            details.append(f"Banque: {extraction['banque']}")
+        if extraction.get('montant_principal'):
+            details.append(f"Montant: {extraction['montant_principal']:,.0f} FCFA")
+        if extraction.get('reference_principale'):
+            details.append(f"Réf: {extraction['reference_principale']}")
+        if extraction.get('remettant'):
+            details.append(f"Remettant: {extraction['remettant']}")
+
+        details_str = " | ".join(details) if details else "Peu de données extraites"
+
+        # Décision basée sur le score (Option C)
+        if self.score_confiance >= 0.90:
+            self.statut = 'VALIDE'
             self.commentaires = (
-                f"Note de service validée instantanément par l'agent IA. OCR réussi : "
-                f"Signature officielle du Représentant Résident de l'IAI-Cameroun confirmée. "
-                f"Profession/Fonction validée : '{fonction_detectee}'."
+                f"Document validé par OCR (score: {self.score_confiance:.0%}). "
+                f"{details_str}"
+            )
+        elif self.score_confiance >= 0.50:
+            self.statut = 'EN_COURS'
+            self.commentaires = (
+                f"Vérification manuelle requise (score OCR: {self.score_confiance:.0%}). "
+                f"{details_str}. "
+                f"Anomalies: {'; '.join(self.anomalies) if self.anomalies else 'Aucune'}"
             )
         else:
-            num_recu = f"REC-2026-{random.randint(10000, 99999)}"
-            type_versement = "Pré-inscription / Scolarité"
+            self.statut = 'REJETE'
             self.commentaires = (
-                f"Reçu d'inscription validé instantanément par l'agent IA. OCR réussi : "
-                f"Référence bancaire unique ({num_recu}) authentifiée, "
-                f"Destinataire IAI-Cameroun confirmé. (Nom de fichier et variations de montant ignorés)."
+                f"Score OCR insuffisant ({self.score_confiance:.0%}). "
+                f"Anomalies: {'; '.join(self.anomalies) if self.anomalies else 'Document illisible'}. "
+                f"Veuillez soumettre un document plus lisible."
             )
-        
+
+        self.verification_ia = extraction
         self.save()
-        
+
         if self.statut == 'VALIDE':
             self.activer_compte()
+
     
     def activer_compte(self):
         """Active le compte et attribue le matricule"""

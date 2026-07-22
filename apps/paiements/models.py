@@ -8,6 +8,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 import os
+import uuid
 
 
 def recu_upload_path(instance, filename):
@@ -147,7 +148,9 @@ class RecuPaiement(models.Model):
         TranchePaiement,
         on_delete=models.CASCADE,
         related_name='recus',
-        verbose_name="Tranche de paiement"
+        verbose_name="Tranche de paiement",
+        null=True,
+        blank=True
     )
     
     # Fichier et informations
@@ -371,33 +374,137 @@ class RecuPaiement(models.Model):
         self.commentaires = commentaires
         self.save()
     
-    def analyser_par_ia(self, donnees_ia):
+    def analyser_par_ia(self, donnees_ia=None):
         """
-        Analyse du reçu par l'IA
-        Données extraites par l'IA et mise à jour
+        Analyse du reçu par OCR réel ou données fournies.
+        Si donnees_ia est fourni : mode rétrocompatible (données manuelles).
+        Sinon : analyse OCR automatique du fichier uploadé.
         """
-        self.verification_ia = donnees_ia.get('extraction', {})
-        self.score_confiance = donnees_ia.get('score_confiance', 0)
-        self.anomalies_detectees = donnees_ia.get('anomalies', {})
-        self.ia_version = donnees_ia.get('version', '1.0')
-        
+        if donnees_ia is not None:
+            # Mode rétrocompatible
+            self.verification_ia = donnees_ia.get('extraction', {})
+            self.score_confiance = donnees_ia.get('score_confiance', 0)
+            self.anomalies_detectees = donnees_ia.get('anomalies', {})
+            self.ia_version = donnees_ia.get('version', '1.0')
+        else:
+            # Mode OCR automatique
+            from .ocr_service import analyser_recu
+
+            nom_etudiant = self.etudiant.get_nom_complet() if self.etudiant else ""
+            montant_attendu = float(self.tranche.montant) if self.tranche else None
+
+            resultat = analyser_recu(
+                self.recu_fichier,
+                montant_attendu=montant_attendu,
+                nom_etudiant=nom_etudiant
+            )
+
+            self.verification_ia = resultat.get('extraction', {})
+            self.score_confiance = resultat.get('score', 0)
+            self.anomalies_detectees = {'anomalies': resultat.get('anomalies', [])}
+            self.ia_version = resultat.get('version', '2.0-OCR')
+
         # Mettre à jour les champs si l'IA a extrait des données
-        if self.verification_ia.get('montant'):
-            self.montant_mentionne = self.verification_ia.get('montant')
-        if self.verification_ia.get('reference'):
-            self.reference_recu = self.verification_ia.get('reference')
+        if self.verification_ia.get('montant_principal'):
+            self.montant_mentionne = self.verification_ia['montant_principal']
+        elif self.verification_ia.get('montant'):
+            self.montant_mentionne = self.verification_ia['montant']
+
+        if self.verification_ia.get('reference_principale'):
+            self.reference_recu = self.verification_ia['reference_principale']
+        elif self.verification_ia.get('reference'):
+            self.reference_recu = self.verification_ia['reference']
+
         if self.verification_ia.get('date_paiement'):
-            self.date_paiement = self.verification_ia.get('date_paiement')
-        
-        # Si score très élevé, on peut passer en vérifié automatiquement
-        if self.score_confiance and self.score_confiance >= 0.95:
-            self.statut = 'IA_VERIFIE'
-            self.commentaires = "Vérifié automatiquement par l'IA (score très élevé)"
+            try:
+                self.date_paiement = self.verification_ia['date_paiement']
+            except (ValueError, TypeError):
+                pass
+
+        # Décision basée sur le score (Option C)
+        if self.score_confiance and self.score_confiance >= 0.90:
+            self.statut = 'VALIDE'  # Passer à VALIDE directement pour que ce soit pris en compte
+            self.commentaires = f"Vérifié automatiquement par OCR (score: {self.score_confiance:.0%})"
+            
+            # --- IMPUTATION ET AUTO-PAIEMENT DES TRANCHES D'INSCRIPTION ---
+            try:
+                from apps.inscriptions.models import Inscription
+                inscription = self.etudiant.inscriptions.first()
+                
+                if inscription:
+                    montant_valide = float(self.montant_mentionne)
+                    option_choisie = ""
+                    
+                    # Déterminer l'option choisie stockée temporairement dans la référence ou le commentaire
+                    if "OPTION:TOTALITE" in self.reference_recu or "OPTION:TOTALITE" in self.commentaires:
+                        option_choisie = "TOTALITE"
+                    elif "OPTION:AUTRE" in self.reference_recu or "OPTION:AUTRE" in self.commentaires:
+                        option_choisie = "AUTRE"
+                        
+                    # Nettoyer les marqueurs temporaires
+                    self.reference_recu = self.reference_recu.replace("OPTION:TOTALITE", "").replace("OPTION:AUTRE", "").strip()
+                    self.commentaires = self.commentaires.replace("OPTION:TOTALITE", "").replace("OPTION:AUTRE", "").strip()
+
+                    if option_choisie == "TOTALITE":
+                        # Tout marquer comme payé d'office
+                        inscription.recu_preinscription_valide = True
+                        inscription.recu_tranche_1_valide = True
+                        inscription.recu_tranche_2_valide = True
+                        inscription.recu_tranche_3_valide = True
+                        self.etudiant.recu_preinscription_valide = True
+                    
+                    elif option_choisie == "AUTRE":
+                        # Imputation séquentielle du montant libre
+                        # 1. Pré-inscription (Niveau 1: 84000, Niveau 2: 71000)
+                        seuil_preins = 71000.0 if (self.etudiant.niveau and self.etudiant.niveau.numero == 2) else 84000.0
+                        if not inscription.recu_preinscription_valide and montant_valide >= seuil_preins:
+                            inscription.recu_preinscription_valide = True
+                            self.etudiant.recu_preinscription_valide = True
+                            montant_valide -= seuil_preins
+                            
+                        # 2. Tranche 1 (175000)
+                        if not inscription.recu_tranche_1_valide and montant_valide >= 175000.0:
+                            inscription.recu_tranche_1_valide = True
+                            montant_valide -= 175000.0
+                            
+                        # 3. Tranche 2 (115000)
+                        if not inscription.recu_tranche_2_valide and montant_valide >= 115000.0:
+                            inscription.recu_tranche_2_valide = True
+                            montant_valide -= 115000.0
+                            
+                        # 4. Tranche 3 (100000)
+                        if not inscription.recu_tranche_3_valide and montant_valide >= 100000.0:
+                            inscription.recu_tranche_3_valide = True
+                            montant_valide -= 100000.0
+                            
+                    else:
+                        # Cas standard : tranche spécifique sélectionnée
+                        if self.tranche:
+                            if self.tranche.numero == 1:
+                                inscription.recu_preinscription_valide = True
+                                self.etudiant.recu_preinscription_valide = True
+                            elif self.tranche.numero == 2:
+                                inscription.recu_tranche_1_valide = True
+                            elif self.tranche.numero == 3:
+                                inscription.recu_tranche_2_valide = True
+                            elif self.tranche.numero == 4:
+                                inscription.recu_tranche_3_valide = True
+
+                    inscription.save()
+                    self.etudiant.save()
+            except Exception as e:
+                self.commentaires += f" (Erreur d'auto-imputation: {str(e)})"
+                
+        elif self.score_confiance and self.score_confiance >= 0.50:
+            self.statut = 'EN_ATTENTE'
+            self.commentaires = f"Vérification manuelle requise (score OCR: {self.score_confiance:.0%})"
         else:
             self.statut = 'EN_ATTENTE'
-            self.commentaires = "En attente de vérification manuelle"
-        
+            anomalies = self.anomalies_detectees.get('anomalies', []) if isinstance(self.anomalies_detectees, dict) else []
+            self.commentaires = f"Score faible ({self.score_confiance:.0%}). Anomalies: {'; '.join(anomalies) if anomalies else 'Document illisible'}"
+
         self.save()
+
 
 
 class HistoriquePaiement(models.Model):
@@ -594,4 +701,130 @@ class ResultatConcours(models.Model):
 
     def __str__(self):
         return f"{self.numero_table} - {self.nom} {self.prenom} ({self.get_statut_admission_display()})"
+
+
+class TransactionPaiement(models.Model):
+    """
+    Trace chaque transaction de paiement Mobile Money via CinetPay.
+    Permet la traçabilité complète et l'audit des paiements en ligne.
+    """
+    STATUT_CHOICES = [
+        ('PENDING', 'En attente'),
+        ('SUCCESS', 'Réussi'),
+        ('FAILED', 'Échoué'),
+        ('CANCELLED', 'Annulé'),
+        ('REFUNDED', 'Remboursé'),
+    ]
+
+    TYPE_PAIEMENT_CHOICES = [
+        ('PENALITE', 'Pénalités de retard'),
+        ('SCOLARITE', 'Frais de scolarité'),
+    ]
+
+    etudiant = models.ForeignKey(
+        'etudiants.Etudiant',
+        on_delete=models.CASCADE,
+        related_name='transactions_paiement',
+        verbose_name="Étudiant"
+    )
+    transaction_id = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="ID Transaction (interne)",
+        help_text="Identifiant unique généré par le système"
+    )
+    cinetpay_payment_token = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Token CinetPay"
+    )
+    cinetpay_transaction_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="ID Transaction CinetPay"
+    )
+    montant = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        verbose_name="Montant (FCFA)"
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='PENDING',
+        verbose_name="Statut"
+    )
+    type_paiement = models.CharField(
+        max_length=20,
+        choices=TYPE_PAIEMENT_CHOICES,
+        default='PENALITE',
+        verbose_name="Type de paiement"
+    )
+    operateur = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        verbose_name="Opérateur (MTN/Orange)"
+    )
+    telephone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="Numéro de téléphone"
+    )
+    payment_url = models.URLField(
+        blank=True,
+        null=True,
+        verbose_name="URL de paiement CinetPay"
+    )
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Date de création"
+    )
+    date_confirmation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de confirmation"
+    )
+    cinetpay_data = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Données brutes CinetPay",
+        help_text="Réponse complète de CinetPay pour audit"
+    )
+
+    class Meta:
+        app_label = 'paiements'
+        verbose_name = "Transaction de paiement en ligne"
+        verbose_name_plural = "Transactions de paiement en ligne"
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"{self.transaction_id} - {self.etudiant} - {self.montant} FCFA ({self.get_statut_display()})"
+
+    @staticmethod
+    def generer_transaction_id():
+        """Génère un ID de transaction unique et lisible"""
+        ts = timezone.now().strftime('%Y%m%d%H%M%S')
+        uid = uuid.uuid4().hex[:6].upper()
+        return f"IAI-{ts}-{uid}"
+
+    def marquer_succes(self, cinetpay_data=None):
+        """Marque la transaction comme réussie"""
+        self.statut = 'SUCCESS'
+        self.date_confirmation = timezone.now()
+        if cinetpay_data:
+            self.cinetpay_data = cinetpay_data
+            self.operateur = cinetpay_data.get('payment_method', '')
+            self.telephone = cinetpay_data.get('phone_number', '')
+        self.save()
+
+    def marquer_echec(self, cinetpay_data=None):
+        """Marque la transaction comme échouée"""
+        self.statut = 'FAILED'
+        if cinetpay_data:
+            self.cinetpay_data = cinetpay_data
+        self.save()
 

@@ -47,11 +47,11 @@ class PenalitesServicesTestCase(TestCase):
             recu_preinscription_valide=False
         )
         
-        # Création d'une tranche de pré-inscription en retard (limite dépassée de 15 jours, soit 2 semaines)
+        # Création d'une tranche de pré-inscription en retard (limite dépassée de 14 jours, soit 2 semaines)
         self.tranche1 = TranchePaiement.objects.create(
             numero=1,
             montant=84000,
-            date_limite=date.today() - timedelta(days=15),
+            date_limite=date.today() - timedelta(days=14),
             annee_academique='2024-2025',
             est_actif=True
         )

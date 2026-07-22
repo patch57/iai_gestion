@@ -45,9 +45,10 @@ urlpatterns = [
     # API
     path('api/recus-attente/', views.api_recus_attente, name='api_recus_attente'),
     
-    # Paiement mobile money
+    # Paiement mobile money (CinetPay)
     path('payer-penalites/', views.payer_penalites, name='payer_penalites'),
     path('api/momo/initier/', views.initier_paiement_momo, name='initier_paiement_momo'),
     path('api/momo/verifier/', views.verifier_paiement_momo, name='verifier_paiement_momo'),
+    path('api/cinetpay/webhook/', views.webhook_cinetpay, name='webhook_cinetpay'),
     path('paiement-succes/', views.paiement_succes, name='paiement_succes'),
 ]

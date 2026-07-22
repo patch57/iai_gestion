@@ -18,6 +18,7 @@ urlpatterns = [
     path('<int:pk>/documents/', views.documents_etudiant, name='documents_etudiant'),
     path('<int:pk>/documents/ajouter/', views.ajouter_document, name='ajouter_document'),
     path('documents/<int:doc_pk>/supprimer/', views.supprimer_document, name='supprimer_document'),
+    path('<int:pk>/documents/televerser/<str:type_document>/', views.televerser_document, name='televerser_document'),
     
     # Gestion des filières
     path('filieres/', views.liste_filieres, name='liste_filieres'),

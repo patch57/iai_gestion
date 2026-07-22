@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-700 via-green-600 to-yellow-500 rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <span class="bg-white/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/10">Gestion Pédagogique</span>
+            <h1 class="text-3xl font-extrabold mt-3">{{ titre }}</h1>
+            <p class="text-green-100 mt-2">Visualisation des effectifs et gestion des listes des classes par filière et niveau.</p>
+        </div>
+        
+        {% if user_type == 'CHEF_SCOLARITE' or request.user.is_superuser %}
+        <form method="POST" class="w-full md:w-auto">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="repartir">
+            <button type="submit" class="w-full md:w-auto inline-flex items-center justify-center bg-white hover:bg-gray-100 text-green-700 font-bold py-3 px-6 rounded-2xl shadow-md transition duration-200">
+                <i class="fas fa-random mr-2"></i> Lancer la répartition automatique
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Filtres -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
+        <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-filter text-green-600 mr-2"></i>Filtrer les classes</h3>
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div>
+                <label for="filiere" class="block text-sm font-semibold text-gray-700 mb-1">Filière</label>
+                <select name="filiere" id="filiere" class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Toutes les filières</option>
+                    {% for f in filieres %}
+                    <option value="{{ f.id }}" {% if filiere_selected == f.id %}selected{% endif %}>{{ f.nom }} ({{ f.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="niveau" class="block text-sm font-semibold text-gray-700 mb-1">Niveau</label>
+                <select name="niveau" id="niveau" class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <option value="">Tous les niveaux</option>
+                    {% for n in niveaux %}
+                    <option value="{{ n.id }}" {% if niveau_selected == n.id %}selected{% endif %}>Niveau {{ n.numero }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="flex gap-4">
+                <button type="submit" class="flex-1 bg-green-700 hover:bg-green-800 text-white font-bold py-2.5 px-6 rounded-xl shadow transition duration-200 text-sm">
+                    Filtrer
+                </button>
+                <a href="{% url 'tableau_bord:liste_classes_partagee' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl transition duration-200 text-sm flex items-center justify-center">
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des Classes -->
+    {% if classes_data %}
+    <div class="space-y-6">
+        {% for c_data in classes_data %}
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+            <!-- Header Carte Classe -->
+            <div class="p-6 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">{{ c_data.classe.nom }}</h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        <i class="fas fa-graduation-cap text-green-600 mr-1"></i> Filière : <span class="font-bold">{{ c_data.classe.filiere.nom }}</span> | 
+                        Niveau : <span class="font-bold">{{ c_data.classe.niveau.numero }}</span>
+                    </p>
+                </div>
+                
+                <div class="w-full md:w-64">
+                    <div class="flex justify-between items-center text-xs font-semibold text-gray-500 mb-1">
+                        <span>Effectif : {{ c_data.classe.effectif_actuel }} / {{ c_data.classe.effectif_max }}</span>
+                        <span>{{ c_data.taux_remplissage }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div class="rounded-full h-2 {% if c_data.taux_remplissage >= 100 %}bg-red-500{% elif c_data.taux_remplissage >= 80 %}bg-yellow-500{% else %}bg-green-500{% endif %}" style="width: {{ c_data.taux_remplissage }}%"></div>
+                    </div>
+                </div>
+                
+                <button type="button" onclick="toggleDetails('details-{{ c_data.classe.id }}', this)" class="bg-green-50 hover:bg-green-100 text-green-700 font-bold py-2 px-4 rounded-xl text-xs flex items-center transition duration-200">
+                    <i class="fas fa-chevron-down mr-2 transition-transform duration-200"></i> Voir la liste
+                </button>
+            </div>
+
+            <!-- Liste des Étudiants (détails masqués par défaut) -->
+            <div id="details-{{ c_data.classe.id }}" class="hidden border-t border-gray-100">
+                {% if c_data.etudiants_data %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            {% if user_type == 'CHEF_COMPTABILITE' or user_type == 'ADMIN_FINANCIER' or request.user.is_superuser %}
+                            <!-- Header Comptabilité -->
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">N°</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matricule</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nom complet</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total dû</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Montant Payé</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Reste à payer</th>
+                                <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Statut</th>
+                            </tr>
+                            {% elif user_type == 'CHEF_SCOLARITE' %}
+                            <!-- Header Scolarité -->
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">N°</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matricule</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nom complet</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Téléphone</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                                <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Statut Inscription</th>
+                            </tr>
+                            {% elif user_type == 'CHEF_ANONYMAT' %}
+                            <!-- Header Anonymat (Vue Confidentialité) -->
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">N°</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matricule</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Noms & Prénoms</th>
+                                <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                            {% else %}
+                            <!-- Header Études / Général -->
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">N°</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matricule</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nom complet</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Filière</th>
+                                <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Année académique</th>
+                            </tr>
+                            {% endif %}
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for row in c_data.etudiants_data %}
+                            <tr class="hover:bg-gray-50">
+                                {% if user_type == 'CHEF_COMPTABILITE' or user_type == 'ADMIN_FINANCIER' or request.user.is_superuser %}
+                                <!-- Ligne Comptabilité -->
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">{{ forloop.counter }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.matricule }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.nom_complet }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-gray-800">{{ row.total_du|floatformat:0 }} FCFA</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-green-600">{{ row.montant_paye|floatformat:0 }} FCFA</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold {% if row.reste_payer > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ row.reste_payer|floatformat:0 }} FCFA</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    {% if row.solvable %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i> Solvable
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                        <i class="fas fa-times-circle mr-1"></i> Insolvable
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                
+                                {% elif user_type == 'CHEF_SCOLARITE' %}
+                                <!-- Ligne Scolarité -->
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">{{ forloop.counter }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.matricule }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.nom_complet }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">{{ row.telephone }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ row.email }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {% if row.statut == 'Actif' or row.statut == 'Inscrit' %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                        {{ row.statut }}
+                                    </span>
+                                </td>
+                                
+                                {% elif user_type == 'CHEF_ANONYMAT' %}
+                                <!-- Ligne Anonymat -->
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">{{ forloop.counter }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.matricule }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.nom_complet }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <a href="/notes/evaluations/" class="bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs shadow-md transition duration-200">
+                                        <i class="fas fa-user-secret mr-1"></i> Anonymat
+                                    </a>
+                                </td>
+                                
+                                {% else %}
+                                <!-- Ligne Générale / Études -->
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">{{ forloop.counter }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.matricule }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">{{ row.nom_complet }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">{{ c_data.classe.filiere.code }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-gray-700">{{ c_data.classe.annee_academique.code }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-6 text-center text-gray-500">
+                    <i class="fas fa-users-slash text-2xl mb-2 text-gray-400"></i>
+                    <p class="text-sm">Aucun étudiant n'est encore réparti dans cette classe.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-8 text-center text-gray-500">
+        <i class="fas fa-school text-4xl text-gray-300 mb-3"></i>
+        <h4 class="font-bold text-lg text-gray-700 mb-1">Aucune classe disponible</h4>
+        <p class="text-sm">Veuillez créer des classes/salles pour la filière et le niveau sélectionnés.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- JS de repliement/dépliement des listes de classe -->
+<script>
+function toggleDetails(elementId, button) {
+    const detailsDiv = document.getElementById(elementId);
+    const icon = button.querySelector('i');
+    
+    if (detailsDiv.classList.contains('hidden')) {
+        detailsDiv.classList.remove('hidden');
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    } else {
+        detailsDiv.classList.add('hidden');
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    }
+}
+</script>
+{% endblock %}

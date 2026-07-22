@@ -39,9 +39,9 @@ def calculer_penalites_etudiant(etudiant):
             # Si non payé et la date limite est dépassée
             if date_aujourdhui > tranche.date_limite:
                 jours_retard = (date_aujourdhui - tranche.date_limite).days
-                semaines_retard = jours_retard // 7
                 
-                if semaines_retard > 0:
+                if jours_retard > 0:
+                    semaines_retard = (jours_retard + 6) // 7
                     tarif_penalite = 1500 if tranche.numero == 1 else 3000
                     montant_penalite = semaines_retard * tariff_penalite if 'tariff_penalite' in locals() else semaines_retard * tarif_penalite
                     penalites_totales += montant_penalite

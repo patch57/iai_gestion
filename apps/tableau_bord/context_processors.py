@@ -36,8 +36,45 @@ def site_config(request):
 
 def annee_academique(request):
     """Année académique active - disponible partout"""
+    from apps.inscriptions.utils import get_current_academic_year_code
+    from datetime import date
+    default_annee = get_current_academic_year_code()
+    default_debut, default_fin = default_annee.split('-')
+    
     try:
         annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+        
+        # Si aucune année n'est active, ou si la date système courante est en avance
+        # par rapport à l'année active (obsolète)
+        if not annee_active or annee_active.code != default_annee:
+            # Créer/Activer l'année par défaut dans etudiants
+            annee_active, created = AnneeAcademique.objects.get_or_create(
+                code=default_annee,
+                defaults={
+                    'date_debut': date(int(default_debut), 9, 1),
+                    'date_fin': date(int(default_fin), 8, 31),
+                    'est_active': True
+                }
+            )
+            if not created and not annee_active.est_active:
+                annee_active.est_active = True
+                annee_active.save()
+            
+            # Également synchroniser dans inscriptions
+            from apps.inscriptions.models import AnneeAcademique as AnneeAcademiqueInscr
+            annee_inscr, created_inscr = AnneeAcademiqueInscr.objects.get_or_create(
+                code=default_annee,
+                defaults={
+                    'date_debut': date(int(default_debut), 9, 1),
+                    'date_fin': date(int(default_fin), 8, 31),
+                    'est_actuelle': True,
+                    'est_ouverte_inscription': True
+                }
+            )
+            if not created_inscr and not annee_inscr.est_actuelle:
+                annee_inscr.est_actuelle = True
+                annee_inscr.save()
+
         if annee_active and annee_active.code:
             annee_code = annee_active.code
             # Extraire les années pour affichage
@@ -49,9 +86,9 @@ def annee_academique(request):
                 annee_debut = annee_code[:4]
                 annee_fin = str(int(annee_debut) + 1)
         else:
-            annee_code = '2024-2025'
-            annee_debut = '2024'
-            annee_fin = '2025'
+            annee_code = default_annee
+            annee_debut = default_debut
+            annee_fin = default_fin
             annee_active = None
             
         return {
@@ -62,9 +99,9 @@ def annee_academique(request):
         }
     except Exception:
         return {
-            'annee_academique': '2024-2025',
-            'annee_academique_debut': '2024',
-            'annee_academique_fin': '2025',
+            'annee_academique': default_annee,
+            'annee_academique_debut': default_debut,
+            'annee_academique_fin': default_fin,
             'annee_active': None,
         }
 

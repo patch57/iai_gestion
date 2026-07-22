@@ -41,64 +41,55 @@
                 </div>
             </div>
 
-            <!-- Payment Form -->
+            <!-- Payment Section -->
             <div id="payment-form-section">
-                <h3 class="font-bold text-gray-800 text-lg mb-4"><i class="fas fa-wallet text-green-600 mr-2"></i>Choisissez votre opérateur de paiement</h3>
-                
-                <!-- Operator Selector -->
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <!-- MTN -->
-                    <button type="button" onclick="selectOperator('MTN')" id="btn-mtn"
-                        class="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-gray-200 hover:border-yellow-400 transition-all card-hover group">
-                        <div class="w-16 h-16 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-md mb-3 font-extrabold text-white text-2xl group-hover:scale-105 transition">MTN</div>
-                        <span class="font-bold text-gray-800">MTN MoMo</span>
-                    </button>
-                    <!-- Orange -->
-                    <button type="button" onclick="selectOperator('ORANGE')" id="btn-orange"
-                        class="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-gray-200 hover:border-orange-500 transition-all card-hover group">
-                        <div class="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shadow-md mb-3 font-extrabold text-white text-2xl group-hover:scale-105 transition">OM</div>
-                        <span class="font-bold text-gray-800">Orange Money</span>
-                    </button>
-                </div>
-
-                <!-- Phone number & Confirm -->
-                <div id="phone-section" class="hidden space-y-4">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Numéro Mobile Money (Cameroun)</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 font-bold text-sm">+237</span>
-                            <input type="text" id="phone-number" maxlength="9" placeholder="6XXXXXXXX"
-                                class="w-full pl-16 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 font-semibold text-lg"
-                                oninput="validatePhone()">
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6">
+                    <div class="flex items-start">
+                        <i class="fas fa-shield-alt text-blue-500 text-xl mr-3 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-blue-800 text-sm">Paiement 100% sécurisé via CinetPay</h4>
+                            <p class="text-blue-600 text-xs mt-1">
+                                Vous serez redirigé vers la page sécurisée de CinetPay pour choisir votre opérateur 
+                                (MTN MoMo ou Orange Money) et effectuer le paiement. Aucune information bancaire 
+                                n'est stockée sur notre plateforme.
+                            </p>
                         </div>
-                        <p id="phone-error" class="text-xs text-red-500 mt-1 hidden">Veuillez entrer un numéro valide MTN ou Orange de 9 chiffres (commençant par 6).</p>
                     </div>
-
-                    <button type="button" id="btn-pay" onclick="startPayment()" disabled
-                        class="w-full bg-gradient-to-r from-green-700 to-green-600 text-white font-black py-4 rounded-xl shadow-lg transition duration-200 opacity-50 cursor-not-allowed">
-                        Confirmer le Paiement de {{ total_a_payer|floatformat:0 }} FCFA
-                    </button>
                 </div>
+
+                <!-- Payment Methods Preview -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-200 bg-gray-50/50">
+                        <div class="w-14 h-14 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-md mb-2 font-extrabold text-white text-xl">MTN</div>
+                        <span class="font-semibold text-gray-600 text-sm">MTN MoMo</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-200 bg-gray-50/50">
+                        <div class="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center shadow-md mb-2 font-extrabold text-white text-xl">OM</div>
+                        <span class="font-semibold text-gray-600 text-sm">Orange Money</span>
+                    </div>
+                </div>
+
+                <button type="button" id="btn-pay" onclick="startPayment()"
+                    class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-black py-4 rounded-xl shadow-lg transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-lock mr-2"></i>
+                    Payer {{ total_a_payer|floatformat:0 }} FCFA maintenant
+                </button>
             </div>
 
-            <!-- Loading / USSD push Screen -->
+            <!-- Loading Screen -->
             <div id="payment-loading-section" class="hidden text-center py-10 space-y-6">
                 <div class="relative w-24 h-24 mx-auto">
-                    <!-- Spinning circle -->
                     <div class="absolute inset-0 border-4 border-green-200 rounded-full"></div>
                     <div class="absolute inset-0 border-4 border-green-600 rounded-full animate-spin border-t-transparent"></div>
-                    <div class="absolute inset-0 flex items-center justify-center text-green-600 font-bold text-xs" id="timer-text">60s</div>
+                    <div class="absolute inset-0 flex items-center justify-center text-green-600">
+                        <i class="fas fa-spinner fa-lg"></i>
+                    </div>
                 </div>
                 <div>
-                    <h3 class="font-extrabold text-xl text-gray-800">Validation requise sur votre téléphone</h3>
-                    <p class="text-gray-500 text-sm mt-2 max-w-md mx-auto" id="loading-msg">Un push de paiement a été envoyé. Veuillez entrer votre code secret sur votre téléphone pour confirmer la transaction.</p>
-                </div>
-                <div class="bg-gray-50 max-w-sm mx-auto p-4 rounded-2xl border border-gray-100 flex items-center justify-between text-left">
-                    <div>
-                        <p class="text-xs text-gray-400 font-semibold uppercase">ID Transaction</p>
-                        <p class="font-bold text-gray-800 text-sm" id="loading-txid">-</p>
-                    </div>
-                    <span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full animate-pulse"><i class="fas fa-clock mr-1"></i>En attente</span>
+                    <h3 class="font-extrabold text-xl text-gray-800">Initialisation du paiement...</h3>
+                    <p class="text-gray-500 text-sm mt-2 max-w-md mx-auto" id="loading-msg">
+                        Connexion sécurisée au serveur de paiement CinetPay. Vous allez être redirigé...
+                    </p>
                 </div>
             </div>
 
@@ -109,7 +100,7 @@
                 </div>
                 <div>
                     <h3 class="font-extrabold text-xl text-gray-800" id="error-title">Échec du Paiement</h3>
-                    <p class="text-red-500 text-sm mt-2 max-w-md mx-auto" id="error-msg">Une erreur s'est produite lors de la transaction.</p>
+                    <p class="text-red-500 text-sm mt-2 max-w-md mx-auto" id="error-msg">Une erreur s'est produite.</p>
                 </div>
                 <button type="button" onclick="resetPayment()" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-6 rounded-xl transition shadow-md">
                     Réessayer
@@ -121,54 +112,6 @@
 </div>
 
 <script>
-    let selectedOperator = '';
-    let transactionId = '';
-    let checkInterval = null;
-    let countdownInterval = null;
-    let secondsLeft = 60;
-
-    function selectOperator(op) {
-        selectedOperator = op;
-        
-        // Reset selections UI
-        document.getElementById('btn-mtn').classList.remove('border-yellow-400', 'bg-yellow-50/20');
-        document.getElementById('btn-orange').classList.remove('border-orange-500', 'bg-orange-50/20');
-
-        if (op === 'MTN') {
-            document.getElementById('btn-mtn').classList.add('border-yellow-400', 'bg-yellow-50/20');
-        } else if (op === 'ORANGE') {
-            document.getElementById('btn-orange').classList.add('border-orange-500', 'bg-orange-50/20');
-        }
-
-        document.getElementById('phone-section').classList.remove('hidden');
-        validatePhone();
-    }
-
-    function validatePhone() {
-        const phone = document.getElementById('phone-number').value.trim();
-        const btnPay = document.getElementById('btn-pay');
-        const phoneError = document.getElementById('phone-error');
-
-        // Regex camerounais simple: commence par 6 ou 2, et fait 9 chiffres
-        const isValid = /^(6|2)\d{8}$/.test(phone);
-
-        if (phone.length > 0 && !isValid) {
-            phoneError.classList.remove('hidden');
-        } else {
-            phoneError.classList.add('hidden');
-        }
-
-        if (isValid && selectedOperator) {
-            btnPay.disabled = false;
-            btnPay.classList.remove('opacity-50', 'cursor-not-allowed');
-            btnPay.classList.add('hover:from-green-800', 'hover:to-green-700');
-        } else {
-            btnPay.disabled = true;
-            btnPay.classList.add('opacity-50', 'cursor-not-allowed');
-            btnPay.classList.remove('hover:from-green-800', 'hover:to-green-700');
-        }
-    }
-
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -185,94 +128,38 @@
     }
 
     function startPayment() {
-        const phone = document.getElementById('phone-number').value.trim();
-        const amount = "{{ total_a_payer }}";
+        const btn = document.getElementById('btn-pay');
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
 
         document.getElementById('payment-form-section').classList.add('hidden');
         document.getElementById('payment-loading-section').classList.remove('hidden');
 
-        // Initier la requête API en POST
         fetch("{% url 'paiements:initier_paiement_momo' %}", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({
-                operator: selectedOperator,
-                phone: phone,
-                amount: amount
-            })
+            body: JSON.stringify({})
         })
         .then(res => res.json())
         .then(data => {
-            if (data.status === 'PENDING') {
-                transactionId = data.transaction_id;
-                document.getElementById('loading-txid').innerText = transactionId;
-                document.getElementById('loading-msg').innerText = data.message;
+            if (data.status === 'PENDING' && data.payment_url) {
+                document.getElementById('loading-msg').innerText = 
+                    'Redirection vers la page de paiement sécurisée...';
                 
-                // Commencer à vérifier le statut et lancer le compte à rebours
-                startStatusChecking(phone, amount);
+                // Rediriger vers CinetPay après un court délai visuel
+                setTimeout(() => {
+                    window.location.href = data.payment_url;
+                }, 800);
             } else {
-                showError("Erreur d'initialisation", data.message);
+                showError("Erreur d'initialisation", data.message || "Impossible de démarrer le paiement.");
             }
         })
         .catch(err => {
-            showError("Erreur système", "Une erreur inattendue s'est produite lors de l'appel à la passerelle de paiement.");
+            showError("Erreur réseau", "Impossible de contacter le serveur. Vérifiez votre connexion.");
         });
-    }
-
-    function startStatusChecking(phone, amount) {
-        secondsLeft = 60;
-        document.getElementById('timer-text').innerText = secondsLeft + 's';
-
-        countdownInterval = setInterval(() => {
-            secondsLeft--;
-            document.getElementById('timer-text').innerText = secondsLeft + 's';
-            if (secondsLeft <= 0) {
-                stopIntervals();
-                showError("Session Expirée", "Vous avez mis trop de temps à valider la transaction sur votre téléphone.");
-            }
-        }, 1000);
-
-        // Polling du statut toutes les 4 secondes
-        checkInterval = setInterval(() => {
-            fetch("{% url 'paiements:verifier_paiement_momo' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({
-                    transaction_id: transactionId,
-                    operator: selectedOperator,
-                    phone: phone,
-                    amount: amount
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'SUCCESS') {
-                    stopIntervals();
-                    // Rediriger vers la page de succès
-                    window.location.href = data.redirect_url;
-                } else if (data.status === 'CANCELLED') {
-                    stopIntervals();
-                    showError("Paiement Annulé", data.message);
-                } else if (data.status === 'FAILED') {
-                    stopIntervals();
-                    showError("Échec du paiement", data.message);
-                }
-            })
-            .catch(err => {
-                // Ignorer les erreurs passagères de connexion
-            });
-        }, 4000);
-    }
-
-    function stopIntervals() {
-        if (checkInterval) clearInterval(checkInterval);
-        if (countdownInterval) clearInterval(countdownInterval);
     }
 
     function showError(title, msg) {
@@ -283,9 +170,12 @@
     }
 
     function resetPayment() {
-        stopIntervals();
         document.getElementById('payment-error-section').classList.add('hidden');
         document.getElementById('payment-form-section').classList.remove('hidden');
+        
+        const btn = document.getElementById('btn-pay');
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
 </script>
 {% endblock %}

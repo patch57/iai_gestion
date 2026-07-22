@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-16 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center">
+        <div class="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-100">
+            <i class="fas fa-exclamation-triangle text-3xl"></i>
+        </div>
+        
+        <h2 class="text-2xl font-black text-gray-800 mb-2">Confirmer la suppression</h2>
+        <p class="text-gray-500 mb-8 text-sm">
+            Êtes-vous sûr de vouloir supprimer définitivement le compte du personnel <span class="font-bold text-red-600">{{ personne.get_full_name|default:personne.username }}</span> ? Cette action est irréversible et supprimera toutes ses données associées.
+        </p>
+
+        <form method="POST" class="flex flex-col sm:flex-row gap-4 justify-center">
+            {% csrf_token %}
+            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-md">
+                Oui, supprimer définitivement
+            </button>
+            <a href="{% url 'authentification:liste_personnel' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl transition duration-200 text-center">
+                Annuler
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

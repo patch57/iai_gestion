@@ -17,6 +17,7 @@ from .models import DemandeInscription, Utilisateur
 import secrets
 import string
 import re
+import unicodedata
 from django.contrib.auth import logout
 from django.http import HttpResponseRedirect
 
@@ -24,6 +25,50 @@ def logout_get(request):
     """Vue de déconnexion acceptant GET (solution temporaire)"""
     logout(request)
     return HttpResponseRedirect('/login/')
+
+
+def _normaliser_nom(texte):
+    """Normalise un texte : minuscules, sans accents, sans tirets/espaces multiples"""
+    texte = unicodedata.normalize('NFD', texte)
+    texte = ''.join(c for c in texte if unicodedata.category(c) != 'Mn')
+    texte = texte.lower().strip()
+    texte = re.sub(r'[\s\-]+', ' ', texte)
+    return texte
+
+
+def verifier_liste_admis(nom, prenom, filiere_code):
+    """
+    Vérifie si un étudiant figure dans les listes d'admis (ResultatConcours)
+    pour les sessions de concours actives.
+    Retourne le ResultatConcours correspondant ou None.
+    """
+    from apps.paiements.models import ResultatConcours, SessionConcours
+
+    nom_norm = _normaliser_nom(nom)
+    prenom_norm = _normaliser_nom(prenom)
+
+    sessions_actives = SessionConcours.objects.filter(est_active=True)
+    if not sessions_actives.exists():
+        return True
+
+    resultats = ResultatConcours.objects.filter(
+        session_concours__in=sessions_actives
+    ).select_related('filiere')
+
+    for resultat in resultats:
+        r_nom = _normaliser_nom(resultat.nom)
+        r_prenom = _normaliser_nom(resultat.prenom)
+        r_filiere = resultat.filiere.code if resultat.filiere else None
+
+        if r_filiere == filiere_code:
+            # Correspondance directe
+            if r_nom == nom_norm and r_prenom == prenom_norm:
+                return resultat
+            # Correspondance inversée (nom/prénom intervertis)
+            if r_nom == prenom_norm and r_prenom == nom_norm:
+                return resultat
+
+    return None
 
 
 def inscription(request):
@@ -128,6 +173,18 @@ def inscription(request):
             
             if type_bac and type_bac.startswith('A') and filiere != 'GL':
                 errors.append("Les titulaires d'un Baccalauréat série A ne peuvent postuler qu'en Génie Logiciel (GL).")
+            
+            # Vérification dans les listes d'admis au concours
+            if not errors and filiere:
+                correspondance = verifier_liste_admis(nom, prenom, filiere)
+                if correspondance is None:
+                    errors.append(
+                        f"Votre nom ({nom} {prenom}) ne figure pas dans les listes "
+                        f"des candidats admis au concours pour la filière "
+                        f"{'Génie Logiciel' if filiere == 'GL' else 'Systèmes et Réseaux'}. "
+                        f"Veuillez vérifier vos informations (nom et prénom exacts figurant "
+                        f"sur votre attestation d'admission) ou contacter l'administration."
+                    )
         
         # Validation spécifique pour le personnel
         if type_utilisateur in ['ENSEIGNANT', 'CHEF_SCOLARITE', 'CHEF_ETUDES', 'CHEF_ANONYMAT', 'CHEF_COMPTABILITE'] and not errors:
@@ -504,3 +561,118 @@ def rejeter_demande(request, pk):
         'titre': 'Rejeter la demande'
     }
     return render(request, 'authentification/rejeter_demande.html', context)
+
+
+from .forms import PersonnelForm, CreationPersonnelForm
+from django.contrib.auth.hashers import make_password
+
+from django.views.decorators.cache import never_cache
+
+@login_required
+@never_cache
+def liste_personnel(request):
+    """Lister tout le personnel de l'établissement (Directeur, Profs, Admins, etc.)"""
+    # Seul le Directeur, l'Admin Système ou un Superutilisateur peut gérer le personnel
+    if request.user.type_utilisateur not in ['DIRECTEUR', 'ADMIN_SYSTEME'] and not request.user.is_superuser:
+        messages.error(request, "Accès réservé à la Direction et aux Administrateurs Système.")
+        return redirect('tableau_bord:tableau_bord')
+
+    # Récupérer tous les utilisateurs sauf les étudiants et apprenants
+    personnel = Utilisateur.objects.exclude(
+        type_utilisateur__in=['ETUDIANT', 'APPRENANT']
+    ).order_by('type_utilisateur', 'last_name', 'first_name')
+
+    # Filtrer par rôle si demandé
+    role_filtre = request.GET.get('role')
+    if role_filtre:
+        personnel = personnel.filter(type_utilisateur=role_filtre)
+
+    context = {
+        'personnel': personnel,
+        'roles': Utilisateur.TYPE_UTILISATEUR[2:],  # Liste des fonctions
+        'role_filtre': role_filtre,
+        'titre': 'Gestion du Personnel'
+    }
+    return render(request, 'authentification/liste_personnel.html', context)
+
+
+@login_required
+def ajouter_personnel(request):
+    """Ajouter un nouveau membre du personnel"""
+    if request.user.type_utilisateur not in ['DIRECTEUR', 'ADMIN_SYSTEME'] and not request.user.is_superuser:
+        messages.error(request, "Accès réservé à la Direction et aux Administrateurs Système.")
+        return redirect('tableau_bord:tableau_bord')
+
+    if request.method == 'POST':
+        form = CreationPersonnelForm(request.POST)
+        if form.is_valid():
+            personne = form.save(commit=False)
+            personne.password = make_password(form.cleaned_data['password'])
+            personne.statut_inscription = 'COMPTE_ACTIF'  # Le personnel créé par l'administration est actif d'office
+            personne.is_staff = True
+            personne.save()
+            messages.success(request, f"✅ Compte créé avec succès pour {personne.get_full_name()} ({personne.get_type_utilisateur_display()}).")
+            return redirect('authentification:liste_personnel')
+    else:
+        form = CreationPersonnelForm()
+
+    context = {
+        'form': form,
+        'titre': 'Recruter un Membre du Personnel'
+    }
+    return render(request, 'authentification/form_personnel.html', context)
+
+
+@login_required
+@never_cache
+def modifier_personnel(request, pk):
+    """Modifier les informations d'un membre du personnel"""
+    if request.user.type_utilisateur not in ['DIRECTEUR', 'ADMIN_SYSTEME'] and not request.user.is_superuser:
+        messages.error(request, "Accès réservé à la Direction et aux Administrateurs Système.")
+        return redirect('tableau_bord:tableau_bord')
+
+    personne = get_object_or_404(Utilisateur, pk=pk)
+
+    if request.method == 'POST':
+        form = PersonnelForm(request.POST, instance=personne)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"✏️ Informations de {personne.get_full_name()} mises à jour avec succès.")
+            return redirect('authentification:liste_personnel')
+    else:
+        form = PersonnelForm(instance=personne)
+
+    context = {
+        'form': form,
+        'personne': personne,
+        'titre': f'Modifier : {personne.get_full_name()}'
+    }
+    return render(request, 'authentification/form_personnel.html', context)
+
+
+@login_required
+@never_cache
+def supprimer_personnel(request, pk):
+    """Supprimer un membre du personnel"""
+    if request.user.type_utilisateur not in ['DIRECTEUR', 'ADMIN_SYSTEME'] and not request.user.is_superuser:
+        messages.error(request, "Accès réservé à la Direction et aux Administrateurs Système.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    personne = get_object_or_404(Utilisateur, pk=pk)
+    
+    # Empêcher de se supprimer soi-même
+    if personne == request.user:
+        messages.error(request, "❌ Vous ne pouvez pas supprimer votre propre compte.")
+        return redirect('authentification:liste_personnel')
+        
+    if request.method == 'POST':
+        nom_complet = personne.get_full_name() or personne.username
+        personne.delete()
+        messages.success(request, f"🗑️ Le compte de {nom_complet} a été supprimé avec succès.")
+        return redirect('authentification:liste_personnel')
+        
+    context = {
+        'personne': personne,
+        'titre': f'Supprimer : {personne.get_full_name() or personne.username}'
+    }
+    return render(request, 'authentification/supprimer_personnel.html', context)

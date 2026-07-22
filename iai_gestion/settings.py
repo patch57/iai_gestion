@@ -162,28 +162,31 @@ SESSION_COOKIE_AGE = 3600  # 1 heure
 SESSION_SAVE_EVERY_REQUEST = True
 
 # ========== EMAIL CONFIGURATION ==========
-# Pour le développement, utiliser la console
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Lecture depuis le .env — bascule automatique console/SMTP
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 
-# Pour la production avec Gmail, décommentez ces lignes et commentez la ligne ci-dessus
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'votre-email@gmail.com'
-# EMAIL_HOST_PASSWORD = 'votre-mot-de-passe-application'
-# DEFAULT_FROM_EMAIL = f'IAI-Cameroun <{EMAIL_HOST_USER}>'
-# EMAIL_SUBJECT_PREFIX = '[IAI-Cameroun] '
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    # Mode production : envoi réel via Gmail SMTP (avec support du contournement SSL en local)
+    EMAIL_BACKEND = 'apps.paiements.backends.UnverifiedEmailBackend'
+    EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=f'IAI-Cameroun <{EMAIL_HOST_USER}>')
+    EMAIL_BYPASS_SSL = config('EMAIL_BYPASS_SSL', default=True, cast=bool)  # Activé par défaut en local
+else:
+    # Mode développement : emails affichés dans le terminal
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'IAI-Cameroun <noreply@iai-cameroun.com>'
+    EMAIL_BYPASS_SSL = False
 
-# Email par défaut
-DEFAULT_FROM_EMAIL = 'IAI-Cameroun <noreply@iai-cameroun.com>'
 EMAIL_SUBJECT_PREFIX = '[IAI-Cameroun] '
 
 # URL du site pour les emails
-SITE_URL = 'http://127.0.0.1:8000'
+SITE_URL = config('SITE_BASE_URL', default='http://127.0.0.1:8000')
 
 # Admin email pour les notifications
-ADMIN_EMAIL = 'admin@iai-cameroun.com'
+ADMIN_EMAIL = config('ADMIN_EMAIL', default='admin@iai-cameroun.com')
 
 # ========== FIN EMAIL CONFIGURATION ==========
 
@@ -375,3 +378,14 @@ LOGGING = {
 
 # Créer le dossier logs s'il n'existe pas
 os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+
+# ========== Configuration CinetPay (Paiement Mobile Money) ==========
+CINETPAY_API_KEY = config('CINETPAY_API_KEY', default='12912847765bcaborz')
+CINETPAY_SITE_ID = config('CINETPAY_SITE_ID', default='445160')
+CINETPAY_SECRET_KEY = config('CINETPAY_SECRET_KEY', default='sandbox_secret_key')
+CINETPAY_MODE = config('CINETPAY_MODE', default='SANDBOX')
+SITE_BASE_URL = config('SITE_BASE_URL', default='http://127.0.0.1:8000')
+
+CINETPAY_BASE_URL = 'https://api-checkout.cinetpay.com'
+CINETPAY_PAYMENT_URL = f'{CINETPAY_BASE_URL}/v2/payment'
+CINETPAY_CHECK_URL = f'{CINETPAY_BASE_URL}/v2/payment/check'

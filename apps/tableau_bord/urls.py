@@ -56,6 +56,7 @@ urlpatterns = [
     path('export/', views.export_dashboard, name='export_dashboard'),
     path('imprimer/', views.imprimer_dashboard, name='imprimer_dashboard'),
     path('geolocalisation/', views.geolocalisation, name='geolocalisation'),
+    path('classes/', views.liste_classes_partagee, name='liste_classes_partagee'),
     
     # API pour les graphiques (AJAX)
     path('api/donnees/', views.api_donnees_dashboard, name='api_donnees_dashboard'),

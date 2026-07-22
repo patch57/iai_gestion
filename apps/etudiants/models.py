@@ -202,6 +202,65 @@ class Classe(models.Model):
         """Vérifie si la classe peut encore accueillir des étudiants"""
         return self.places_disponibles() > 0 and self.est_active
 
+    @classmethod
+    def repartir_etudiants(cls, annee_academique):
+        """
+        Répartit automatiquement tous les étudiants inscrits/actifs de l'année académique
+        dans les différentes classes disponibles par filière et niveau, en respectant la capacité.
+        """
+        from apps.etudiants.models import Etudiant
+        
+        # Récupérer toutes les classes actives de cette année académique
+        classes_dispos = cls.objects.filter(annee_academique=annee_academique, est_active=True).order_by('id')
+        
+        # Grouper les classes par (filiere_id, niveau_id)
+        classes_par_groupe = {}
+        for c in classes_dispos:
+            key = (c.filiere_id, c.niveau_id)
+            if key not in classes_par_groupe:
+                classes_par_groupe[key] = []
+            classes_par_groupe[key].append(c)
+            
+        # Récupérer tous les étudiants inscrits ou actifs pour cette année académique
+        etudiants = Etudiant.objects.filter(
+            annee_academique=annee_academique,
+            statut__in=['INSCRIT', 'ACTIF']
+        ).order_by('nom', 'prenom')
+        
+        repartis_count = 0
+        
+        for etudiant in etudiants:
+            # Si l'étudiant a déjà une classe valide, on le maintient
+            if etudiant.classe and etudiant.classe.est_active and etudiant.classe.filiere == etudiant.filiere and etudiant.classe.niveau == etudiant.niveau and etudiant.classe.annee_academique == annee_academique:
+                continue
+                
+            key = (etudiant.filiere_id, etudiant.niveau_id)
+            classes_cibles = classes_par_groupe.get(key, [])
+            
+            # Trouver la première classe avec des places disponibles
+            classe_trouvee = None
+            for classe in classes_cibles:
+                effectif = classe.etudiants.count()
+                if effectif < classe.effectif_max:
+                    classe_trouvee = classe
+                    break
+                    
+            if classe_trouvee:
+                etudiant.classe = classe_trouvee
+                etudiant.save(update_fields=['classe'])
+                
+                # Mettre à jour l'effectif actuel de la classe
+                classe_trouvee.effectif_actuel = classe_trouvee.etudiants.count()
+                classe_trouvee.save(update_fields=['effectif_actuel'])
+                repartis_count += 1
+                
+        # Recalculer l'effectif de toutes les classes par sécurité
+        for c in classes_dispos:
+            c.effectif_actuel = c.etudiants.count()
+            c.save(update_fields=['effectif_actuel'])
+            
+        return repartis_count
+
 
 class DocumentObligatoire(models.Model):
     """
@@ -512,10 +571,10 @@ class Etudiant(models.Model):
     def valider_matricule(self):
         """Valide le format du matricule selon les règles IAI"""
         # Format supporté : GL.CMR.DO14.2425 (nouveau) ou GL.CMR.D014.2324A (ancien)
-        pattern = r'^(GL|SR)\.CMR\.(D014|DO\d{2})\.\d{4}[A-Z]?$'
+        pattern = r'^(GL|SR)\.CMR\.(D\d{3}|DO\d{2}|D014)\.\d{4}[A-Z]?$'
         if not re.match(pattern, self.matricule):
             raise ValidationError({
-                'matricule': 'Format de matricule invalide. Exemples acceptés: GL.CMR.DO14.2425 ou GL.CMR.D014.2324A'
+                'matricule': 'Format de matricule invalide. Exemples acceptés: GL.CMR.D043.2324A ou GL.CMR.DO14.2425'
             })
         
         # Vérifier que le code filière correspond à la filière choisie

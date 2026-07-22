@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-700 via-green-600 to-yellow-500 rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <span class="bg-white/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/10">Ressources Humaines</span>
+            <h1 class="text-3xl font-extrabold mt-3">Gestion du Personnel</h1>
+            <p class="text-green-100 mt-2">Gérez les comptes administratifs et enseignants de l'établissement.</p>
+        </div>
+        <a href="{% url 'authentification:ajouter_personnel' %}" class="bg-white text-green-700 hover:bg-green-50 font-bold px-6 py-3 rounded-xl shadow-md transition flex items-center gap-2">
+            <i class="fas fa-user-plus"></i> Recruter un Agent
+        </a>
+    </div>
+
+    <!-- Filters & List -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+        <!-- Filter bar -->
+        <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-wrap gap-4 items-center justify-between">
+            <h3 class="font-bold text-gray-800 text-lg">Membres inscrits ({{ personnel|length }})</h3>
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-gray-500">Filtrer par Rôle:</span>
+                <form method="GET" class="flex gap-2">
+                    <select name="role" onchange="this.form.submit()" class="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-sm font-semibold text-gray-700">
+                        <option value="">Tous les rôles</option>
+                        {% for val, label in roles %}
+                        <option value="{{ val }}" {% if role_filtre == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold uppercase text-gray-400 tracking-wider">
+                        <th class="p-6">Nom Complet</th>
+                        <th class="p-6">Matricule</th>
+                        <th class="p-6">Rôle / Fonction</th>
+                        <th class="p-6">Coordonnées</th>
+                        <th class="p-6">Statut</th>
+                        <th class="p-6 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for agent in personnel %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-green-50 text-green-700 flex items-center justify-center font-bold text-lg border border-green-100">
+                                    {{ agent.first_name|slice:":1" }}{{ agent.last_name|slice:":1" }}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm">{{ agent.get_full_name }}</h4>
+                                    <span class="text-xs text-gray-400">@{{ agent.username }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-6 font-semibold text-sm text-gray-600">
+                            {{ agent.matricule|default:"-" }}
+                        </td>
+                        <td class="p-6">
+                            <span class="bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-full border border-blue-100">
+                                {% if agent.type_utilisateur == 'DIRECTEUR' %}
+                                    👑 Directeur
+                                {% elif agent.type_utilisateur == 'ADMIN_SYSTEME' %}
+                                    ⚙️ Admin Système
+                                {% elif agent.type_utilisateur == 'CHEF_SCOLARITE' %}
+                                    🏫 Chef Scolarité
+                                {% elif agent.type_utilisateur == 'CHEF_ETUDES' %}
+                                    📚 Chef Études
+                                {% elif agent.type_utilisateur == 'CHEF_ANONYMAT' %}
+                                    🕵️ Chef Anonymat
+                                {% elif agent.type_utilisateur == 'CHEF_COMPTABILITE' %}
+                                    💰 Chef Comptabilité
+                                {% elif agent.type_utilisateur == 'ADMIN_FINANCIER' %}
+                                    💰 Admin Financier
+                                {% elif agent.type_utilisateur == 'PROFESSEUR' %}
+                                    👨‍🏫 Professeur
+                                {% elif agent.type_utilisateur == 'ENSEIGNANT' %}
+                                    👨‍🏫 Enseignant
+                                {% else %}
+                                    {{ agent.get_type_utilisateur_display|default:agent.type_utilisateur }}
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="p-6 space-y-1">
+                            <div class="text-xs text-gray-600"><i class="fas fa-envelope mr-1 text-gray-400"></i>{{ agent.email }}</div>
+                            {% if agent.telephone %}
+                            <div class="text-xs text-gray-600"><i class="fas fa-phone mr-1 text-gray-400"></i>+237 {{ agent.telephone }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="p-6">
+                            {% if agent.statut_inscription == 'COMPTE_ACTIF' %}
+                            <span class="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-check-circle mr-1"></i>Actif</span>
+                            {% else %}
+                            <span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-clock mr-1"></i>En attente</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-6 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="{% url 'authentification:modifier_personnel' agent.id %}" class="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded-xl text-xs transition">
+                                    <i class="fas fa-edit"></i> Modifier
+                                </a>
+                                {% if agent.id != request.user.id %}
+                                <a href="{% url 'authentification:supprimer_personnel' agent.id %}" class="inline-flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-2 rounded-xl text-xs transition">
+                                    <i class="fas fa-trash-alt"></i> Supprimer
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-12 text-center text-gray-400">
+                            <i class="fas fa-users text-4xl mb-3"></i>
+                            <p>Aucun membre du personnel trouvé avec ces critères.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

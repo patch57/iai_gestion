@@ -43,11 +43,13 @@
                     <i class="fas fa-layer-group text-emerald-600"></i> Tranche de paiement <span class="text-rose-500">*</span>
                 </label>
                 <div class="relative">
-                    <select name="tranche" required class="w-full rounded-2xl border border-gray-200 px-4 py-3 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium text-gray-800 transition-all appearance-none cursor-pointer">
+                    <select name="tranche" required class="w-full rounded-2xl border border-gray-200 px-4 py-3 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-semibold text-gray-800 transition-all appearance-none cursor-pointer">
                         <option value="">-- Sélectionnez la tranche concernée --</option>
                         {% for t in tranches %}
-                        <option value="{{ t.id }}">{{ t.get_numero_display }} ({{ t.montant|floatformat:0 }} FCFA)</option>
+                        <option value="{{ t.id }}">{{ t.get_numero_display }} ({% if t.numero == 1 %}71 000{% else %}{{ t.montant|floatformat:0 }}{% endif %} FCFA)</option>
                         {% endfor %}
+                        <option value="totalite">Totalité (Scolarité complète - 461 000 FCFA)</option>
+                        <option value="autre">Autre (Paiement libre / partiel)</option>
                     </select>
                     <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
                 </div>

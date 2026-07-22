@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 from apps.etudiants.models import Etudiant, Filiere, AnneeAcademique, Classe, Apprenant, Formation
 from apps.paiements.models import RecuPaiement, TranchePaiement
-from apps.cours.models import Cours, RessourceCours, EmploiDuTemps, Presence
+from apps.cours.models import Cours, SeanceCours, RessourceCours, EmploiDuTemps, Presence
 from apps.notes.models import Note, Evaluation, Bulletin
 from apps.professeurs.models import Professeur
 from apps.paiements.services import calculer_penalites_etudiant
@@ -29,9 +29,9 @@ def accueil(request):
         # ✅ Déjà corrigé avec namespace
         return redirect('tableau_bord:tableau_bord')
     
-    # Récupérer l'année académique active
+    from apps.inscriptions.utils import get_current_academic_year_code
     annee_active = AnneeAcademique.objects.filter(est_active=True).first()
-    annee_code = annee_active.code if annee_active else '2024-2025'
+    annee_code = annee_active.code if annee_active else get_current_academic_year_code()
     
     context = {
         'titre': 'IAI-Cameroun - Centre de Douala',
@@ -90,32 +90,116 @@ def etudiant_dashboard(request):
             matricule=request.user.matricule or 'GL.CMR.D014.2425A'
         )
 
+    from decimal import Decimal
+    # Scolarité de base fixée à 461 000 FCFA (Tarif Niveau 2 complet)
+    base_scolarite = Decimal('461000.00')
+
     # Téléversement de reçu
     if request.method == 'POST' and request.FILES.get('recu_fichier'):
-        tranche_num = int(request.POST.get('tranche_num'))
-        tranche = TranchePaiement.objects.filter(numero=tranche_num).first()
-        if tranche:
-            recu = RecuPaiement.objects.create(
-                etudiant=etudiant,
-                tranche=tranche,
-                recu_fichier=request.FILES.get('recu_fichier'),
-                montant_mentionne=tranche.montant,
-                statut='EN_ATTENTE'
-            )
-            messages.success(request, f"Votre reçu pour la {tranche.get_numero_display()} a été téléversé et est en attente de validation.")
-            return redirect('tableau_bord:tableau_bord')
+        tranche_num_raw = request.POST.get('tranche_num')
+        file = request.FILES.get('recu_fichier')
+        
+        tranche = None
+        commentaires = ""
+        montant_mentionne = Decimal('0.00')
+        
+        if tranche_num_raw in ['totalite', 'autre']:
+            commentaires = f"OPTION:{tranche_num_raw.upper()}"
+            # Déterminer un montant estimé ou laisser l'IA l'extraire
+            montant_mentionne = base_scolarite if tranche_num_raw == 'totalite' else Decimal('0.00')
+        else:
+            try:
+                tranche_num = int(tranche_num_raw)
+                tranche = TranchePaiement.objects.filter(numero=tranche_num).first()
+                if tranche:
+                    montant_mentionne = tranche.montant
+            except (ValueError, TypeError):
+                pass
+
+        recu = RecuPaiement.objects.create(
+            etudiant=etudiant,
+            tranche=tranche,
+            recu_fichier=file,
+            montant_mentionne=montant_mentionne,
+            statut='EN_ATTENTE',
+            commentaires=commentaires
+        )
+        
+        # Lancer l'analyse automatique par IA/OCR immédiatement
+        recu.analyser_par_ia()
+        
+        # Message basé sur le résultat de l'analyse IA
+        if recu.statut == 'VALIDE':
+            messages.success(request, f"✅ Reçu validé automatiquement par l'IA ! Montant extrait : {recu.montant_mentionne:,.0f} FCFA. Les tranches correspondantes ont été créditées.")
+        else:
+            messages.warning(request, f"⏳ Reçu reçu et en attente de vérification manuelle par le Chef de la comptabilité. (Score IA: {recu.score_confiance:.0%})")
+            
+        return redirect('tableau_bord:tableau_bord')
 
     penalites_info = calculer_penalites_etudiant(etudiant)
+    
+    # Synchroniser les notifications pour cet utilisateur
+    if etudiant.utilisateur:
+        # Récupérer toutes les notifications de retard non lues pour cet utilisateur
+        notifs_existantes = {
+            n.titre: n for n in Notification.objects.filter(
+                utilisateur=etudiant.utilisateur,
+                type='WARNING',
+                est_lue=False
+            )
+        }
+        
+        tranches_en_retard = set()
+        
+        # Créer ou mettre à jour les notifications pour chaque tranche en retard
+        for detail in penalites_info.get('details', []):
+            nom_tranche = detail['tranche']
+            tranches_en_retard.add(nom_tranche)
+            titre_notif = f"Retard de paiement - {nom_tranche}"
+            message_notif = (
+                f"Vous avez accumulé {detail['montant']:,} FCFA de pénalités pour la {nom_tranche} "
+                f"en raison de {detail['semaines_retard']} semaine(s) de retard. "
+                f"Date limite dépassée : {detail['date_limite'].strftime('%d/%m/%Y')}."
+            )
+            
+            if titre_notif in notifs_existantes:
+                # Si elle existe déjà mais que le message a changé (montant ou retard actualisés)
+                notif = notifs_existantes[titre_notif]
+                if notif.message != message_notif:
+                    notif.message = message_notif
+                    notif.save()
+            else:
+                # Créer une nouvelle notification
+                Notification.objects.create(
+                    utilisateur=etudiant.utilisateur,
+                    type='WARNING',
+                    titre=titre_notif,
+                    message=message_notif,
+                    lien='/inscriptions/'
+                )
+        
+        # Nettoyer les notifications obsolètes (si une tranche a été régularisée)
+        for titre, notif in notifs_existantes.items():
+            if titre.startswith("Retard de paiement - "):
+                nom_tranche = titre.replace("Retard de paiement - ", "")
+                if nom_tranche not in tranches_en_retard:
+                    # Plus de retard, on peut marquer la notification comme lue ou la supprimer
+                    notif.est_lue = True
+                    notif.date_lecture = timezone.now()
+                    notif.save()
     recus = RecuPaiement.objects.filter(etudiant=etudiant)
     montant_paye = sum(r.montant_mentionne for r in recus if r.statut == 'VALIDE')
     
-    total_du = 440000 + penalites_info['total']
+    total_du = base_scolarite + penalites_info['total']
     reste_payer = max(0, total_du - montant_paye)
     
     emploi = EmploiDuTemps.objects.filter(filiere=etudiant.filiere, est_actif=True).first()
     ressources = RessourceCours.objects.filter(cours__filiere=etudiant.filiere)
     absences = Presence.objects.filter(etudiant=etudiant, statut__in=['ABSENT', 'RETARD'])
     notes = Note.objects.filter(etudiant=etudiant, est_validee=True)
+    
+    from .models import ReglementInterieur
+    reglement_actif = ReglementInterieur.objects.filter(est_actif=True).first()
     
     context = {
         'etudiant': etudiant,
@@ -128,6 +212,7 @@ def etudiant_dashboard(request):
         'ressources': ressources,
         'absences': absences,
         'notes': notes,
+        'reglement_actif': reglement_actif,
         'titre': 'Espace Étudiant',
         'date_aujourdhui': timezone.now()
     }
@@ -240,18 +325,55 @@ def enseignant_dashboard(request):
 
 @login_required
 def chef_scolarite_dashboard(request):
+    from .models import ReglementInterieur
+    from apps.etudiants.import_service import EtudiantImportService
+
+    # Gérer le téléversement du règlement intérieur
     if request.method == 'POST' and request.FILES.get('reglement_fichier'):
-        messages.success(request, "Règlement intérieur mis à jour avec succès.")
+        fichier = request.FILES.get('reglement_fichier')
+        if fichier.name.endswith('.pdf'):
+            reglement = ReglementInterieur.objects.create(
+                titre=f"Règlement Intérieur - {timezone.now().strftime('%d/%m/%Y')}",
+                fichier=fichier,
+                est_actif=True
+            )
+            messages.success(request, f"✅ Règlement intérieur '{reglement.titre}' mis à jour avec succès.")
+        else:
+            messages.error(request, "❌ Seuls les fichiers PDF sont acceptés pour le règlement intérieur.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    # Gérer l'importation de listes d'étudiants (Excel, PDF, Images)
+    elif request.method == 'POST' and request.FILES.get('liste_fichier'):
+        fichier = request.FILES.get('liste_fichier')
+        try:
+            nb_ajoutes, nb_mis_a_jour, erreurs = EtudiantImportService.importer_depuis_fichier(fichier, request.user)
+            
+            if nb_ajoutes > 0 or nb_mis_a_jour > 0:
+                msg = f"✅ Importation réussie : {nb_ajoutes} étudiant(s) ajouté(s), {nb_mis_a_jour} mis à jour."
+                messages.success(request, msg)
+            
+            if erreurs:
+                # Afficher les 5 premières erreurs pour ne pas encombrer l'écran
+                for err in erreurs[:5]:
+                    messages.warning(request, err)
+                if len(erreurs) > 5:
+                    messages.warning(request, f"... et {len(erreurs) - 5} autres erreurs d'analyse.")
+                    
+        except Exception as e:
+            messages.error(request, f"❌ Échec de l'importation : {str(e)}")
+            
         return redirect('tableau_bord:tableau_bord')
         
     etudiants = Etudiant.objects.all()
     filieres = Filiere.objects.all()
     classes = Classe.objects.all()
+    reglement_actif = ReglementInterieur.objects.filter(est_actif=True).first()
     
     context = {
         'etudiants': etudiants,
         'filieres': filieres,
         'classes': classes,
+        'reglement_actif': reglement_actif,
         'titre': 'Espace Scolarité'
     }
     return render(request, 'tableau_bord/chef_scolarite_dashboard.html', context)
@@ -259,12 +381,13 @@ def chef_scolarite_dashboard(request):
 
 @login_required
 def chef_etudes_dashboard(request):
+    from apps.inscriptions.utils import get_current_academic_year_code
     if request.method == 'POST' and request.FILES.get('emploi_fichier'):
         filiere_id = request.POST.get('filiere_id')
         filiere = get_object_or_404(Filiere, id=filiere_id)
         EmploiDuTemps.objects.create(
             filiere=filiere,
-            annee_academique='2024-2025',
+            annee_academique=get_current_academic_year_code(),
             semestre=1,
             fichier_pdf=request.FILES.get('emploi_fichier'),
             date_debut=timezone.now().date(),
@@ -298,9 +421,10 @@ def chef_anonymat_dashboard(request):
 
 @login_required
 def chef_comptabilite_dashboard(request):
+    from apps.inscriptions.utils import get_current_academic_year_code
     recus_attente = RecuPaiement.objects.filter(statut__in=['EN_ATTENTE', 'IA_VERIFIE'])
     annee_active = AnneeAcademique.objects.filter(est_active=True).first()
-    annee_str = annee_active.code if annee_active else '2024-2025'
+    annee_str = annee_active.code if annee_active else get_current_academic_year_code()
     
     if request.method == 'POST':
         recu_id = request.POST.get('recu_id')
@@ -379,12 +503,28 @@ def dashboard_admin(request):
     
     # Si aucune année active n'existe, en créer une par défaut
     if not annee_active:
+        from apps.inscriptions.utils import get_current_academic_year_code
         from datetime import date
+        default_annee = get_current_academic_year_code()
+        default_debut, default_fin = default_annee.split('-')
+        
         annee_active = AnneeAcademique.objects.create(
-            code='2024-2025',
-            date_debut=date(2024, 9, 1),
-            date_fin=date(2025, 8, 31),
+            code=default_annee,
+            date_debut=date(int(default_debut), 9, 1),
+            date_fin=date(int(default_fin), 8, 31),
             est_active=True
+        )
+        
+        # Synchroniser dans inscriptions
+        from apps.inscriptions.models import AnneeAcademique as AnneeAcademiqueInscr
+        AnneeAcademiqueInscr.objects.get_or_create(
+            code=default_annee,
+            defaults={
+                'date_debut': date(int(default_debut), 9, 1),
+                'date_fin': date(int(default_fin), 8, 31),
+                'est_actuelle': True,
+                'est_ouverte_inscription': True
+            }
         )
     
     annee_code = annee_active.code
@@ -563,7 +703,7 @@ def dashboard_admin(request):
 
 @login_required
 def statistiques(request):
-    """Page des statistiques principales - Style moderne"""
+    """Page des statistiques principales - Style moderne et dynamique par acteur"""
     annee_active = AnneeAcademique.objects.filter(est_active=True).first()
     annee_code = request.GET.get('annee', annee_active.code if annee_active else '2024-2025')
     
@@ -583,7 +723,167 @@ def statistiques(request):
         'stats_mensuelles': stats_mensuelles,
         'primary_color': '#10B981',
         'secondary_color': '#F59E0B',
+        'user_type': request.user.type_utilisateur,
     }
+
+    type_user = request.user.type_utilisateur
+
+    if type_user in ['ETUDIANT', 'APPRENANT']:
+        etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
+        if etudiant:
+            from decimal import Decimal
+            base_scolarite = Decimal('461000.00')
+            recus = etudiant.recuspaiement_set.filter(statut='VALIDE') if hasattr(etudiant, 'recuspaiement_set') else []
+            if not recus and hasattr(etudiant, 'recus_paiements'):
+                recus = etudiant.recus_paiements.filter(statut='VALIDE')
+            montant_paye = sum(r.montant_mentionne for r in recus)
+            penalites_info = calculer_penalites_etudiant(etudiant)
+            total_du = base_scolarite + penalites_info['total']
+            reste_payer = max(0, total_du - montant_paye)
+            taux_paiement = round((montant_paye / total_du * 100), 1) if total_du > 0 else 100.0
+
+            notes = Note.objects.filter(etudiant=etudiant)
+            moyenne_generale = notes.aggregate(Avg('valeur'))['valeur__avg'] or 0.0
+            matieres_validees = notes.filter(valeur__gte=10).count()
+            total_evaluations = notes.count()
+
+            presences = Presence.objects.filter(etudiant=etudiant)
+            total_presences = presences.count()
+            presents = presences.filter(statut='PRESENT').count()
+            absents = presences.filter(statut='ABSENT').count()
+            retards = presences.filter(statut='RETARD').count()
+            excuses = presences.filter(statut='EXCUSE').count()
+            taux_presence = round((presents / total_presences * 100), 1) if total_presences > 0 else 100.0
+
+            notes_data = list(notes.values('evaluation__titre', 'valeur'))
+
+            context.update({
+                'etudiant': etudiant,
+                'financier': {
+                    'total_du': float(total_du),
+                    'montant_paye': float(montant_paye),
+                    'reste_payer': float(reste_payer),
+                    'taux_paiement': float(taux_paiement),
+                },
+                'academique': {
+                    'moyenne_generale': round(float(moyenne_generale), 2),
+                    'matieres_validees': matieres_validees,
+                    'total_evaluations': total_evaluations,
+                },
+                'assiduite': {
+                    'total': total_presences,
+                    'presents': presents,
+                    'absents': absents,
+                    'retards': retards,
+                    'excuses': excuses,
+                    'taux_presence': float(taux_presence),
+                },
+                'notes_data': notes_data,
+            })
+
+    elif type_user in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
+        prof = Professeur.objects.filter(utilisateur=request.user).first()
+        if prof:
+            cours_assignes = Cours.objects.filter(professeur=prof)
+            nb_cours = cours_assignes.count()
+
+            from apps.cours.models import InscriptionCours
+            etudiants_ids = InscriptionCours.objects.filter(
+                cours__in=cours_assignes, 
+                est_actif=True
+            ).values_list('etudiant_id', flat=True).distinct()
+            nb_etudiants = len(etudiants_ids)
+
+            seances = SeanceCours.objects.filter(cours__in=cours_assignes)
+            seances_effectuees = seances.filter(est_effectuee=True).count()
+            seances_total = seances.count()
+            taux_realisation = round((seances_effectuees / seances_total * 100), 1) if seances_total > 0 else 0.0
+
+            evaluations = Evaluation.objects.filter(cours__in=cours_assignes)
+            nb_evaluations = evaluations.count()
+
+            notes_enseignant = Note.objects.filter(evaluation__cours__in=cours_assignes)
+            moyenne_notes = notes_enseignant.aggregate(Avg('valeur'))['valeur__avg'] or 0.0
+            total_notes = notes_enseignant.count()
+            taux_reussite_enseignant = round((notes_enseignant.filter(valeur__gte=10).count() / total_notes * 100), 1) if total_notes > 0 else 0.0
+
+            context.update({
+                'prof': prof,
+                'nb_cours': nb_cours,
+                'nb_etudiants': nb_etudiants,
+                'seances_effectuees': seances_effectuees,
+                'seances_total': seances_total,
+                'taux_realisation': float(taux_realisation),
+                'nb_evaluations': nb_evaluations,
+                'moyenne_notes': round(float(moyenne_notes), 2),
+                'taux_reussite_enseignant': float(taux_reussite_enseignant),
+            })
+
+    elif type_user in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER']:
+        total_recettes = RecuPaiement.objects.filter(statut='VALIDE').aggregate(
+            total=Coalesce(Sum('montant_mentionne', output_field=DecimalField()), Value(0, output_field=DecimalField()))
+        )['total'] or 0
+
+        from decimal import Decimal
+        base_scolarite = Decimal('461000.00')
+        etudiants_actifs = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT'])
+        nb_etudiants = etudiants_actifs.count()
+        total_attendu = base_scolarite * nb_etudiants
+        reste_recouvrer = max(0, total_attendu - total_recettes)
+        taux_recouvrement = round((total_recettes / total_attendu * 100), 1) if total_attendu > 0 else 100.0
+
+        recus_attente = RecuPaiement.objects.filter(statut='EN_ATTENTE').count()
+
+        context.update({
+            'finance_global': {
+                'total_recettes': float(total_recettes),
+                'reste_recouvrer': float(reste_recouvrer),
+                'taux_recouvrement': float(taux_recouvrement),
+                'recus_attente': recus_attente,
+            }
+        })
+
+    else:
+        # Scolarité / Études / Admin Général
+        total_etudiants = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).count()
+
+        classes = Classe.objects.filter(est_active=True, annee_academique=annee_active) if annee_active else Classe.objects.filter(est_active=True)
+        taux_remplissage = 0
+        if classes.exists():
+            total_remplissage = 0
+            valid_classes = 0
+            for c in classes:
+                if c.effectif_max and c.effectif_max > 0:
+                    total_remplissage += (c.effectif_actuel / c.effectif_max * 100)
+                    valid_classes += 1
+            if valid_classes > 0:
+                taux_remplissage = round(total_remplissage / valid_classes, 1)
+
+        toutes_notes = Note.objects.all()
+        total_notes = toutes_notes.count()
+        taux_reussite_global = round((toutes_notes.filter(valeur__gte=10).count() / total_notes * 100), 1) if total_notes > 0 else 78.5
+
+        effectifs_filiere = list(Etudiant.objects.filter(
+            statut__in=['ACTIF', 'INSCRIT']
+        ).values('filiere__code', 'filiere__nom').annotate(
+            effectif=Count('id')
+        ))
+        
+        for item in effectifs_filiere:
+            filiere_code = item['filiere__code']
+            notes_fil = Note.objects.filter(etudiant__filiere__code=filiere_code)
+            item['taux_reussite'] = round((notes_fil.filter(valeur__gte=10).count() / notes_fil.count() * 100), 1) if notes_fil.exists() else 75.0
+            item['nom'] = item['filiere__nom']
+
+        context.update({
+            'admin_stats': {
+                'total_etudiants': total_etudiants,
+                'taux_remplissage': taux_remplissage,
+                'taux_reussite_global': taux_reussite_global,
+            },
+            'effectifs_filiere': effectifs_filiere,
+        })
+    
     return render(request, 'tableau_bord/statistiques.html', context)
 
 
@@ -1048,10 +1348,25 @@ def api_statistiques_rapides(request):
         total=Coalesce(Sum('montant_mentionne', output_field=DecimalField()), Value(0, output_field=DecimalField()))
     )['total'] or 0
     
+    # Taux de remplissage des classes
+    from apps.etudiants.models import Classe
+    classes = Classe.objects.filter(est_active=True, annee_academique=annee_active) if annee_active else Classe.objects.none()
+    taux_remplissage = 0
+    if classes.exists():
+        total_remplissage = 0
+        valid_classes = 0
+        for c in classes:
+            if c.effectif_max and c.effectif_max > 0:
+                total_remplissage += (c.effectif_actuel / c.effectif_max * 100)
+                valid_classes += 1
+        if valid_classes > 0:
+            taux_remplissage = round(total_remplissage / valid_classes, 1)
+
     data = {
         'total_etudiants': Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).count(),
         'total_professeurs': 0,
-        'taux_remplissage': 0,
+        'total_filieres': Filiere.objects.filter(est_active=True).count(),
+        'taux_remplissage': taux_remplissage,
         'recettes_mois': float(recettes_mois),
         'recus_attente': RecuPaiement.objects.filter(statut='EN_ATTENTE').count(),
         'etudiants_par_filiere': etudiants_par_filiere,
@@ -1071,3 +1386,108 @@ def geolocalisation(request):
         'description': "Le centre IAI-Cameroun de Douala est actuellement situé à Pk10, 2QXC+9CG, Douala, entre les supermarchés BAO et SAKER, juste derrière la nouvelle station-service MAMAYAKO."
     }
     return render(request, 'tableau_bord/geolocalisation.html', context)
+
+
+@login_required
+def liste_classes_partagee(request):
+    """Vue partagée affichant les listes des classes pour les différents chefs de service."""
+    from django.urls import reverse
+    
+    # Autoriser uniquement le personnel concerné
+    user_type = getattr(request.user, 'type_utilisateur', '')
+    if user_type not in ['CHEF_SCOLARITE', 'CHEF_ETUDES', 'CHEF_ANONYMAT', 'CHEF_COMPTABILITE', 'ADMIN_FINANCIER'] and not request.user.is_staff:
+        messages.error(request, "Accès refusé. Vous n'avez pas l'autorisation d'accéder à ce service.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    from apps.etudiants.models import Classe, Etudiant, Filiere, Niveau
+    from apps.inscriptions.models import AnneeAcademique
+    
+    annee_active = AnneeAcademique.get_active() or AnneeAcademique.objects.filter(est_actuelle=True).first()
+    if not annee_active:
+        from apps.etudiants.models import AnneeAcademique as AA_etud
+        annee_active = AA_etud.get_active() or AA_etud.objects.filter(est_active=True).first()
+        
+    # Gérer la répartition automatique
+    if request.method == 'POST' and request.POST.get('action') == 'repartir':
+        if user_type == 'CHEF_SCOLARITE' or request.user.is_superuser:
+            repartis_count = Classe.repartir_etudiants(annee_active)
+            messages.success(request, f"✅ Répartition automatique effectuée avec succès ! {repartis_count} étudiant(s) affecté(s).")
+        else:
+            messages.error(request, "❌ Seul le Chef de la Scolarité est autorisé à lancer la répartition.")
+        return redirect('tableau_bord:liste_classes_partagee')
+        
+    # Récupérer les filtres
+    filiere_id = request.GET.get('filiere')
+    niveau_id = request.GET.get('niveau')
+    
+    classes = Classe.objects.filter(annee_academique=annee_active, est_active=True)
+    if filiere_id:
+        classes = classes.filter(filiere_id=filiere_id)
+    if niveau_id:
+        classes = classes.filter(niveau_id=niveau_id)
+        
+    classes = classes.order_by('filiere__code', 'niveau__numero', 'nom')
+    
+    # Préparer les données des étudiants pour chaque classe
+    classes_data = []
+    from apps.paiements.services import calculer_penalites_etudiant
+    
+    for classe in classes:
+        etudiants_list = classe.etudiants.all().order_by('nom', 'prenom')
+        etudiants_data = []
+        
+        for etudiant in etudiants_list:
+            etud_info = {
+                'etudiant': etudiant,
+                # Scolarité
+                'statut': etudiant.get_statut_display(),
+                'telephone': etudiant.telephone,
+                'email': etudiant.email,
+                # Études / Anonymat
+                'matricule': etudiant.matricule,
+                'nom_complet': etudiant.get_nom_complet(),
+            }
+            
+            # Pour la comptabilité, on calcule les détails financiers
+            if user_type in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER'] or request.user.is_superuser:
+                recus = etudiant.recuspaiement_set.filter(statut='VALIDE') if hasattr(etudiant, 'recuspaiement_set') else []
+                if not recus and hasattr(etudiant, 'recus_paiements'):
+                    recus = etudiant.recus_paiements.filter(statut='VALIDE')
+                
+                from decimal import Decimal
+                montant_paye = sum(r.montant_mentionne for r in recus)
+                penalites_info = calculer_penalites_etudiant(etudiant)
+                base_scolarite = Decimal('461000.00')  # Valeur fixe standard
+                total_du = base_scolarite + penalites_info['total']
+                reste_payer = max(0, total_du - montant_paye)
+                
+                etud_info.update({
+                    'total_du': total_du,
+                    'montant_paye': montant_paye,
+                    'reste_payer': reste_payer,
+                    'solvable': reste_payer == 0,
+                    'penalite': penalites_info['total']
+                })
+                
+            etudiants_data.append(etud_info)
+            
+        classes_data.append({
+            'classe': classe,
+            'taux_remplissage': int((classe.effectif_actuel / classe.effectif_max) * 100) if classe.effectif_max > 0 else 0,
+            'etudiants_data': etudiants_data
+        })
+        
+    filieres = Filiere.objects.filter(est_active=True)
+    niveaux = Niveau.objects.all()
+    
+    context = {
+        'classes_data': classes_data,
+        'filieres': filieres,
+        'niveaux': niveaux,
+        'filiere_selected': int(filiere_id) if filiere_id else None,
+        'niveau_selected': int(niveau_id) if niveau_id else None,
+        'user_type': user_type,
+        'titre': 'Gestion des Listes de Classes'
+    }
+    
+    return render(request, 'tableau_bord/liste_classes_partagee.html', context)

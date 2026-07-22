@@ -358,6 +358,15 @@
                 </li>
                 
                 {% if user.is_staff %}
+                {% if user.type_utilisateur == 'DIRECTEUR' or user.type_utilisateur == 'ADMIN_SYSTEME' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'authentification:liste_personnel' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-users-cog w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Gestion du Personnel</span>
+                    </a>
+                </li>
+                {% endif %}
                 <li>
                     <a href="/admin/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -482,7 +491,7 @@
             {% if messages %}
             <div class="mb-6 space-y-2">
                 {% for message in messages %}
-                <div class="p-4 rounded-lg transition-all transform hover:scale-[1.01] {% if message.tags == 'success' %}bg-green-50 border-l-4 border-green-500 text-green-700{% elif message.tags == 'error' %}bg-red-50 border-l-4 border-red-500 text-red-700{% elif message.tags == 'warning' %}bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700{% else %}bg-blue-50 border-l-4 border-blue-500 text-blue-700{% endif %} shadow-sm">
+                <div class="django-flash-message p-4 rounded-lg transition-all transform hover:scale-[1.01] {% if message.tags == 'success' %}bg-green-50 border-l-4 border-green-500 text-green-700{% elif message.tags == 'error' %}bg-red-50 border-l-4 border-red-500 text-red-700{% elif message.tags == 'warning' %}bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700{% else %}bg-blue-50 border-l-4 border-blue-500 text-blue-700{% endif %} shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
                             <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-3 text-lg"></i>
@@ -606,13 +615,16 @@
             // Fermer les messages
             document.querySelectorAll('.close-message').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    this.closest('.p-4').style.display = 'none';
+                    const flashMsg = this.closest('.django-flash-message');
+                    if (flashMsg) {
+                        flashMsg.style.display = 'none';
+                    }
                 });
             });
             
             // Auto-fermeture des messages après 5 secondes
             setTimeout(() => {
-                document.querySelectorAll('.bg-green-50, .bg-red-50, .bg-yellow-50, .bg-blue-50').forEach(msg => {
+                document.querySelectorAll('.django-flash-message').forEach(msg => {
                     if (msg.style.display !== 'none') {
                         msg.style.opacity = '0';
                         setTimeout(() => msg.style.display = 'none', 300);

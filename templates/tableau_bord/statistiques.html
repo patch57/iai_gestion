@@ -11,9 +11,6 @@
     .stat-card:hover {
         transform: translateY(-4px);
     }
-    .progress-ring {
-        transition: stroke-dashoffset 0.5s ease;
-    }
 </style>
 {% endblock %}
 
@@ -23,13 +20,22 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Statistiques</h1>
-            <p class="text-gray-500 mt-1">Analyse des données académiques et financières</p>
+            <p class="text-gray-500 mt-1">
+                {% if user_type in 'ETUDIANT,APPRENANT' %}
+                    Vos performances académiques, financières et d'assiduité.
+                {% elif user_type in 'ENSEIGNANT,PROFESSEUR,FORMATEUR' %}
+                    Suivi de vos enseignements, volumes horaires et évaluations.
+                {% elif user_type in 'CHEF_COMPTABILITE,ADMIN_FINANCIER' %}
+                    Analyse de la santé financière et du recouvrement des scolarités.
+                {% else %}
+                    Analyse globale des données académiques, effectifs et remplissage.
+                {% endif %}
+            </p>
         </div>
         <div class="flex space-x-3">
             <select id="annee-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
-                <option value="2024-2025">2024-2025</option>
+                <option value="2024-2025" selected>2024-2025</option>
                 <option value="2023-2024">2023-2024</option>
-                <option value="2022-2023">2022-2023</option>
             </select>
             <a href="{% url 'tableau_bord:exporter_statistiques' %}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                 <i class="fas fa-download mr-2"></i>
@@ -38,13 +44,240 @@
         </div>
     </div>
 
-    <!-- Cartes principales -->
+    <!-- ==================== ETUDIANT / APPRENANT ==================== -->
+    {% if user_type in 'ETUDIANT,APPRENANT' %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card">
+        <!-- Moyenne générale -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Moyenne Générale</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ academique.moyenne_generale|default:"0.0" }}/20</p>
+                    <p class="text-xs text-green-600 mt-1">Sur {{ academique.total_evaluations }} évaluation(s)</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-graduation-cap text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Matières validées -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Matières Validées</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ academique.matieres_validees }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Note supérieure ou égale à 10</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-check-circle text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Taux de présence -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Taux d'Assiduité</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ assiduite.taux_presence }}%</p>
+                    <p class="text-xs text-green-600 mt-1">{{ assiduite.presents }} présence(s) sur {{ assiduite.total }} séance(s)</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user-check text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Reste à payer -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Reste à payer</p>
+                    <p class="text-2xl font-bold text-red-600">{{ financier.reste_payer|floatformat:0 }} FCFA</p>
+                    <p class="text-xs text-gray-500 mt-1">Payé: {{ financier.montant_paye|floatformat:0 }} FCFA ({{ financier.taux_paiement }}%)</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-wallet text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique & Détails notes -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6 lg:col-span-2">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-chart-bar text-green-600 mr-2"></i>
+                Évolution de vos Notes
+            </h3>
+            <canvas id="studentNotesChart" height="150"></canvas>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-history text-yellow-600 mr-2"></i>
+                Détails de Présence
+            </h3>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center pb-2 border-b">
+                    <span class="text-gray-600">Présences</span>
+                    <span class="font-bold text-green-600">{{ assiduite.presents }}</span>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b">
+                    <span class="text-gray-600">Absences</span>
+                    <span class="font-bold text-red-600">{{ assiduite.absents }}</span>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b">
+                    <span class="text-gray-600">Retards</span>
+                    <span class="font-bold text-yellow-600">{{ assiduite.retards }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Excusés</span>
+                    <span class="font-bold text-blue-600">{{ assiduite.excuses }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ENSEIGNANT / PROFESSEUR ==================== -->
+    {% elif user_type in 'ENSEIGNANT,PROFESSEUR,FORMATEUR' %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Cours assignés -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Cours Attribués</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ nb_cours }}</p>
+                    <p class="text-xs text-green-600 mt-1">Cette année académique</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-book text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Étudiants encadrés -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Étudiants Encadrés</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ nb_etudiants }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Inscrits à vos cours</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-users text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Taux de réalisation -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Avancement des cours</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ taux_realisation }}%</p>
+                    <p class="text-xs text-green-600 mt-1">{{ seances_effectuees }} séance(s) effectuée(s) sur {{ seances_total }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-tasks text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Taux de réussite global de ses étudiants -->
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Taux de réussite moyen</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ taux_reussite_enseignant }}%</p>
+                    <p class="text-xs text-gray-500 mt-1">Moyenne de notes : {{ moyenne_notes }}/20</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-chart-line text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique enseignant -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-chalkboard-teacher text-green-600 mr-2"></i>
+            Suivi des Séances de Cours
+        </h3>
+        <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg border border-dashed">
+            <div class="text-center">
+                <i class="fas fa-calendar-check text-green-500 text-4xl mb-2"></i>
+                <p class="text-gray-600 font-medium">Vous avez effectué {{ seances_effectuees }} séance(s) sur {{ seances_total }} programmée(s) cette année.</p>
+                <p class="text-sm text-gray-400 mt-1">Continuez d'enregistrer vos fiches de présence pour mettre à jour vos statistiques.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== COMPTABILITE ==================== -->
+    {% elif user_type in 'CHEF_COMPTABILITE,ADMIN_FINANCIER' %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Recettes Encaissées</p>
+                    <p class="text-2xl font-bold text-green-600">{{ finance_global.total_recettes|floatformat:0 }} FCFA</p>
+                    <p class="text-xs text-green-600 mt-1">Paiements validés</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-hand-holding-usd text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Reste à Recouvrer</p>
+                    <p class="text-2xl font-bold text-red-600">{{ finance_global.reste_recouvrer|floatformat:0 }} FCFA</p>
+                    <p class="text-xs text-gray-500 mt-1">Scolarités restantes</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-file-invoice-dollar text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Taux de Recouvrement</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ finance_global.taux_recouvrement }}%</p>
+                    <p class="text-xs text-green-600 mt-1">Par rapport aux attendus</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-percentage text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Reçus en attente</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ finance_global.recus_attente }}</p>
+                    <p class="text-xs text-yellow-600 mt-1">À valider d'urgence</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recettes mensuelles chart -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-chart-line text-green-600 mr-2"></i>
+            Évolution Mensuelle des Encaissements (FCFA)
+        </h3>
+        <canvas id="monthlyRevenueChart" height="120"></canvas>
+    </div>
+
+    <!-- ==================== SCOLARITE / ADMIN / AUTRES ==================== -->
+    {% else %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500">Total étudiants</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ stats.total_etudiants }}</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ admin_stats.total_etudiants }}</p>
                     <p class="text-xs text-green-600 mt-1">+12% cette année</p>
                 </div>
                 <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -52,35 +285,35 @@
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card">
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500">Taux de réussite</p>
-                    <p class="text-3xl font-bold text-gray-900">78.5%</p>
-                    <p class="text-xs text-green-600 mt-1">+5% vs année dernière</p>
+                    <p class="text-sm text-gray-500">Taux de réussite global</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ admin_stats.taux_reussite_global }}%</p>
+                    <p class="text-xs text-green-600 mt-1">Moyenne des évaluations</p>
                 </div>
                 <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
                     <i class="fas fa-chart-line text-yellow-600 text-xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card">
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500">Recettes totales</p>
-                    <p class="text-3xl font-bold text-green-600">{{ stats.total_recettes|default:"0"|floatformat:0 }} FCFA</p>
-                    <p class="text-xs text-green-600 mt-1">+8% attendu</p>
+                    <p class="text-3xl font-bold text-green-600">{{ total_recettes|default:"0"|floatformat:0 }} FCFA</p>
+                    <p class="text-xs text-green-600 mt-1">Paiements validés</p>
                 </div>
                 <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                     <i class="fas fa-money-bill-wave text-green-600 text-xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card">
+        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500">Taux d'occupation</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ taux_remplissage }}%</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ admin_stats.taux_remplissage }}%</p>
                     <p class="text-xs text-green-600 mt-1">Des classes</p>
                 </div>
                 <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -90,7 +323,7 @@
         </div>
     </div>
 
-    <!-- Graphiques -->
+    <!-- Graphiques Admin -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Évolution des inscriptions -->
         <div class="bg-white rounded-xl shadow-sm p-6">
@@ -125,9 +358,7 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Filière</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effectif</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Validés</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">En attente</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taux réussite</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taux réussite moyen</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -135,8 +366,6 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 font-medium text-gray-900">{{ item.nom }}</td>
                         <td class="px-6 py-4">{{ item.effectif }}</td>
-                        <td class="px-6 py-4 text-green-600">{{ item.validees|default:"0" }}</td>
-                        <td class="px-6 py-4 text-yellow-600">{{ item.en_attente|default:"0" }}</td>
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <span class="mr-2">{{ item.taux_reussite|default:"0" }}%</span>
@@ -151,19 +380,69 @@
             </table>
         </div>
     </div>
+    {% endif %}
 </div>
 
+<!-- Scripts Graphiques Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Évolution des inscriptions
+    {% if user_type in 'ETUDIANT,APPRENANT' %}
+    // Graphique des notes de l'étudiant
+    const studentNotesCtx = document.getElementById('studentNotesChart').getContext('2d');
+    new Chart(studentNotesCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for item in notes_data %}'{{ item.evaluation__titre }}',{% endfor %}],
+            datasets: [{
+                label: 'Note (/20)',
+                data: [{% for item in notes_data %}{{ item.valeur }},{% endfor %}],
+                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                borderColor: '#10B981',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 20
+                }
+            }
+        }
+    });
+
+    {% elif user_type in 'CHEF_COMPTABILITE,ADMIN_FINANCIER' %}
+    // Graphique des recettes mensuelles
+    const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart').getContext('2d');
+    new Chart(monthlyRevenueCtx, {
+        type: 'line',
+        data: {
+            labels: [{% for item in stats_mensuelles %}'{{ item.mois|date:"F Y" }}',{% endfor %}],
+            datasets: [{
+                label: 'Montant encaissé (FCFA)',
+                data: [{% for item in stats_mensuelles %}{{ item.total }},{% endfor %}],
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true
+        }
+    });
+
+    {% else %}
+    // Évolution des inscriptions (Admin / Scolarité)
     const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
     new Chart(evolutionCtx, {
         type: 'line',
         data: {
-            labels: ['2020', '2021', '2022', '2023', '2024'],
+            labels: ['2021-2022', '2022-2023', '2023-2024', '2024-2025'],
             datasets: [{
-                label: 'Inscriptions',
-                data: [120, 145, 178, 210, 245],
+                label: 'Effectifs',
+                data: [180, 210, 235, {{ admin_stats.total_etudiants }}],
                 borderColor: '#10B981',
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 tension: 0.4,
@@ -171,11 +450,7 @@
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { position: 'top' }
-            }
+            responsive: true
         }
     });
 
@@ -197,5 +472,6 @@
             }
         }
     });
+    {% endif %}
 </script>
 {% endblock %}
