@@ -1500,13 +1500,14 @@ def liste_classes_partagee(request):
         messages.error(request, "Accès refusé. Vous n'avez pas l'autorisation d'accéder à ce service.")
         return redirect('tableau_bord:tableau_bord')
         
-    from apps.etudiants.models import Classe, Etudiant, Filiere, Niveau
-    from apps.inscriptions.models import AnneeAcademique
+    from apps.etudiants.models import Classe, Etudiant, Filiere, Niveau, AnneeAcademique as AA_etud
+    from apps.inscriptions.models import AnneeAcademique as AA_insc
     
-    annee_active = AnneeAcademique.get_active() or AnneeAcademique.objects.filter(est_actuelle=True).first()
+    annee_active = AA_etud.get_active() or AA_etud.objects.filter(est_active=True).first()
     if not annee_active:
-        from apps.etudiants.models import AnneeAcademique as AA_etud
-        annee_active = AA_etud.get_active() or AA_etud.objects.filter(est_active=True).first()
+        annee_insc = AA_insc.get_active() or AA_insc.objects.filter(est_actuelle=True).first()
+        if annee_insc:
+            annee_active = AA_etud.objects.filter(code=annee_insc.code).first()
         
     # Gérer la répartition automatique
     if request.method == 'POST' and request.POST.get('action') == 'repartir':
