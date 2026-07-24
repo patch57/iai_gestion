@@ -105,6 +105,9 @@ class SidebarRestrictionTestCase(TestCase):
         self.assertNotIn('href="/etudiants/"', content)
         self.assertNotIn('href="/professeurs/"', content)
         self.assertNotIn('href="/inscriptions/"', content)
+        
+        # Le lien statistiques doit être présent
+        self.assertIn('href="/tableau-de-bord/statistiques/"', content)
 
     def test_sidebar_visible_for_staff(self):
         """Le personnel doit voir les liens d'administration dans la sidebar"""
