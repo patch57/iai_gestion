@@ -89,15 +89,29 @@
 {% block content %}
 <div class="animate-fadeInUp">
     <!-- Header avec bienvenue -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
-            Bienvenue, {{ nom_utilisateur|default:"Administrateur" }} !
-        </h1>
-        <p class="text-gray-600">
-            <i class="fas fa-calendar-alt text-green-600 mr-2"></i>
-            {{ date_aujourdhui|date:"l d F Y" }} | Année académique: 
-            <span class="font-semibold text-yellow-600">{{ annee_academique }}</span>
-        </p>
+    <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                Bienvenue, {{ nom_utilisateur|default:"Administrateur" }} !
+            </h1>
+            <p class="text-gray-600">
+                <i class="fas fa-calendar-alt text-green-600 mr-2"></i>
+                {{ date_aujourdhui|date:"l d F Y" }} | Année académique: 
+                <span class="font-semibold text-yellow-600">{{ annee_academique }}</span>
+            </p>
+        </div>
+        
+        <!-- Contrôle de rafraîchissement automatique en temps réel -->
+        <div class="mt-4 md:mt-0 flex items-center bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100 space-x-3">
+            <span class="relative flex h-3.5 w-3.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-green-500 transition-colors" id="live-indicator"></span>
+            </span>
+            <span class="text-sm font-bold text-gray-700">Mise à jour en temps réel</span>
+            <button id="btn-live-toggle" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-500" role="switch" aria-checked="true">
+                <span id="live-toggle-dot" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+            </button>
+        </div>
     </div>
 
     <!-- Statistics Cards - Style moderne vert et jaune -->
@@ -524,7 +538,56 @@
             }, 100);
         });
         
-        // Actualisation dynamique des stats en temps réel
+        // Gestion de la mise à jour automatique (Live Auto-Refresh)
+        const btnToggle = document.getElementById('btn-live-toggle');
+        const toggleDot = document.getElementById('live-toggle-dot');
+        const liveIndicator = document.getElementById('live-indicator');
+        
+        let autoRefreshInterval = null;
+        let isLiveEnabled = localStorage.getItem('dashboard_live_refresh') !== 'false'; // Par défaut actif
+        
+        function updateToggleUI() {
+            if (isLiveEnabled) {
+                btnToggle.classList.remove('bg-gray-200');
+                btnToggle.classList.add('bg-green-500');
+                toggleDot.classList.remove('translate-x-0');
+                toggleDot.classList.add('translate-x-5');
+                liveIndicator.classList.remove('bg-gray-400');
+                liveIndicator.classList.add('bg-green-500');
+                liveIndicator.previousElementSibling.classList.remove('hidden'); // Ping animation
+                
+                // Démarrer l'auto-refresh (rechargement complet de la page toutes les 20 secondes)
+                if (!autoRefreshInterval) {
+                    autoRefreshInterval = setInterval(() => {
+                        window.location.reload();
+                    }, 20000);
+                }
+            } else {
+                btnToggle.classList.remove('bg-green-500');
+                btnToggle.classList.add('bg-gray-200');
+                toggleDot.classList.remove('translate-x-5');
+                toggleDot.classList.add('translate-x-0');
+                liveIndicator.classList.remove('bg-green-500');
+                liveIndicator.classList.add('bg-gray-400');
+                liveIndicator.previousElementSibling.classList.add('hidden'); // Ping animation
+                
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+        }
+        
+        if (btnToggle) {
+            btnToggle.addEventListener('click', () => {
+                isLiveEnabled = !isLiveEnabled;
+                localStorage.setItem('dashboard_live_refresh', isLiveEnabled);
+                updateToggleUI();
+            });
+            updateToggleUI();
+        }
+        
+        // Actualisation dynamique des stats en temps réel (pour les cartes en plus courte fréquence si pas de rechargement complet)
         function actualiserStatsTempsReel() {
             fetch('/tableau-de-bord/api/statistiques-rapides/')
                 .then(response => response.json())
@@ -576,7 +639,7 @@
                 .catch(err => console.error("Erreur lors du rafraîchissement temps réel :", err));
         }
 
-        // Rafraîchir toutes les 10 secondes pour un temps réel optimal
+        // Rafraîchir toutes les 10 secondes pour les cartes
         setInterval(actualiserStatsTempsReel, 10000);
     });
 </script>

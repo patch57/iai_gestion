@@ -1465,7 +1465,7 @@ def api_statistiques_rapides(request):
 
     data = {
         'total_etudiants': Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).count(),
-        'total_professeurs': 0,
+        'total_professeurs': Professeur.objects.count(),
         'total_filieres': Filiere.objects.filter(est_active=True).count(),
         'taux_remplissage': taux_remplissage,
         'recettes_mois': float(recettes_mois),
