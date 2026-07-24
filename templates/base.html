@@ -262,6 +262,7 @@
                 </li>
                 
                 <!-- Étudiants -->
+                {% if not user.est_etudiant %}
                 <li>
                     <a href="/etudiants/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -269,8 +270,10 @@
                         <span>Étudiants</span>
                     </a>
                 </li>
+                {% endif %}
                 
                 <!-- Professeurs -->
+                {% if not user.est_etudiant %}
                 <li>
                     <a href="/professeurs/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -278,6 +281,7 @@
                         <span>Professeurs</span>
                     </a>
                 </li>
+                {% endif %}
                 
                 <!-- Cours -->
                 <li>
@@ -298,6 +302,7 @@
                 </li>
                 
                 <!-- Inscriptions & Paiements -->
+                {% if not user.est_etudiant %}
                 <li>
                     <a href="/inscriptions/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -305,8 +310,10 @@
                         <span>Inscriptions & Paiements</span>
                     </a>
                 </li>
+                {% endif %}
                 
                 <!-- Statistiques -->
+                {% if not user.est_etudiant %}
                 <li>
                     <a href="/tableau-de-bord/statistiques/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -314,6 +321,7 @@
                         <span>Statistiques</span>
                     </a>
                 </li>
+                {% endif %}
                 
                 <!-- Requêtes -->
                 <li>
