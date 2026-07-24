@@ -87,7 +87,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="animate-fadeInUp">
+<div id="dashboard-container" class="animate-fadeInUp">
     <!-- Header avec bienvenue -->
     <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <div>
@@ -527,120 +527,112 @@
 
 {% block extra_js %}
 <script>
-    // Animation des progress bars
     document.addEventListener('DOMContentLoaded', function() {
-        const progressBars = document.querySelectorAll('.progress-bar');
-        progressBars.forEach(bar => {
-            const width = bar.style.width;
-            bar.style.width = '0';
-            setTimeout(() => {
-                bar.style.width = width;
-            }, 100);
-        });
-        
-        // Gestion de la mise à jour automatique (Live Auto-Refresh)
-        const btnToggle = document.getElementById('btn-live-toggle');
-        const toggleDot = document.getElementById('live-toggle-dot');
-        const liveIndicator = document.getElementById('live-indicator');
-        
         let autoRefreshInterval = null;
         let isLiveEnabled = localStorage.getItem('dashboard_live_refresh') !== 'false'; // Par défaut actif
         
-        function updateToggleUI() {
-            if (isLiveEnabled) {
-                btnToggle.classList.remove('bg-gray-200');
-                btnToggle.classList.add('bg-green-500');
-                toggleDot.classList.remove('translate-x-0');
-                toggleDot.classList.add('translate-x-5');
-                liveIndicator.classList.remove('bg-gray-400');
-                liveIndicator.classList.add('bg-green-500');
-                liveIndicator.previousElementSibling.classList.remove('hidden'); // Ping animation
-                
-                // Démarrer l'auto-refresh (rechargement complet de la page toutes les 20 secondes)
-                if (!autoRefreshInterval) {
-                    autoRefreshInterval = setInterval(() => {
-                        window.location.reload();
-                    }, 20000);
-                }
-            } else {
-                btnToggle.classList.remove('bg-green-500');
-                btnToggle.classList.add('bg-gray-200');
-                toggleDot.classList.remove('translate-x-5');
-                toggleDot.classList.add('translate-x-0');
-                liveIndicator.classList.remove('bg-green-500');
-                liveIndicator.classList.add('bg-gray-400');
-                liveIndicator.previousElementSibling.classList.add('hidden'); // Ping animation
-                
-                if (autoRefreshInterval) {
-                    clearInterval(autoRefreshInterval);
-                    autoRefreshInterval = null;
-                }
-            }
-        }
-        
-        if (btnToggle) {
-            btnToggle.addEventListener('click', () => {
-                isLiveEnabled = !isLiveEnabled;
-                localStorage.setItem('dashboard_live_refresh', isLiveEnabled);
-                updateToggleUI();
+        function animerProgressBars() {
+            const progressBars = document.querySelectorAll('.progress-bar');
+            progressBars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 100);
             });
-            updateToggleUI();
         }
         
-        // Actualisation dynamique des stats en temps réel (pour les cartes en plus courte fréquence si pas de rechargement complet)
-        function actualiserStatsTempsReel() {
-            fetch('/tableau-de-bord/api/statistiques-rapides/')
-                .then(response => response.json())
-                .then(res => {
-                    if (res.success && res.data) {
-                        const data = res.data;
+        function chargerFragmentDashboard() {
+            fetch(window.location.href)
+                .then(response => {
+                    if (!response.ok) throw new Error('Erreur HTTP');
+                    return response.text();
+                })
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newContainer = doc.getElementById('dashboard-container');
+                    const oldContainer = document.getElementById('dashboard-container');
+                    
+                    if (newContainer && oldContainer) {
+                        // Remplacer de façon transparente le contenu
+                        oldContainer.innerHTML = newContainer.innerHTML;
                         
-                        // Mettre à jour les cartes avec une transition fluide de surbrillance
-                        const animerChangement = (elemId, nouvelleValeur) => {
-                            const elem = document.getElementById(elemId);
-                            if (elem && nouvelleValeur !== undefined && elem.textContent.trim() !== String(nouvelleValeur).trim()) {
-                                elem.textContent = nouvelleValeur;
-                                elem.classList.add('scale-110', 'text-yellow-600');
-                                setTimeout(() => {
-                                    elem.classList.remove('scale-110', 'text-yellow-600');
-                                }, 1000);
-                            }
-                        };
-
-                        animerChangement('stat-total-etudiants', data.total_etudiants);
-                        animerChangement('stat-total-professeurs', data.total_professeurs);
-                        animerChangement('stat-total-filieres', data.total_filieres);
-                        
-                        const remplissageElem = document.getElementById('stat-taux-remplissage');
-                        if (remplissageElem && data.taux_remplissage !== undefined) {
-                            const ancienneValeur = remplissageElem.textContent.replace('%', '').trim();
-                            if (ancienneValeur !== String(data.taux_remplissage).trim()) {
-                                remplissageElem.innerHTML = `${data.taux_remplissage}<span class="text-xl">%</span>`;
-                                remplissageElem.classList.add('scale-110', 'text-yellow-600');
-                                setTimeout(() => {
-                                    remplissageElem.classList.remove('scale-110', 'text-yellow-600');
-                                }, 1000);
-                            }
-                        }
-
-                        const recettesElem = document.getElementById('stat-recettes-mois');
-                        if (recettesElem && data.recettes_mois !== undefined) {
-                            const formatedRecettes = new Intl.NumberFormat().format(data.recettes_mois) + ' FCFA';
-                            if (recettesElem.textContent.trim() !== formatedRecettes) {
-                                recettesElem.textContent = formatedRecettes;
-                                recettesElem.classList.add('scale-110', 'text-yellow-600');
-                                setTimeout(() => {
-                                    recettesElem.classList.remove('scale-110', 'text-yellow-600');
-                                }, 1000);
-                            }
-                        }
+                        // Réinitialiser les interactions et re-déclencher les animations
+                        initialiserInteractions();
+                        animerProgressBars();
                     }
                 })
-                .catch(err => console.error("Erreur lors du rafraîchissement temps réel :", err));
+                .catch(err => console.error("Erreur de rafraîchissement silencieux :", err));
         }
 
-        // Rafraîchir toutes les 10 secondes pour les cartes
-        setInterval(actualiserStatsTempsReel, 10000);
+        function initialiserInteractions() {
+            const btnToggle = document.getElementById('btn-live-toggle');
+            const toggleDot = document.getElementById('live-toggle-dot');
+            const liveIndicator = document.getElementById('live-indicator');
+            
+            function updateToggleUI() {
+                if (isLiveEnabled) {
+                    if (btnToggle) {
+                        btnToggle.classList.remove('bg-gray-200');
+                        btnToggle.classList.add('bg-green-500');
+                    }
+                    if (toggleDot) {
+                        toggleDot.classList.remove('translate-x-0');
+                        toggleDot.classList.add('translate-x-5');
+                    }
+                    if (liveIndicator) {
+                        liveIndicator.classList.remove('bg-gray-400');
+                        liveIndicator.classList.add('bg-green-500');
+                        if (liveIndicator.previousElementSibling) {
+                            liveIndicator.previousElementSibling.classList.remove('hidden');
+                        }
+                    }
+                    
+                    // Lancer ou maintenir l'auto-refresh silencieux toutes les 15 secondes
+                    if (!autoRefreshInterval) {
+                        autoRefreshInterval = setInterval(chargerFragmentDashboard, 15000);
+                    }
+                } else {
+                    if (btnToggle) {
+                        btnToggle.classList.remove('bg-green-500');
+                        btnToggle.classList.add('bg-gray-200');
+                    }
+                    if (toggleDot) {
+                        toggleDot.classList.remove('translate-x-5');
+                        toggleDot.classList.add('translate-x-0');
+                    }
+                    if (liveIndicator) {
+                        liveIndicator.classList.remove('bg-green-500');
+                        liveIndicator.classList.add('bg-gray-400');
+                        if (liveIndicator.previousElementSibling) {
+                            liveIndicator.previousElementSibling.classList.add('hidden');
+                        }
+                    }
+                    
+                    if (autoRefreshInterval) {
+                        clearInterval(autoRefreshInterval);
+                        autoRefreshInterval = null;
+                    }
+                }
+            }
+            
+            if (btnToggle) {
+                // Remplacer l'écouteur pour éviter les doublons lors des rechargements partiels
+                const newBtn = btnToggle.cloneNode(true);
+                btnToggle.parentNode.replaceChild(newBtn, btnToggle);
+                newBtn.addEventListener('click', () => {
+                    isLiveEnabled = !isLiveEnabled;
+                    localStorage.setItem('dashboard_live_refresh', isLiveEnabled);
+                    updateToggleUI();
+                });
+            }
+            updateToggleUI();
+        }
+
+        // Premier lancement au chargement initial
+        animerProgressBars();
+        initialiserInteractions();
     });
 </script>
 {% endblock %}
