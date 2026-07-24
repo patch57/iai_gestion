@@ -294,11 +294,15 @@ class RecuPaiement(models.Model):
         
         # Si le reçu est validé, mettre à jour le statut de l'étudiant
         if self.statut == 'VALIDE':
-            if self.tranche.numero == 1:  # Pré-inscription
+            if self.tranche and self.tranche.numero == 1:  # Pré-inscription
                 self.etudiant.recu_preinscription_valide = True
                 if self.etudiant.statut == 'PREINSCRIT':
                     self.etudiant.statut = 'INSCRIT'
                 self.etudiant.save(update_fields=['recu_preinscription_valide', 'statut'])
+                if self.etudiant.utilisateur:
+                    self.etudiant.utilisateur.statut_inscription = 'COMPTE_ACTIF'
+                    self.etudiant.utilisateur.is_active = True
+                    self.etudiant.utilisateur.save(update_fields=['statut_inscription', 'is_active'])
     
     # ========== MÉTHODES MÉTIER ==========
     
