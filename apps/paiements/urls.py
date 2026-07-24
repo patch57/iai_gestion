@@ -51,4 +51,6 @@ urlpatterns = [
     path('api/momo/verifier/', views.verifier_paiement_momo, name='verifier_paiement_momo'),
     path('api/cinetpay/webhook/', views.webhook_cinetpay, name='webhook_cinetpay'),
     path('paiement-succes/', views.paiement_succes, name='paiement_succes'),
+    path('configurer-cinetpay/', views.configurer_cinetpay, name='configurer_cinetpay'),
+    path('configurer-cinetpay/simuler/', views.simuler_webhook_ipn, name='simuler_webhook_ipn'),
 ]

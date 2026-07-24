@@ -1436,3 +1436,191 @@ def exporter_resultats_concours_pdf(request, pk):
     
     doc.build(elements)
     return response
+
+
+from apps.tableau_bord.models import Configuration
+from django.conf import settings as django_settings
+from django.views.decorators.csrf import csrf_exempt
+import requests
+
+@login_required
+def configurer_cinetpay(request):
+    """
+    Configure les paramètres de CinetPay (sauvegardés dans Configuration ou affichés depuis settings)
+    et affiche les transactions en attente de simulation.
+    """
+    user = request.user
+    role = getattr(user, 'type_utilisateur', 'ETUDIANT')
+    
+    # Sécurité: seuls l'admin, le directeur et le chef comptabilité peuvent accéder
+    if role not in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'ADMIN_SYSTEME', 'DIRECTEUR']:
+        messages.error(request, "Accès refusé. Vous n'avez pas les droits nécessaires.")
+        return redirect('tableau_bord:tableau_bord')
+
+    # Si formulaire soumis pour enregistrer les paramètres
+    if request.method == 'POST':
+        api_key = request.POST.get('api_key', '').strip()
+        site_id = request.POST.get('site_id', '').strip()
+        secret_key = request.POST.get('secret_key', '').strip()
+        mode = request.POST.get('mode', 'SANDBOX').strip()
+        base_url = request.POST.get('base_url', '').strip()
+
+        # Sauvegarder dans le modèle Configuration
+        for key, val, desc in [
+            ('CINETPAY_API_KEY', api_key, "Clé API CinetPay"),
+            ('CINETPAY_SITE_ID', site_id, "ID de Site CinetPay"),
+            ('CINETPAY_SECRET_KEY', secret_key, "Clé Secrète CinetPay"),
+            ('CINETPAY_MODE', mode, "Mode d'exécution de CinetPay (SANDBOX/PRODUCTION)"),
+            ('SITE_BASE_URL', base_url, "URL de base de notre site pour les callbacks IPN"),
+        ]:
+            if val:
+                cfg, created = Configuration.objects.get_or_create(cle=key)
+                cfg.valeur = val
+                cfg.description = desc
+                cfg.modifie_par = user
+                cfg.save()
+                
+        # Mettre à jour les variables en mémoire pour la session active du serveur
+        if api_key:
+            django_settings.CINETPAY_API_KEY = api_key
+        if site_id:
+            django_settings.CINETPAY_SITE_ID = site_id
+        if secret_key:
+            django_settings.CINETPAY_SECRET_KEY = secret_key
+        if mode:
+            django_settings.CINETPAY_MODE = mode
+        if base_url:
+            django_settings.SITE_BASE_URL = base_url
+
+        # Mettre à jour les URL dérivées
+        django_settings.CINETPAY_PAYMENT_URL = f'{getattr(django_settings, "CINETPAY_BASE_URL", "https://api-checkout.cinetpay.com")}/v2/payment'
+        django_settings.CINETPAY_CHECK_URL = f'{getattr(django_settings, "CINETPAY_BASE_URL", "https://api-checkout.cinetpay.com")}/v2/payment/check'
+
+        messages.success(request, "Configuration CinetPay mise à jour avec succès (appliquée en mémoire) !")
+        return redirect('paiements:configurer_cinetpay')
+
+    # Charger les configurations depuis la BD, sinon depuis les settings Django
+    def get_config(key, default_val):
+        cfg = Configuration.objects.filter(cle=key).first()
+        return cfg.valeur if cfg else default_val
+
+    config_data = {
+        'api_key': get_config('CINETPAY_API_KEY', getattr(django_settings, 'CINETPAY_API_KEY', '')),
+        'site_id': get_config('CINETPAY_SITE_ID', getattr(django_settings, 'CINETPAY_SITE_ID', '')),
+        'secret_key': get_config('CINETPAY_SECRET_KEY', getattr(django_settings, 'CINETPAY_SECRET_KEY', '')),
+        'mode': get_config('CINETPAY_MODE', getattr(django_settings, 'CINETPAY_MODE', 'SANDBOX')),
+        'base_url': get_config('SITE_BASE_URL', getattr(django_settings, 'SITE_BASE_URL', 'http://127.0.0.1:8000')),
+    }
+
+    # Liste des transactions (ou toutes les transactions récentes pour audit)
+    transactions = TransactionPaiement.objects.select_related('etudiant').order_by('-date_creation')[:20]
+
+    context = {
+        'titre': 'Configuration CinetPay & Simulateur',
+        'config': config_data,
+        'transactions': transactions,
+        'debug_mode': django_settings.DEBUG,
+    }
+    return render(request, 'paiements/recus/configurer_cinetpay.html', context)
+
+
+@csrf_exempt
+@login_required
+def simuler_webhook_ipn(request):
+    """
+    Simule la réception d'un webhook CinetPay IPN (Notification instantanée de paiement)
+    en appelant localement l'endpoint `webhook_cinetpay` avec les paramètres requis.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST requis'}, status=400)
+
+    user = request.user
+    role = getattr(user, 'type_utilisateur', 'ETUDIANT')
+    if role not in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'ADMIN_SYSTEME', 'DIRECTEUR']:
+        return JsonResponse({'status': 'error', 'message': 'Accès refusé'}, status=403)
+
+    import json
+    try:
+        body = json.loads(request.body)
+        transaction_id = body.get('transaction_id')
+    except (json.JSONDecodeError, ValueError):
+        transaction_id = request.POST.get('transaction_id')
+
+    if not transaction_id:
+        return JsonResponse({'status': 'error', 'message': 'ID Transaction manquant'}, status=400)
+
+    try:
+        transaction = TransactionPaiement.objects.get(transaction_id=transaction_id)
+    except TransactionPaiement.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Transaction introuvable'}, status=404)
+
+    # Récupérer l'URL absolue du Webhook CinetPay locale
+    base_url = getattr(django_settings, 'SITE_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
+    webhook_url = base_url + reverse('paiements:webhook_cinetpay')
+
+    # Construire la charge utile simulant l'IPN de CinetPay
+    payload = {
+        'cpm_trans_id': transaction_id,
+        'cpm_site_id': getattr(django_settings, 'CINETPAY_SITE_ID', '445160'),
+        'cpm_amount': str(int(transaction.montant)),
+        'cpm_currency': 'XAF',
+        'cpm_payment_date': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'cpm_payment_time': timezone.now().strftime('%H:%M:%S'),
+        'cpm_error_message': 'SUCCES',
+        'cpm_result': '00', # 00 = paiement réussi pour CinetPay
+        'cpm_trans_status': 'ACCEPTED',
+        'cpm_designation': f"Pénalités - {transaction.etudiant.get_nom_complet()}",
+        'cel_phone_num': '677777777',
+        'cpm_payment_method': 'MOCK_MONEY',
+    }
+
+    # Effectuer un appel HTTP POST vers l'IPN local pour tester la route webhook_cinetpay réelle
+    try:
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        response = requests.post(webhook_url, data=payload, headers=headers, timeout=5)
+        
+        # Si la transaction a réussi après l'appel
+        transaction.refresh_from_db()
+        if transaction.statut == 'SUCCESS':
+            return JsonResponse({
+                'status': 'success',
+                'message': f"Webhook simulé avec succès ! La transaction {transaction_id} a été VALIDÉE et marquée PAYÉE.",
+                'http_status': response.status_code,
+                'response_text': response.text
+            })
+        else:
+            return JsonResponse({
+                'status': 'warning',
+                'message': f"Le webhook a été appelé (HTTP {response.status_code}), mais le statut de la transaction est '{transaction.statut}'.",
+                'response_text': response.text
+            })
+    except requests.exceptions.RequestException as e:
+        # Fallback si le serveur local ne peut pas s'auto-appeler (ex: serveur mono-thread bloqué par la requête en cours)
+        # On exécute la logique de webhook directement en interne Python
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        # Création d'une requête POST factice
+        fake_request = factory.post(reverse('paiements:webhook_cinetpay'), data=payload)
+        
+        # Appel direct de la vue webhook_cinetpay
+        try:
+            from .views import webhook_cinetpay
+            resp = webhook_cinetpay(fake_request)
+            transaction.refresh_from_db()
+            if transaction.statut == 'SUCCESS':
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f"Simulation interne (fallback Python) réussie ! La transaction {transaction_id} a été VALIDÉE et marquée PAYÉE.",
+                    'response_text': resp.content.decode('utf-8')
+                })
+            else:
+                return JsonResponse({
+                    'status': 'warning',
+                    'message': f"Simulation interne effectuée, mais le statut de la transaction est '{transaction.statut}'.",
+                    'response_text': resp.content.decode('utf-8')
+                })
+        except Exception as ex:
+            return JsonResponse({
+                'status': 'error',
+                'message': f"Erreur de simulation interne : {str(ex)}"
+            }, status=500)

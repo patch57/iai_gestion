@@ -675,6 +675,7 @@ class DemandeInscription(models.Model):
     
     # Champs étudiants
     filiere_souhaitee = models.CharField(max_length=2, blank=True, null=True)
+    niveau_souhaite = models.IntegerField(default=1, verbose_name="Niveau souhaité")
     type_baccalaureat = models.CharField(max_length=10, blank=True, null=True)
     annee_obtention_bac = models.IntegerField(blank=True, null=True)
     

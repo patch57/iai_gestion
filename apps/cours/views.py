@@ -229,9 +229,30 @@ def emploi_du_temps(request):
     
     emplois = EmploiDuTemps.objects.filter(
         annee_academique=annee
-    ).select_related('filiere')
+    ).select_related('filiere', 'niveau', 'salle')
     
-    if filiere_id:
+    role = getattr(request.user, 'type_utilisateur', 'ETUDIANT')
+    if role == 'ETUDIANT':
+        from apps.etudiants.models import Etudiant
+        etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
+        if etudiant:
+            # Recherche de la salle physique correspondant à la classe de l'étudiant
+            matching_salle = find_matching_salle(etudiant.classe)
+            # 1. Essayer d'abord niveau et salle exacts
+            emplois_exact = emplois.filter(filiere=etudiant.filiere, niveau=etudiant.niveau, salle=matching_salle)
+            if emplois_exact.exists():
+                emplois = emplois_exact
+            else:
+                # 2. Sinon niveau exact sans salle
+                emplois_niveau = emplois.filter(filiere=etudiant.filiere, niveau=etudiant.niveau, salle__isnull=True)
+                if emplois_niveau.exists():
+                    emplois = emplois_niveau
+                else:
+                    # 3. Sinon filière générale
+                    emplois = emplois.filter(filiere=etudiant.filiere, niveau__isnull=True, salle__isnull=True)
+        else:
+            emplois = emplois.none()
+    elif filiere_id:
         emplois = emplois.filter(filiere_id=filiere_id)
     
     filieres = Filiere.objects.filter(est_active=True)
@@ -322,13 +343,24 @@ def emploi_du_temps_officiel(request):
     if role not in ['CHEF_ETUDES', 'ADMIN_SYSTEME', 'DIRECTEUR']:
         queryset = queryset.filter(statut='VALIDE')
         
+    if role == 'ETUDIANT':
+        from apps.etudiants.models import Etudiant
+        etudiant = Etudiant.objects.filter(utilisateur=user).first()
+        if etudiant:
+            queryset = queryset.filter(filiere=etudiant.filiere)
+            if etudiant.niveau:
+                niveau_code = f"LEVEL_{etudiant.niveau.numero}"
+                queryset = queryset.filter(niveau=niveau_code)
+        else:
+            queryset = queryset.none()
+            
     filiere_id = request.GET.get('filiere')
     niveau = request.GET.get('niveau')
     statut = request.GET.get('statut')
     
-    if filiere_id:
+    if filiere_id and role != 'ETUDIANT':
         queryset = queryset.filter(filiere_id=filiere_id)
-    if niveau:
+    if niveau and role != 'ETUDIANT':
         queryset = queryset.filter(niveau=niveau)
     if statut and role in ['CHEF_ETUDES', 'ADMIN_SYSTEME', 'DIRECTEUR']:
         queryset = queryset.filter(statut=statut)
@@ -536,4 +568,44 @@ def imprimer_emploi_du_temps_officiel(request, pk):
         'titre': f"Emploi du temps - {emploi.titre_semaine}"
     }
     return render(request, 'cours/emploi_du_temps_officiel.html', context)
+
+
+def find_matching_salle(classe):
+    """
+    Associe de manière robuste une classe académique d'un étudiant (ex: 'Génie Logiciel 1A')
+    à une salle de cours physique (ex: code='GL1A', nom='Génie Logiciel 1A') créée par le directeur.
+    """
+    if not classe:
+        return None
+    from apps.cours.models import Salle
+    
+    # 1. Match exact par nom (insensible à la casse)
+    salle = Salle.objects.filter(nom__iexact=classe.nom).first()
+    if salle:
+        return salle
+        
+    # 2. Match partiel par nom
+    salle = Salle.objects.filter(nom__icontains=classe.nom).first()
+    if salle:
+        return salle
+        
+    # 3. Remplacement & commercial
+    salle = Salle.objects.filter(nom__icontains=classe.nom.replace('et', '&')).first()
+    if salle:
+        return salle
+        
+    # 4. Match par code (Génie Logiciel 1A -> GL1A)
+    words = classe.nom.split()
+    initials = "".join([w[0].upper() for w in words if w.lower() not in ['et', '&', 'de', 'la', 'les', 'des']])
+    salle = Salle.objects.filter(code__iexact=initials).first()
+    if salle:
+        return salle
+        
+    # 5. Recherche du code dans le nom complet de la classe
+    for s in Salle.objects.all():
+        if s.code.upper() in "".join(words).upper():
+            return s
+            
+    return None
+
 

@@ -159,11 +159,16 @@ def inscription(request):
         # Validation spécifique pour les étudiants
         if type_utilisateur == 'ETUDIANT' and not errors:
             filiere = request.POST.get('filiere')
+            niveau = request.POST.get('niveau', '1')
             type_bac = request.POST.get('type_bac')
             annee_bac = request.POST.get('annee_bac')
             
             if not filiere:
                 errors.append("La filière souhaitée est obligatoire.")
+            if not niveau:
+                errors.append("Le niveau d'études est obligatoire.")
+            elif niveau not in ['1', '2']:
+                errors.append("Le niveau d'études doit être 1 ou 2.")
             if not type_bac:
                 errors.append("Le type de baccalauréat est obligatoire.")
             if annee_bac:
@@ -281,6 +286,7 @@ L'équipe administrative IAI-Cameroun
                     document=document,
                     type_document='RECU_BANCAIRE' if type_utilisateur == 'ETUDIANT' else 'NOTE_SERVICE',
                     filiere_souhaitee=request.POST.get('filiere') if type_utilisateur == 'ETUDIANT' else None,
+                    niveau_souhaite=int(request.POST.get('niveau', '1')) if type_utilisateur == 'ETUDIANT' else 1,
                     type_baccalaureat=request.POST.get('type_bac') if type_utilisateur == 'ETUDIANT' else None,
                     annee_obtention_bac=request.POST.get('annee_bac') if type_utilisateur == 'ETUDIANT' else None,
                     fonction=request.POST.get('fonction', '') if type_utilisateur != 'ETUDIANT' else "",

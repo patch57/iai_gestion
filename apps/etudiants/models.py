@@ -208,7 +208,36 @@ class Classe(models.Model):
         Répartit automatiquement tous les étudiants inscrits/actifs de l'année académique
         dans les différentes classes disponibles par filière et niveau, en respectant la capacité.
         """
-        from apps.etudiants.models import Etudiant
+        from apps.etudiants.models import Etudiant, Filiere, Niveau
+        from apps.cours.models import Salle
+        
+        # 1. Synchroniser automatiquement les Salles créées par le directeur vers des Classes académiques
+        for salle in Salle.objects.all():
+            # Déterminer la filière
+            filiere = None
+            if "GL" in salle.code.upper() or "GENIE" in salle.nom.upper():
+                filiere = Filiere.objects.filter(code="GL").first()
+            elif "SR" in salle.code.upper() or "SYSTEME" in salle.nom.upper():
+                filiere = Filiere.objects.filter(code="SR").first()
+                
+            # Déterminer le niveau
+            niveau_num = 1
+            for n in [1, 2]:
+                if str(n) in salle.code or str(n) in salle.nom:
+                    niveau_num = n
+            niveau = Niveau.objects.filter(numero=niveau_num).first()
+            
+            if filiere and niveau:
+                cls.objects.get_or_create(
+                    nom=salle.nom,
+                    annee_academique=annee_academique,
+                    defaults={
+                        'filiere': filiere,
+                        'niveau': niveau,
+                        'effectif_max': salle.capacite,
+                        'est_active': True
+                    }
+                )
         
         # Récupérer toutes les classes actives de cette année académique
         classes_dispos = cls.objects.filter(annee_academique=annee_academique, est_active=True).order_by('id')

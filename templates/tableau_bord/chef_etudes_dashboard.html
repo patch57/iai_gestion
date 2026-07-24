@@ -33,9 +33,27 @@
                     {% csrf_token %}
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner la Filière</label>
-                        <select name="filiere_id" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                        <select name="filiere_id" id="select-filiere" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
                             {% for filiere in filieres %}
-                            <option value="{{ filiere.id }}">{{ filiere.nom }}</option>
+                            <option value="{{ filiere.id }}" data-code="{{ filiere.code }}">{{ filiere.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner le Niveau</label>
+                        <select name="niveau_id" id="select-niveau" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                            <option value="">-- Optionnel (Tous les niveaux) --</option>
+                            {% for niveau in niveaux %}
+                            <option value="{{ niveau.id }}" data-numero="{{ niveau.numero }}">Niveau {{ niveau.numero }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner la Salle (Classe)</label>
+                        <select name="salle_id" id="select-salle" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                            <option value="">-- Optionnel (Toute la filière/niveau) --</option>
+                            {% for salle in salles %}
+                            <option value="{{ salle.id }}" data-code="{{ salle.code }}" data-nom="{{ salle.nom }}">{{ salle.nom }} ({{ salle.code }})</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -48,6 +66,45 @@
                     </button>
                 </form>
                 {% endif %}
+            </div>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    const filiereSelect = document.getElementById("select-filiere");
+                    const niveauSelect = document.getElementById("select-niveau");
+                    const salleSelect = document.getElementById("select-salle");
+                    const allSalleOptions = Array.from(salleSelect.options).slice(1);
+
+                    function filterSalles() {
+                        const selectedFiliereOpt = filiereSelect.options[filiereSelect.selectedIndex];
+                        const selectedNiveauOpt = niveauSelect.options[niveauSelect.selectedIndex];
+                        
+                        const filiereCode = selectedFiliereOpt ? selectedFiliereOpt.dataset.code : '';
+                        const niveauNum = selectedNiveauOpt ? selectedNiveauOpt.dataset.numero : '';
+
+                        salleSelect.innerHTML = '<option value="">-- Optionnel (Toute la filière/niveau) --</option>';
+
+                        const filteredOptions = allSalleOptions.filter(opt => {
+                            const codeUpper = opt.dataset.code.toUpperCase();
+                            const nomUpper = opt.dataset.nom.toUpperCase();
+                            
+                            const matchFiliere = !filiereCode || codeUpper.includes(filiereCode.toUpperCase()) || nomUpper.includes(filiereCode.toUpperCase());
+                            const matchNiveau = !niveauNum || codeUpper.includes(niveauNum) || nomUpper.includes(niveauNum);
+                            
+                            return matchFiliere && matchNiveau;
+                        });
+
+                        filteredOptions.forEach(opt => {
+                            salleSelect.appendChild(opt.cloneNode(true));
+                        });
+                    }
+
+                    filiereSelect.addEventListener("change", filterSalles);
+                    niveauSelect.addEventListener("change", filterSalles);
+                    
+                    filterSalles();
+                });
+            </script>
             </div>
 
             <!-- Notes d'information -->

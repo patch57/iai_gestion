@@ -373,6 +373,15 @@
                     </a>
                 </li>
                 {% endif %}
+                {% if user.type_utilisateur == 'DIRECTEUR' or user.type_utilisateur == 'ADMIN_SYSTEME' or user.type_utilisateur == 'CHEF_COMPTABILITE' or user.type_utilisateur == 'ADMIN_FINANCIER' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'paiements:configurer_cinetpay' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-sliders-h w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Configuration CinetPay</span>
+                    </a>
+                </li>
+                {% endif %}
                 <li>
                     <a href="/admin/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">

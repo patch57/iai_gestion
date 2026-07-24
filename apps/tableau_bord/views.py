@@ -74,8 +74,27 @@ def tableau_bord(request):
 def etudiant_dashboard(request):
     etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
     if not etudiant:
-        filiere_default = Filiere.objects.first()
+        from apps.authentification.models import DemandeInscription
+        from apps.etudiants.models import Niveau, Classe
+        
+        # Récupérer la demande d'inscription de l'utilisateur pour connaître la filière et le niveau souhaités
+        demande = DemandeInscription.objects.filter(user=request.user).first()
+        
+        filiere_code = 'GL'
+        niveau_num = 1
+        if demande:
+            filiere_code = demande.filiere_souhaitee or 'GL'
+            niveau_num = demande.niveau_souhaite or 1
+        else:
+            # Fallback sur le matricule
+            if request.user.matricule:
+                if request.user.matricule.startswith('SR'):
+                    filiere_code = 'SR'
+                    
+        filiere = Filiere.objects.filter(code=filiere_code).first() or Filiere.objects.first()
+        niveau = Niveau.objects.filter(numero=niveau_num).first() or Niveau.objects.first()
         annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+        
         etudiant = Etudiant.objects.create(
             utilisateur=request.user,
             nom=request.user.last_name or 'Etudiant',
@@ -85,10 +104,14 @@ def etudiant_dashboard(request):
             date_naissance=timezone.now().date() - timedelta(days=7300),
             lieu_naissance='Douala',
             sexe='M',
-            filiere=filiere_default,
+            filiere=filiere,
+            niveau=niveau,
             annee_academique=annee_active,
             matricule=request.user.matricule or 'GL.CMR.D014.2425A'
         )
+        # Lancer immédiatement la répartition pour affecter cet étudiant à sa classe/salle
+        Classe.repartir_etudiants(annee_active)
+        etudiant.refresh_from_db()
 
     from decimal import Decimal
     # Scolarité de base fixée à 461 000 FCFA (Tarif Niveau 2 complet)
@@ -193,7 +216,17 @@ def etudiant_dashboard(request):
     total_du = base_scolarite + penalites_info['total']
     reste_payer = max(0, total_du - montant_paye)
     
-    emploi = EmploiDuTemps.objects.filter(filiere=etudiant.filiere, est_actif=True).first()
+    from apps.cours.views import find_matching_salle
+    matching_salle = find_matching_salle(etudiant.classe)
+    
+    emploi_query = EmploiDuTemps.objects.filter(filiere=etudiant.filiere, est_actif=True)
+    emploi = None
+    if etudiant.niveau and matching_salle:
+        emploi = emploi_query.filter(niveau=etudiant.niveau, salle=matching_salle).first()
+    if not emploi and etudiant.niveau:
+        emploi = emploi_query.filter(niveau=etudiant.niveau, salle__isnull=True).first()
+    if not emploi:
+        emploi = emploi_query.filter(niveau__isnull=True, salle__isnull=True).first()
     ressources = RessourceCours.objects.filter(cours__filiere=etudiant.filiere)
     absences = Presence.objects.filter(etudiant=etudiant, statut__in=['ABSENT', 'RETARD'])
     notes = Note.objects.filter(etudiant=etudiant, est_validee=True)
@@ -382,11 +415,27 @@ def chef_scolarite_dashboard(request):
 @login_required
 def chef_etudes_dashboard(request):
     from apps.inscriptions.utils import get_current_academic_year_code
+    from apps.etudiants.models import Niveau
+    from apps.cours.models import Salle
     if request.method == 'POST' and request.FILES.get('emploi_fichier'):
         filiere_id = request.POST.get('filiere_id')
+        niveau_id = request.POST.get('niveau_id')
+        salle_id = request.POST.get('salle_id')
+        
         filiere = get_object_or_404(Filiere, id=filiere_id)
+        
+        niveau = None
+        if niveau_id:
+            niveau = get_object_or_404(Niveau, id=niveau_id)
+            
+        salle = None
+        if salle_id:
+            salle = get_object_or_404(Salle, id=salle_id)
+            
         EmploiDuTemps.objects.create(
             filiere=filiere,
+            niveau=niveau,
+            salle=salle,
             annee_academique=get_current_academic_year_code(),
             semestre=1,
             fichier_pdf=request.FILES.get('emploi_fichier'),
@@ -397,10 +446,14 @@ def chef_etudes_dashboard(request):
         return redirect('tableau_bord:tableau_bord')
         
     filieres = Filiere.objects.all()
-    emplois = EmploiDuTemps.objects.all()
+    niveaux = Niveau.objects.all()
+    salles = Salle.objects.all()
+    emplois = EmploiDuTemps.objects.select_related('filiere', 'niveau', 'salle').all()
     
     context = {
         'filieres': filieres,
+        'niveaux': niveaux,
+        'salles': salles,
         'emplois': emplois,
         'titre': 'Espace Chef des Études'
     }
@@ -1522,20 +1575,66 @@ def liste_classes_partagee(request):
     filiere_id = request.GET.get('filiere')
     niveau_id = request.GET.get('niveau')
     
-    classes = Classe.objects.filter(annee_academique=annee_active, est_active=True)
-    if filiere_id:
-        classes = classes.filter(filiere_id=filiere_id)
-    if niveau_id:
-        classes = classes.filter(niveau_id=niveau_id)
-        
-    classes = classes.order_by('filiere__code', 'niveau__numero', 'nom')
+    from apps.cours.models import Salle
+    from apps.cours.views import find_matching_salle
     
-    # Préparer les données des étudiants pour chaque classe
+    salles_qs = Salle.objects.all().order_by('code')
+    salles = list(salles_qs)
+    
+    # Filtrer les salles par filière et niveau si sélectionnés
+    if filiere_id:
+        filiere_obj = Filiere.objects.filter(id=filiere_id).first()
+        if filiere_obj:
+            salles = [s for s in salles if filiere_obj.code.upper() in s.code.upper() or filiere_obj.nom.upper() in s.nom.upper()]
+    if niveau_id:
+        niveau_obj = Niveau.objects.filter(id=niveau_id).first()
+        if niveau_obj:
+            salles = [s for s in salles if str(niveau_obj.numero) in s.code or str(niveau_obj.numero) in s.nom]
+            
+    # Préparer les données des étudiants pour chaque classe (salle)
     classes_data = []
     from apps.paiements.services import calculer_penalites_etudiant
+    from decimal import Decimal
     
-    for classe in classes:
-        etudiants_list = classe.etudiants.all().order_by('nom', 'prenom')
+    class SimulatedClasse:
+        def __init__(self, id, nom, filiere_nom, filiere_code, niveau_num, annee_code, effectif_actuel, effectif_max):
+            self.id = id
+            self.nom = nom
+            self._filiere_nom = filiere_nom
+            self._filiere_code = filiere_code
+            self._niveau_num = niveau_num
+            self._annee_code = annee_code
+            self.effectif_actuel = effectif_actuel
+            self.effectif_max = effectif_max
+        @property
+        def filiere(self):
+            class SimulatedFiliere:
+                def __init__(self, nom, code):
+                    self.nom = nom
+                    self.code = code
+            return SimulatedFiliere(self._filiere_nom, self._filiere_code)
+        @property
+        def niveau(self):
+            class SimulatedNiveau:
+                def __init__(self, numero):
+                    self.numero = numero
+            return SimulatedNiveau(self._niveau_num)
+        @property
+        def annee_academique(self):
+            class SimulatedAnnee:
+                def __init__(self, code):
+                    self.code = code
+            return SimulatedAnnee(self._annee_code)
+            
+    for salle in salles:
+        # Trouver toutes les classes qui correspondent à cette salle
+        matching_classes = []
+        for c in Classe.objects.filter(annee_academique=annee_active):
+            if find_matching_salle(c) == salle:
+                matching_classes.append(c)
+                
+        # Rassembler les étudiants de ces classes
+        etudiants_list = Etudiant.objects.filter(classe__in=matching_classes).order_by('nom', 'prenom')
         etudiants_data = []
         
         for etudiant in etudiants_list:
@@ -1556,7 +1655,6 @@ def liste_classes_partagee(request):
                 if not recus and hasattr(etudiant, 'recus_paiements'):
                     recus = etudiant.recus_paiements.filter(statut='VALIDE')
                 
-                from decimal import Decimal
                 montant_paye = sum(r.montant_mentionne for r in recus)
                 penalites_info = calculer_penalites_etudiant(etudiant)
                 base_scolarite = Decimal('461000.00')  # Valeur fixe standard
@@ -1573,9 +1671,42 @@ def liste_classes_partagee(request):
                 
             etudiants_data.append(etud_info)
             
+        effectif_actuel = len(etudiants_list)
+        effectif_max = salle.capacite
+        taux_remplissage = int((effectif_actuel / effectif_max) * 100) if effectif_max > 0 else 0
+        
+        # Déterminer la filière, niveau et année académique
+        salle_filiere_nom = "Génie Logiciel"
+        salle_filiere_code = "GL"
+        salle_niveau_num = 1
+        salle_annee_code = annee_active.code if annee_active else "2026-2027"
+        
+        if matching_classes:
+            salle_filiere_nom = matching_classes[0].filiere.nom
+            salle_filiere_code = matching_classes[0].filiere.code
+            salle_niveau_num = matching_classes[0].niveau.numero
+        else:
+            if "SR" in salle.code.upper() or "SYSTEME" in salle.nom.upper():
+                salle_filiere_nom = "Systèmes et Réseaux"
+                salle_filiere_code = "SR"
+            for n in [1, 2]:
+                if str(n) in salle.code or str(n) in salle.nom:
+                    salle_niveau_num = n
+                    
+        sim_classe = SimulatedClasse(
+            id=salle.id,
+            nom=salle.nom,
+            filiere_nom=salle_filiere_nom,
+            filiere_code=salle_filiere_code,
+            niveau_num=salle_niveau_num,
+            annee_code=salle_annee_code,
+            effectif_actuel=effectif_actuel,
+            effectif_max=effectif_max
+        )
+        
         classes_data.append({
-            'classe': classe,
-            'taux_remplissage': int((classe.effectif_actuel / classe.effectif_max) * 100) if classe.effectif_max > 0 else 0,
+            'classe': sim_classe,
+            'taux_remplissage': taux_remplissage,
             'etudiants_data': etudiants_data
         })
         

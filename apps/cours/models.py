@@ -249,8 +249,10 @@ class RessourceCours(models.Model):
 
 
 class EmploiDuTemps(models.Model):
-    """Emplois du temps par filière"""
+    """Emplois du temps par filière, niveau et salle (qui joue le rôle de classe)"""
     filiere = models.ForeignKey('etudiants.Filiere', on_delete=models.CASCADE, related_name='emplois_du_temps')
+    niveau = models.ForeignKey('etudiants.Niveau', on_delete=models.CASCADE, related_name='emplois_du_temps', null=True, blank=True)
+    salle = models.ForeignKey('cours.Salle', on_delete=models.CASCADE, related_name='emplois_pdf', null=True, blank=True)
     annee_academique = models.CharField(max_length=9, default='2024-2025')
     semestre = models.PositiveIntegerField(default=1)
     fichier_pdf = models.FileField(upload_to='emplois_du_temps/', blank=True, null=True)
@@ -263,11 +265,11 @@ class EmploiDuTemps(models.Model):
         app_label = 'cours'
         verbose_name = "Emploi du Temps"
         verbose_name_plural = "Emplois du Temps"
-        unique_together = ['filiere', 'annee_academique', 'semestre']
+        unique_together = ['filiere', 'niveau', 'salle', 'annee_academique', 'semestre']
         ordering = ['-annee_academique', 'filiere']
     
     def __str__(self):
-        return f"Emploi du temps - {self.filiere} - {self.annee_academique}"
+        return f"Emploi du temps - {self.filiere} - {self.niveau} - {self.salle} ({self.annee_academique})"
 
 
 class SupportPedagogiqueApprenant(models.Model):

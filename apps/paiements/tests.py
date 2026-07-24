@@ -312,6 +312,122 @@ class ProfilObligatoireTeleversementTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+from apps.paiements.models import TransactionPaiement
+from apps.tableau_bord.models import Configuration
+
+class CinetPayConfigurationSimulatorTestCase(TestCase):
+    def setUp(self):
+        # Création d'utilisateurs avec différents rôles
+        self.comptable = Utilisateur.objects.create_user(
+            username='comptable@test.com',
+            email='comptable@test.com',
+            password='password123',
+            type_utilisateur='CHEF_COMPTABILITE'
+        )
+        self.etudiant_user = Utilisateur.objects.create_user(
+            username='etudiant@test.com',
+            email='etudiant@test.com',
+            password='password123',
+            type_utilisateur='ETUDIANT',
+            matricule='GL.CMR.D014.2324A'
+        )
+        
+        self.filiere = Filiere.objects.create(code='GL', nom='Génie Logiciel')
+        self.annee = AnneeAcademique.objects.create(
+            code='2024-2025',
+            date_debut=date(2024, 9, 1),
+            date_fin=date(2025, 8, 31),
+            est_active=True
+        )
+        self.etudiant = Etudiant.objects.create(
+            utilisateur=self.etudiant_user,
+            nom='Etudiant',
+            prenom='Test',
+            email='etudiant@test.com',
+            sexe='M',
+            telephone='699999999',
+            adresse='Douala',
+            date_naissance=date(2003, 1, 1),
+            lieu_naissance='Douala',
+            filiere=self.filiere,
+            annee_academique=self.annee,
+            matricule='GL.CMR.D014.2324A'
+        )
+        
+        # Créer une transaction de test en suspens (PENDING)
+        self.transaction = TransactionPaiement.objects.create(
+            etudiant=self.etudiant,
+            transaction_id='IAI-20260724-TEST01',
+            montant=3000,
+            type_paiement='PENALITE',
+            statut='PENDING'
+        )
+        
+        self.client = Client()
+
+    def test_configurer_cinetpay_restricted_for_student(self):
+        """Vérifie qu'un étudiant ne peut pas accéder à la configuration CinetPay"""
+        self.client.login(username='etudiant@test.com', password='password123')
+        response = self.client.get(reverse('paiements:configurer_cinetpay'))
+        # Redirection vers le dashboard
+        self.assertEqual(response.status_code, 302)
+
+    def test_configurer_cinetpay_accessible_to_comptable(self):
+        """Vérifie que le chef comptabilité a accès à la page de configuration"""
+        self.client.login(username='comptable@test.com', password='password123')
+        response = self.client.get(reverse('paiements:configurer_cinetpay'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'paiements/recus/configurer_cinetpay.html')
+
+    def test_enregistrer_configuration_cinetpay(self):
+        """Vérifie que la soumission du formulaire enregistre la configuration et met à jour settings"""
+        self.client.login(username='comptable@test.com', password='password123')
+        
+        post_data = {
+            'mode': 'SANDBOX',
+            'api_key': 'nouvelle_cle_api_test',
+            'site_id': '999999',
+            'secret_key': 'nouvelle_cle_secrete_test',
+            'base_url': 'http://testserver'
+        }
+        
+        response = self.client.post(reverse('paiements:configurer_cinetpay'), post_data)
+        self.assertEqual(response.status_code, 302) # Redirection après succès
+        
+        # Vérifier en BD
+        self.assertEqual(Configuration.objects.get(cle='CINETPAY_API_KEY').valeur, 'nouvelle_cle_api_test')
+        self.assertEqual(Configuration.objects.get(cle='CINETPAY_SITE_ID').valeur, '999999')
+        
+        # Vérifier en mémoire settings
+        from django.conf import settings as django_settings
+        self.assertEqual(django_settings.CINETPAY_API_KEY, 'nouvelle_cle_api_test')
+        self.assertEqual(django_settings.CINETPAY_SITE_ID, '999999')
+
+    def test_simuler_webhook_ipn_success(self):
+        """Vérifie le fonctionnement du simulateur de webhook pour valider une transaction"""
+        self.client.login(username='comptable@test.com', password='password123')
+        
+        # S'assurer que le mode SANDBOX est actif pour le test de simulation
+        from django.conf import settings as django_settings
+        django_settings.CINETPAY_MODE = 'SANDBOX'
+        
+        # Appeler le simulateur
+        response = self.client.post(
+            reverse('paiements:simuler_webhook_ipn'),
+            data={'transaction_id': self.transaction.transaction_id}
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        resp_data = response.json()
+        self.assertEqual(resp_data['status'], 'success')
+        self.assertIn("La transaction IAI-20260724-TEST01 a été VALIDÉE", resp_data['message'])
+        
+        # Rafraîchir la transaction en BD
+        self.transaction.refresh_from_db()
+        self.assertEqual(self.transaction.statut, 'SUCCESS')
+
+
+
 
 
 
