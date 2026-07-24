@@ -165,6 +165,13 @@ iai_gestion/
 - Tâches à effectuer
 - Messagerie interne
 
+### Passerelle de Paiement CinetPay & Simulateur IPN
+
+Le système intègre la passerelle **CinetPay** pour la gestion automatisée des paiements par Mobile Money (MTN MoMo, Orange Money, etc.) :
+* **Configuration en ligne** : Les administrateurs peuvent configurer l'API Key, le Site ID, la clé secrète, le mode (SANDBOX / PRODUCTION) et l'URL de base directement depuis l'interface à l'adresse `/paiements/configurer-cinetpay/`.
+* **Simulateur IPN intégré** : Un outil de simulation locale permet d'envoyer de faux signaux IPN CinetPay pour valider et régler automatiquement les pénalités et les scolarités en attente. Cet outil facilite les tests locaux sans nécessiter de tunnel HTTPS public (comme Ngrok).
+* **Double validation** : Chaque callback IPN vérifie son authenticité en interrogeant directement l'API CinetPay avant toute modification du statut de transaction en base.
+
 ## Rôles et Permissions
 
 ### Administrateur
