@@ -4,55 +4,184 @@
 {% block title %}Modifier le Profil - IAI-Cameroun{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-8 animate-fadeInUp">
-    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+    
+    <!-- Alerte si le compte est incomplet -->
+    {% if compte_incomplet %}
+    <div class="mb-8 p-5 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 rounded-2xl flex items-start gap-4 shadow-sm animate-shake">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+            <i class="fas fa-exclamation-triangle text-lg"></i>
+        </div>
+        <div>
+            <h4 class="font-extrabold text-amber-950 text-sm">Profil Académique Incomplet</h4>
+            <p class="text-xs text-amber-800 mt-1 leading-relaxed">
+                Avant de pouvoir téléverser votre premier **reçu d'inscription (ou pré-inscription)**, le règlement de l'établissement exige que vos informations personnelles, coordonnées et données de tuteur soient intégralement renseignées et valides.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+    <div class="mb-6 space-y-3">
+        {% for message in messages %}
+        <div class="p-4 rounded-2xl text-xs md:text-sm font-semibold flex items-center gap-3 shadow-sm 
+            {% if message.tags == 'error' %}bg-rose-50 border border-rose-200 text-rose-700{% else %}bg-emerald-50 border border-emerald-200 text-emerald-800{% endif %}">
+            <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle text-rose-500{% else %}fa-check-circle text-emerald-500{% endif %} text-lg"></i>
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-xl border border-gray-100/80 overflow-hidden">
         <!-- Header -->
-        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
-            <div>
-                <h1 class="text-lg font-bold"><i class="fas fa-user-edit mr-2 text-yellow-400"></i>Modifier mes informations</h1>
-                <p class="text-xs text-green-100 mt-1">Mettre à jour vos coordonnées personnelles</p>
+        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 md:p-8 text-white flex justify-between items-center relative overflow-hidden">
+            <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="z-10">
+                <h1 class="text-xl md:text-2xl font-black tracking-tight flex items-center">
+                    <span class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center mr-3 shadow-inner">
+                        <i class="fas fa-user-edit text-green-200"></i>
+                    </span>
+                    Mettre à jour mes informations
+                </h1>
+                <p class="text-xs text-green-100 mt-1">Gérez vos informations personnelles et de contact pour votre dossier universitaire</p>
             </div>
-            <a href="{% url 'tableau_bord:profil' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+            <a href="{% url 'tableau_bord:profil' %}" 
+               class="z-10 bg-white/15 hover:bg-white/25 border border-white/20 px-4 py-2 rounded-xl text-xs font-semibold backdrop-blur-md transition-all flex items-center gap-1.5 shadow-sm">
                 Annuler
             </a>
         </div>
 
-        <form method="POST" class="p-6 md:p-8 space-y-4">
+        <form method="POST" class="p-6 md:p-8 space-y-8">
             {% csrf_token %}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Prénom *</label>
-                    <input type="text" name="first_name" value="{{ user.first_name }}" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
+            <!-- SECTION 1: COMPTE PRINCIPAL -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-2 flex items-center gap-2">
+                    <i class="fas fa-shield-alt text-green-600"></i> Informations du Compte
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Prénom *</label>
+                        <input type="text" name="first_name" value="{{ user.first_name }}" required
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Nom de famille *</label>
+                        <input type="text" name="last_name" value="{{ user.last_name }}" required
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
+                    </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Nom de famille *</label>
-                    <input type="text" name="last_name" value="{{ user.last_name }}" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Adresse E-mail *</label>
+                    <input type="email" name="email" value="{{ user.email }}" required
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
                 </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Adresse E-mail *</label>
-                <input type="email" name="email" value="{{ user.email }}" required
-                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
-            </div>
+            <!-- SECTION 2: INFOS ÉTUDIANT (Si concerné) -->
+            {% if user.est_etudiant and etudiant %}
+            <div class="space-y-6 pt-2">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-2 flex items-center gap-2">
+                    <i class="fas fa-id-card text-green-600"></i> Informations Étudiant (Dossier Universitaire)
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Date de naissance *</label>
+                        <input type="date" name="date_naissance" value="{{ etudiant.date_naissance|date:'Y-m-d' }}" required
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Lieu de naissance *</label>
+                        <input type="text" name="lieu_naissance" value="{{ etudiant.lieu_naissance }}" required placeholder="Ex: Douala"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
+                    </div>
+                </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Téléphone</label>
-                <input type="text" name="telephone" value="{{ user.telephone|default:'' }}" placeholder="+237 ..."
-                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
-            </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Sexe *</label>
+                        <select name="sexe" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-semibold bg-gray-50/50 focus:bg-white transition-all">
+                            <option value="">-- Sélectionnez --</option>
+                            <option value="M" {% if etudiant.sexe == 'M' %}selected{% endif %}>Masculin</option>
+                            <option value="F" {% if etudiant.sexe == 'F' %}selected{% endif %}>Féminin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Nationalité *</label>
+                        <select name="nationalite" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-semibold bg-gray-50/50 focus:bg-white transition-all">
+                            <option value="CMR" {% if etudiant.nationalite == 'CMR' %}selected{% endif %}>Camerounaise</option>
+                            <option value="GAB" {% if etudiant.nationalite == 'GAB' %}selected{% endif %}>Gabonaise</option>
+                            <option value="TCD" {% if etudiant.nationalite == 'TCD' %}selected{% endif %}>Tchadienne</option>
+                            <option value="RCA" {% if etudiant.nationalite == 'RCA' %}selected{% endif %}>Centrafricaine</option>
+                            <option value="COG" {% if etudiant.nationalite == 'COG' %}selected{% endif %}>Congolaise</option>
+                            <option value="CIV" {% if etudiant.nationalite == 'CIV' %}selected{% endif %}>Ivoirienne</option>
+                            <option value="SEN" {% if etudiant.nationalite == 'SEN' %}selected{% endif %}>Sénégalaise</option>
+                            <option value="TGO" {% if etudiant.nationalite == 'TGO' %}selected{% endif %}>Togolaise</option>
+                            <option value="FRA" {% if etudiant.nationalite == 'FRA' %}selected{% endif %}>Française</option>
+                            <option value="AUT" {% if etudiant.nationalite == 'AUT' %}selected{% endif %}>Autre</option>
+                        </select>
+                    </div>
+                </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Adresse physique</label>
-                <input type="text" name="adresse" value="{{ user.adresse|default:'' }}" placeholder="Douala, Cameroun"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
-            </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Téléphone Personnel *</label>
+                        <input type="text" name="telephone" value="{{ user.telephone|default:'' }}" required placeholder="Ex: 6XXXXXXXX"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-bold bg-gray-50/50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Adresse de Résidence *</label>
+                        <input type="text" name="adresse" value="{{ user.adresse|default:'' }}" required placeholder="Ex: Douala, Bonapriso"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
+                    </div>
+                </div>
 
-            <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-3 px-4 rounded-xl shadow-lg transition duration-200 mt-6">
-                Enregistrer les modifications
+                <!-- SECTION 3: TUTEUR / PARENT -->
+                <div class="space-y-4 pt-4">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-green-700 border-b border-gray-100 pb-2 flex items-center gap-1.5">
+                        <i class="fas fa-users"></i> Contacts Tuteur / Parent
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Nom complet du Tuteur *</label>
+                            <input type="text" name="nom_tuteur" value="{{ etudiant.nom_tuteur }}" required placeholder="Ex: M. Jean Dupont"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-semibold bg-gray-50/50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Téléphone du Tuteur *</label>
+                            <input type="text" name="telephone_tuteur" value="{{ etudiant.telephone_tuteur }}" required placeholder="Ex: 6XXXXXXXX"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-bold bg-gray-50/50 focus:bg-white transition-all">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Adresse E-mail du Tuteur (optionnel)</label>
+                        <input type="email" name="email_tuteur" value="{{ etudiant.email_tuteur|default:'' }}" placeholder="Ex: tuteur@example.com"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-semibold bg-gray-50/50 focus:bg-white transition-all">
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- Pour le personnel administratif ou enseignant -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Téléphone</label>
+                    <input type="text" name="telephone" value="{{ user.telephone|default:'' }}" placeholder="+237 ..."
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Adresse physique</label>
+                    <input type="text" name="adresse" value="{{ user.adresse|default:'' }}" placeholder="Douala, Cameroun"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium bg-gray-50/50 focus:bg-white transition-all">
+                </div>
+            </div>
+            {% endif %}
+
+            <button type="submit" 
+                class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-4 px-6 rounded-2xl shadow-lg shadow-green-700/20 hover:shadow-green-700/40 transition duration-300 flex items-center justify-center gap-2 group cursor-pointer text-sm tracking-wide">
+                <i class="fas fa-save group-hover:scale-110 transition-transform"></i>
+                <span>Enregistrer mes coordonnées</span>
             </button>
         </form>
     </div>

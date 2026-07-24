@@ -41,8 +41,20 @@ from .forms import valider_fichier_recu
 
 @login_required
 def televerser_recu(request, etudiant_id):
+    etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+    
+    # Sécurité supplémentaire
+    if request.user.type_utilisateur == 'ETUDIANT' and etudiant.utilisateur != request.user:
+        messages.error(request, "Accès refusé.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    # Vérifier si le profil de l'étudiant est incomplet
+    if not (etudiant.date_naissance and etudiant.lieu_naissance and etudiant.sexe and etudiant.nationalite and etudiant.telephone and etudiant.adresse and etudiant.nom_tuteur and etudiant.telephone_tuteur):
+        messages.warning(request, "⚠️ Veuillez compléter vos informations de profil (informations personnelles, contact, tuteur) avant de pouvoir téléverser un reçu de paiement.")
+        return redirect(reverse('tableau_bord:modifier_profil') + f'?compte_incomplet=1&next={request.path}')
+        
     from apps.inscriptions.utils import get_current_academic_year_code
-    tranches = TranchePaiement.objects.filter(annee_academique=etudiant.annee_academique.code if etudiant.annee_academique else get_current_academic_year_code(), est_active=True)
+    tranches = TranchePaiement.objects.filter(annee_academique=etudiant.annee_academique.code if etudiant.annee_academique else get_current_academic_year_code(), est_actif=True)
     
     if request.method == 'POST':
         tranche_id = request.POST.get('tranche')
@@ -128,6 +140,17 @@ def televerser_recu(request, etudiant_id):
 def televerser_recu_tranche(request, etudiant_id, tranche_id):
     """Téléverser un reçu pour une tranche spécifique"""
     etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+    
+    # Sécurité supplémentaire
+    if request.user.type_utilisateur == 'ETUDIANT' and etudiant.utilisateur != request.user:
+        messages.error(request, "Accès refusé.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    # Vérifier si le profil de l'étudiant est incomplet
+    if not (etudiant.date_naissance and etudiant.lieu_naissance and etudiant.sexe and etudiant.nationalite and etudiant.telephone and etudiant.adresse and etudiant.nom_tuteur and etudiant.telephone_tuteur):
+        messages.warning(request, "⚠️ Veuillez compléter vos informations de profil (informations personnelles, contact, tuteur) avant de pouvoir téléverser un reçu de paiement.")
+        return redirect(reverse('tableau_bord:modifier_profil') + f'?compte_incomplet=1&next={request.path}')
+        
     tranche = get_object_or_404(TranchePaiement, pk=tranche_id)
     
     if request.method == 'POST':

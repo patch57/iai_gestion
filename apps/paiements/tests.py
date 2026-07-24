@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.core.management import call_command
 from django.core import mail
 from datetime import date, timedelta
@@ -253,6 +253,64 @@ class ResultatConcoursTestCase(TestCase):
         self.assertEqual(res_douala.count(), 9)
         self.assertTrue(res_douala.filter(nom="CHENDJOU").exists())
         self.assertTrue(res_douala.filter(nom="TCHATCHOU").exists())
+
+
+class ProfilObligatoireTeleversementTestCase(TestCase):
+    def setUp(self):
+        self.user = Utilisateur.objects.create_user(
+            username='romuald@test.com',
+            email='romuald@test.com',
+            password='password123',
+            type_utilisateur='ETUDIANT',
+            matricule='GL.CMR.D014.2324A'
+        )
+        self.filiere = Filiere.objects.create(code='GL', nom='Génie Logiciel')
+        self.annee = AnneeAcademique.objects.create(
+            code='2024-2025',
+            date_debut=date(2024, 9, 1),
+            date_fin=date(2025, 8, 31),
+            est_active=True
+        )
+        self.etudiant = Etudiant.objects.create(
+            utilisateur=self.user,
+            nom='Romuald',
+            prenom='Romuald',
+            email='romuald@test.com',
+            telephone='682487912',
+            adresse='Douala',
+            date_naissance=date(2003, 1, 1),
+            lieu_naissance='Douala',
+            sexe='M',
+            filiere=self.filiere,
+            annee_academique=self.annee,
+            matricule='GL.CMR.D014.2324A',
+            # nom_tuteur et telephone_tuteur vides par défaut -> profil incomplet
+        )
+        self.client = Client()
+
+    def test_televersement_bloque_si_profil_incomplet(self):
+        """Un étudiant avec un profil incomplet doit être redirigé vers modifier_profil"""
+        self.client.login(username='romuald@test.com', password='password123')
+        
+        # Tentative d'accès à la page de téléversement
+        response = self.client.get(reverse('paiements:televerser_recu', args=[self.etudiant.id]))
+        
+        # On attend une redirection (302) vers modifier_profil
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('profil/modifier/?compte_incomplet=1', response.url)
+
+    def test_televersement_autorise_si_profil_complet(self):
+        """Un étudiant avec un profil complet doit pouvoir accéder au téléversement"""
+        self.etudiant.nom_tuteur = 'Tuteur Test'
+        self.etudiant.telephone_tuteur = '699999999'
+        self.etudiant.save()
+        
+        self.client.login(username='romuald@test.com', password='password123')
+        response = self.client.get(reverse('paiements:televerser_recu', args=[self.etudiant.id]))
+        
+        # Doit afficher la page de téléversement (200 OK)
+        self.assertEqual(response.status_code, 200)
+
 
 
 

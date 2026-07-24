@@ -1204,13 +1204,114 @@ def profil(request):
 @login_required
 def modifier_profil(request):
     """Modifier le profil"""
+    user = request.user
+    etudiant = None
+    if user.type_utilisateur == 'ETUDIANT':
+        etudiant = getattr(user, 'profil_etudiant', None)
+        
     if request.method == 'POST':
-        return redirect('tableau_bord:profil')
-    
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        telephone = request.POST.get('telephone', '').strip()
+        adresse = request.POST.get('adresse', '').strip()
+        
+        errors = []
+        
+        if not first_name or not last_name or not email:
+            errors.append("Les champs Prénom, Nom et Email sont obligatoires.")
+            
+        if user.type_utilisateur == 'ETUDIANT' and not etudiant:
+            errors.append("Profil étudiant introuvable. Veuillez contacter l'administration.")
+            
+        if user.type_utilisateur == 'ETUDIANT' and etudiant:
+            date_naissance_str = request.POST.get('date_naissance', '').strip()
+            lieu_naissance = request.POST.get('lieu_naissance', '').strip()
+            sexe = request.POST.get('sexe', '').strip()
+            nationalite = request.POST.get('nationalite', '').strip()
+            nom_tuteur = request.POST.get('nom_tuteur', '').strip()
+            telephone_tuteur = request.POST.get('telephone_tuteur', '').strip()
+            email_tuteur = request.POST.get('email_tuteur', '').strip()
+            
+            if not date_naissance_str or not lieu_naissance or not sexe or not nationalite or not telephone_tuteur or not nom_tuteur or not telephone or not adresse:
+                errors.append("Tous les champs du profil étudiant (informations personnelles, contact, tuteur) sont obligatoires.")
+            
+            date_naissance = None
+            if date_naissance_str:
+                from datetime import datetime
+                for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+                    try:
+                        date_naissance = datetime.strptime(date_naissance_str, fmt).date()
+                        break
+                    except ValueError:
+                        pass
+                if not date_naissance:
+                    errors.append("Le format de la date de naissance est invalide. Utilisez AAAA-MM-JJ ou JJ/MM/AAAA.")
+            
+            # Vérifier numéro de téléphone
+            import re
+            if telephone and not re.match(r'^\+?\d{9,15}$', telephone):
+                errors.append("Le numéro de téléphone est invalide.")
+            if telephone_tuteur and not re.match(r'^\+?\d{9,15}$', telephone_tuteur):
+                errors.append("Le numéro de téléphone du tuteur est invalide.")
+                
+            if not errors:
+                try:
+                    # Mettre à jour l'utilisateur
+                    user.first_name = first_name
+                    user.last_name = last_name
+                    user.email = email
+                    user.telephone = telephone
+                    user.adresse = adresse
+                    user.save()
+                    
+                    # Mettre à jour le profil étudiant
+                    etudiant.nom = last_name
+                    etudiant.prenom = first_name
+                    etudiant.email = email
+                    etudiant.telephone = telephone
+                    etudiant.adresse = adresse
+                    etudiant.date_naissance = date_naissance
+                    etudiant.lieu_naissance = lieu_naissance
+                    etudiant.sexe = sexe
+                    etudiant.nationalite = nationalite
+                    etudiant.nom_tuteur = nom_tuteur
+                    etudiant.telephone_tuteur = telephone_tuteur
+                    etudiant.email_tuteur = email_tuteur if email_tuteur else None
+                    etudiant.save()
+                    
+                    messages.success(request, '✅ Votre profil a été mis à jour avec succès.')
+                    
+                    next_url = request.GET.get('next')
+                    if next_url:
+                        return redirect(next_url)
+                    return redirect('tableau_bord:profil')
+                except Exception as e:
+                    errors.append(f"Erreur lors de la sauvegarde : {str(e)}")
+        else:
+            # Pour le personnel (non étudiant)
+            if not errors:
+                try:
+                    user.first_name = first_name
+                    user.last_name = last_name
+                    user.email = email
+                    user.telephone = telephone
+                    user.adresse = adresse
+                    user.save()
+                    messages.success(request, '✅ Votre profil a été mis à jour avec succès.')
+                    return redirect('tableau_bord:profil')
+                except Exception as e:
+                    errors.append(f"Erreur lors de la sauvegarde : {str(e)}")
+                    
+        for err in errors:
+            messages.error(request, err)
+            
     context = {
         'titre': 'Modifier mon profil',
         'primary_color': '#10B981',
         'secondary_color': '#F59E0B',
+        'etudiant': etudiant,
+        'compte_incomplet': request.GET.get('compte_incomplet') == '1',
     }
     return render(request, 'tableau_bord/modifier_profil.html', context)
 
