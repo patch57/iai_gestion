@@ -1626,10 +1626,12 @@ def liste_classes_partagee(request):
                     self.code = code
             return SimulatedAnnee(self._annee_code)
             
+    classes_active = list(Classe.objects.filter(annee_academique=annee_active).select_related('filiere', 'niveau'))
+    
     for salle in salles:
         # Trouver toutes les classes qui correspondent à cette salle
         matching_classes = []
-        for c in Classe.objects.filter(annee_academique=annee_active):
+        for c in classes_active:
             if find_matching_salle(c) == salle:
                 matching_classes.append(c)
                 

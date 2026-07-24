@@ -570,32 +570,28 @@ def imprimer_emploi_du_temps_officiel(request, pk):
     return render(request, 'cours/emploi_du_temps_officiel.html', context)
 
 
-def find_matching_salle(classe):
-    """
-    Associe de manière robuste une classe académique d'un étudiant (ex: 'Génie Logiciel 1A')
-    à une salle de cours physique (ex: code='GL1A', nom='Génie Logiciel 1A') créée par le directeur.
-    """
-    if not classe:
-        return None
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
+def _find_matching_salle_cached(classe_nom):
     from apps.cours.models import Salle
-    
     # 1. Match exact par nom (insensible à la casse)
-    salle = Salle.objects.filter(nom__iexact=classe.nom).first()
+    salle = Salle.objects.filter(nom__iexact=classe_nom).first()
     if salle:
         return salle
         
     # 2. Match partiel par nom
-    salle = Salle.objects.filter(nom__icontains=classe.nom).first()
+    salle = Salle.objects.filter(nom__icontains=classe_nom).first()
     if salle:
         return salle
         
     # 3. Remplacement & commercial
-    salle = Salle.objects.filter(nom__icontains=classe.nom.replace('et', '&')).first()
+    salle = Salle.objects.filter(nom__icontains=classe_nom.replace('et', '&')).first()
     if salle:
         return salle
         
     # 4. Match par code (Génie Logiciel 1A -> GL1A)
-    words = classe.nom.split()
+    words = classe_nom.split()
     initials = "".join([w[0].upper() for w in words if w.lower() not in ['et', '&', 'de', 'la', 'les', 'des']])
     salle = Salle.objects.filter(code__iexact=initials).first()
     if salle:
@@ -607,5 +603,16 @@ def find_matching_salle(classe):
             return s
             
     return None
+
+
+def find_matching_salle(classe):
+    """
+    Associe de manière robuste une classe académique d'un étudiant (ex: 'Génie Logiciel 1A')
+    à une salle de cours physique (ex: code='GL1A', nom='Génie Logiciel 1A') créée par le directeur.
+    """
+    if not classe:
+        return None
+    return _find_matching_salle_cached(classe.nom)
+
 
 

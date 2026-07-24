@@ -212,20 +212,23 @@ class Classe(models.Model):
         from apps.cours.models import Salle
         
         # 1. Synchroniser automatiquement les Salles créées par le directeur vers des Classes académiques
+        filieres_cache = {f.code.upper(): f for f in Filiere.objects.all()}
+        niveaux_cache = {n.numero: n for n in Niveau.objects.all()}
+        
         for salle in Salle.objects.all():
             # Déterminer la filière
             filiere = None
             if "GL" in salle.code.upper() or "GENIE" in salle.nom.upper():
-                filiere = Filiere.objects.filter(code="GL").first()
+                filiere = filieres_cache.get("GL")
             elif "SR" in salle.code.upper() or "SYSTEME" in salle.nom.upper():
-                filiere = Filiere.objects.filter(code="SR").first()
+                filiere = filieres_cache.get("SR")
                 
             # Déterminer le niveau
             niveau_num = 1
             for n in [1, 2]:
                 if str(n) in salle.code or str(n) in salle.nom:
                     niveau_num = n
-            niveau = Niveau.objects.filter(numero=niveau_num).first()
+            niveau = niveaux_cache.get(niveau_num)
             
             if filiere and niveau:
                 cls.objects.get_or_create(
