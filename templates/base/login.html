@@ -401,15 +401,22 @@
     const usernameError = document.getElementById('username-error');
     const usernameValid = document.getElementById('username-valid');
     const matriculePattern = /^((GL|SR|PA|PR)\.CMR\.(D\d{3}|DO\d{2}|D014)\.\d{4}[A-Z]?|[A-Z]{2,3}\.CMR\.D\d{3}\.\d{4}\.[A-Z])$/;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const usernamePattern = /^[a-zA-Z0-9._-]{3,150}$/;
+
+    function validateInput(value) {
+        const val = value.trim();
+        return matriculePattern.test(val.toUpperCase()) || emailPattern.test(val) || usernamePattern.test(val);
+    }
     
     usernameInput?.addEventListener('input', function(e) {
-        const matricule = e.target.value.trim().toUpperCase();
+        const val = e.target.value.trim();
         
-        if (matricule === '') {
+        if (val === '') {
             usernameInput.classList.remove('input-valid', 'input-invalid');
             usernameError.classList.add('hidden');
             usernameValid.classList.add('hidden');
-        } else if (!matriculePattern.test(matricule)) {
+        } else if (!validateInput(val)) {
             usernameInput.classList.add('input-invalid');
             usernameInput.classList.remove('input-valid');
             usernameError.classList.remove('hidden');
@@ -419,9 +426,12 @@
             usernameInput.classList.remove('input-invalid');
             usernameError.classList.add('hidden');
             usernameValid.classList.remove('hidden');
-            // Mettre à jour la valeur avec la casse correcte
-            if (usernameInput.value !== matricule) {
-                usernameInput.value = matricule;
+            
+            // Si c'est un matricule, mettre en majuscules
+            if (matriculePattern.test(val.toUpperCase()) && !val.includes('@')) {
+                if (usernameInput.value !== val.toUpperCase()) {
+                    usernameInput.value = val.toUpperCase();
+                }
             }
         }
     });
@@ -430,7 +440,7 @@
     const rememberCheckbox = document.getElementById('remember');
     const savedMatricule = localStorage.getItem('savedMatricule');
     
-    if (savedMatricule && matriculePattern.test(savedMatricule)) {
+    if (savedMatricule && validateInput(savedMatricule)) {
         usernameInput.value = savedMatricule;
         rememberCheckbox.checked = true;
         // Déclencher la validation
@@ -439,9 +449,9 @@
     
     rememberCheckbox?.addEventListener('change', function() {
         if (this.checked) {
-            const matricule = usernameInput.value.trim().toUpperCase();
-            if (matriculePattern.test(matricule)) {
-                localStorage.setItem('savedMatricule', matricule);
+            const val = usernameInput.value.trim();
+            if (validateInput(val)) {
+                localStorage.setItem('savedMatricule', val);
             }
         } else {
             localStorage.removeItem('savedMatricule');
@@ -450,19 +460,21 @@
     
     // Validation avant soumission
     document.getElementById('loginForm')?.addEventListener('submit', function(e) {
-        const matricule = usernameInput.value.trim().toUpperCase();
+        const val = usernameInput.value.trim();
         
-        if (!matriculePattern.test(matricule)) {
+        if (!validateInput(val)) {
             e.preventDefault();
             usernameInput.classList.add('input-invalid');
-            usernameError.textContent = 'Format de matricule invalide. Exemples : GL.CMR.D043.2324A ou DIR.CMR.D111.2024.B';
+            usernameError.textContent = 'Format invalide. Saisissez votre matricule, e-mail ou nom d\'utilisateur.';
             usernameError.classList.remove('hidden');
             usernameInput.focus();
             return false;
         }
         
-        // Mettre à jour la valeur avec la casse correcte
-        usernameInput.value = matricule;
+        // Si c'est un matricule, mettre en majuscules
+        if (matriculePattern.test(val.toUpperCase()) && !val.includes('@')) {
+            usernameInput.value = val.toUpperCase();
+        }
         
         // Indicateur de chargement
         const btn = document.getElementById('loginBtn');
@@ -472,7 +484,7 @@
     
     // Focus sur le champ mot de passe avec Entrée
     usernameInput?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && matriculePattern.test(this.value.trim().toUpperCase())) {
+        if (e.key === 'Enter' && validateInput(this.value)) {
             e.preventDefault();
             document.getElementById('id_password').focus();
         }

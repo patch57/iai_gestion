@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Mon Bulletin Semestriel — IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+    <!-- En-tête -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center space-x-4">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-600 to-teal-600 flex items-center justify-center shadow-lg">
+                <i class="fas fa-file-invoice text-white text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Mon Bulletin Académique</h1>
+                <p class="text-sm text-gray-500 mt-1">Consultez votre relevé de notes officiel et l'état de validation de vos crédits.</p>
+            </div>
+        </div>
+
+        <!-- Choix du semestre -->
+        <div class="bg-white p-1 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-1">
+            <a href="?semestre=1" 
+               class="px-4 py-2 text-xs font-bold rounded-lg transition-all {% if semestre_actif == 1 %}bg-purple-600 text-white shadow-sm{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+                Semestre 1
+            </a>
+            <a href="?semestre=2" 
+               class="px-4 py-2 text-xs font-bold rounded-lg transition-all {% if semestre_actif == 2 %}bg-purple-600 text-white shadow-sm{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+                Semestre 2
+            </a>
+        </div>
+    </div>
+
+    <!-- Profil rapide de l'étudiant -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+            {% if etudiant.photo %}
+            <img src="{{ etudiant.photo.url }}" alt="Photo" class="w-16 h-16 rounded-2xl object-cover shadow-md border-2 border-purple-100">
+            {% else %}
+            <div class="w-16 h-16 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xl shadow-inner border border-purple-200">
+                {{ etudiant.nom|slice:":1" }}{{ etudiant.prenom|slice:":1" }}
+            </div>
+            {% endif %}
+            <div>
+                <h2 class="text-lg font-bold text-gray-900">{{ etudiant.get_nom_complet }}</h2>
+                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1 mt-1 text-xs text-gray-500 font-medium">
+                    <span>Matricule : <strong class="text-gray-700">{{ etudiant.matricule }}</strong></span>
+                    <span class="hidden sm:inline text-gray-300">•</span>
+                    <span>Filière : <strong class="text-gray-700">{{ etudiant.filiere.nom }}</strong></span>
+                    {% if etudiant.classe %}
+                    <span class="hidden sm:inline text-gray-300">•</span>
+                    <span>Classe : <strong class="text-gray-700">{{ etudiant.classe.nom }}</strong></span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="text-center md:text-right shrink-0">
+            <span class="text-xs text-gray-400 font-bold uppercase block">Année Académique</span>
+            <span class="text-lg font-black text-purple-700 block mt-0.5">{{ annee }}</span>
+        </div>
+    </div>
+
+    {% if bulletin_actif %}
+    <!-- Bloc de Synthèse (GPA, Crédits, Rang) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- GPA -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex items-center space-x-4">
+            <div class="w-14 h-14 rounded-2xl {% if bulletin_actif.moyenne_semestre >= 10 %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-600 border border-red-200{% endif %} flex flex-col items-center justify-center shrink-0">
+                <i class="fas fa-graduation-cap text-lg"></i>
+            </div>
+            <div class="flex-1">
+                <p class="text-xs font-bold text-gray-400 uppercase">Moyenne Générale</p>
+                <div class="flex items-baseline space-x-2 mt-1">
+                    <span class="text-3xl font-black text-gray-900">{{ bulletin_actif.moyenne_semestre }}</span>
+                    <span class="text-sm text-gray-400">/20</span>
+                </div>
+            </div>
+            <div>
+                {% if bulletin_actif.moyenne_semestre >= 10 %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                    ADMIS
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                    AJOURNÉ
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Crédits -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase">Crédits Obtenus</p>
+                    <p class="text-2xl font-black text-gray-900 mt-0.5">{{ credits_obtenus }} <span class="text-sm text-gray-400 font-normal">/ {{ total_credits }}</span></p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <i class="fas fa-gem text-lg"></i>
+                </div>
+            </div>
+            <!-- Progress Bar -->
+            <div>
+                <div class="w-full bg-gray-100 rounded-full h-2">
+                    <div class="bg-purple-600 h-2 rounded-full transition-all duration-500" style="width: {{ progression }}%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-bold text-gray-400 mt-1">
+                    <span>Progression</span>
+                    <span>{{ progression }}%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mentions / Décisions -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex items-center space-x-4">
+            <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
+                <i class="fas fa-award text-xl"></i>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase">Mention & Rang</p>
+                <p class="text-lg font-black text-gray-900 mt-1">
+                    {{ bulletin_actif.mention|default:"Passable" }}
+                </p>
+                <span class="text-xs text-gray-500 font-medium">
+                    {% if bulletin_actif.rang %}
+                    Rang : <strong>{{ bulletin_actif.rang }}<sup>e</sup></strong> sur {{ bulletin_actif.effectif }}
+                    {% else %}
+                    Rang non disponible
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau détaillé -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-150 bg-gray-50/50 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-gray-800"><i class="fas fa-list-alt text-purple-600 mr-2"></i>Détail des notes par matière</h3>
+            {% if bulletin_actif.id %}
+            <a href="{% url 'notes:exporter_releve' bulletin_actif.id %}" 
+               class="inline-flex items-center px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-xl text-xs font-bold transition">
+                <i class="fas fa-file-csv mr-1.5 text-base"></i> Exporter en CSV
+            </a>
+            {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-left">
+                        <th class="px-6 py-3.5 text-xs font-bold text-gray-400 uppercase">Matière</th>
+                        <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-28">CC (30%)</th>
+                        <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-28">TP (20%)</th>
+                        <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-28">Examen (50%)</th>
+                        <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-28">Moyenne</th>
+                        <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-20">Crédits</th>
+                        <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-32">Validation</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for detail in details %}
+                    <tr class="hover:bg-gray-50/30 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-bold text-gray-900">{{ detail.matiere.nom }}</div>
+                            <div class="text-xs text-gray-400 font-mono">{{ detail.matiere.code }}</div>
+                        </td>
+                        <td class="px-6 py-4 text-center font-medium text-gray-600">
+                            {{ detail.note_cc|default_if_none:"—" }}
+                        </td>
+                        <td class="px-6 py-4 text-center font-medium text-gray-600">
+                            {{ detail.note_tp|default_if_none:"—" }}
+                        </td>
+                        <td class="px-6 py-4 text-center font-medium text-gray-600">
+                            {{ detail.note_examen|default_if_none:"—" }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="text-sm font-black {% if detail.moyenne_matiere >= 10 %}text-green-700{% else %}text-red-600{% endif %}">
+                                {{ detail.moyenne_matiere|floatformat:2 }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center font-semibold text-gray-600">
+                            {{ detail.credits }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if detail.est_validee %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-150">
+                                <i class="fas fa-check-circle mr-1"></i> Validé
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-150">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> Ajourné
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <!-- Bulletin non disponible -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-16 text-center">
+        <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-yellow-50 to-orange-100 flex items-center justify-center mb-4 border border-orange-200 shadow-inner">
+            <i class="fas fa-file-invoice text-orange-400 text-3xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 mb-2">Bulletin non disponible</h3>
+        <p class="text-sm text-gray-500 max-w-md mx-auto">
+            Le bulletin officiel pour le <strong>Semestre {{ semestre_actif }}</strong> de l'année <strong>{{ annee }}</strong> n'a pas encore été généré ou validé par le jury académique.
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

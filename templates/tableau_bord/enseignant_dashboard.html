@@ -21,6 +21,37 @@
         </div>
     </div>
 
+    <!-- Notes d'information et communiqués officiels -->
+    {% if notes_info %}
+    <div class="mb-8 bg-white border border-yellow-200 rounded-3xl p-6 shadow-lg">
+        <h3 class="font-extrabold text-lg text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-bullhorn text-yellow-500 mr-2.5 animate-bounce"></i> Notes d'Information & Communiqués Officiels
+        </h3>
+        <div class="space-y-4">
+            {% for note in notes_info %}
+            <div class="p-4 bg-yellow-50/40 rounded-2xl border border-yellow-100/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="space-y-1 flex-1">
+                    <h4 class="font-bold text-gray-900 flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-yellow-500 mr-2"></span> {{ note.titre }}
+                    </h4>
+                    <p class="text-[10px] text-gray-400 font-medium">Publié le {{ note.date_publication|date:"d/m/Y à H:i" }} par la Direction des Études</p>
+                    {% if note.contenu %}
+                    <p class="text-xs text-gray-700 mt-2 whitespace-pre-line bg-white/60 p-3 rounded-xl border border-yellow-50/50 font-sans">{{ note.contenu }}</p>
+                    {% endif %}
+                </div>
+                {% if note.fichier_pdf %}
+                <div class="flex-shrink-0">
+                    <a href="{{ note.fichier_pdf.url }}" target="_blank" class="inline-flex items-center px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-xl text-xs shadow-md transition duration-200">
+                        <i class="fas fa-file-pdf mr-2"></i> Consulter le PDF
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Téléversement de cours, TP, TD -->
         <div class="lg:col-span-1 space-y-8">

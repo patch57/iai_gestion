@@ -35,14 +35,12 @@ urlpatterns = [
     
     # ========== RECOURS ==========
     path('evaluations/<int:evaluation_id>/recours/', views.demander_recours, name='demander_recours'),
-    # À implémenter ultérieurement
-    # path('recours/liste/', views.liste_recours, name='liste_recours'),
-    # path('recours/<int:pk>/traiter/', views.traiter_recours, name='traiter_recours'),
+    path('recours/liste/', views.liste_recours, name='liste_recours'),
+    path('recours/<int:pk>/traiter/', views.traiter_recours, name='traiter_recours'),
     
     # ========== ÉTUDIANT ==========
     path('mes-notes/', views.mes_notes, name='mes_notes'),
-    # À implémenter ultérieurement
-    # path('mon-bulletin/', views.mon_bulletin, name='mon_bulletin'),
+    path('mon-bulletin/', views.mon_bulletin, name='mon_bulletin'),
     
     # ========== GÉO-LOCALISATION ==========
     path('carte-campus/', views.carte_campus, name='carte_campus'),
@@ -56,7 +54,17 @@ urlpatterns = [
     
     # ========== API (AJAX) ==========
     path('api/evaluation/<int:evaluation_id>/stats/', views.api_stats_evaluation, name='api_stats_evaluation'),
-    # À implémenter ultérieurement
-    # path('api/etudiant/<int:etudiant_id>/notes/', views.api_notes_etudiant, name='api_notes_etudiant'),
-    # path('api/filiere/<int:filiere_id>/moyennes/', views.api_moyennes_filiere, name='api_moyennes_filiere'),
+    path('api/etudiant/<int:etudiant_id>/notes/', views.api_notes_etudiant, name='api_notes_etudiant'),
+    path('api/filiere/<int:filiere_id>/moyennes/', views.api_moyennes_filiere, name='api_moyennes_filiere'),
+
+    # ========== FICHES D'ANONYMAT (CONFIDENTIEL) ==========
+    path('fiches-anonymat/', views.liste_fiches_anonymat, name='liste_fiches_anonymat'),
+    path('fiches-anonymat/importer/', views.importer_fiche_anonymat, name='importer_fiche_anonymat'),
+    path('fiches-anonymat/<int:pk>/valider/', views.valider_fiche_anonymat, name='valider_fiche_anonymat'),
+    path('fiches-anonymat/<int:pk>/supprimer/', views.supprimer_fiche_anonymat, name='supprimer_fiche_anonymat'),
+    
+    # ========== PROCÈS-VERBAUX DE NOTES ==========
+    path('pv/<int:pk>/', views.detail_pv, name='detail_pv'),
+    path('pv/<int:pk>/transmettre/', views.transmettre_pv, name='transmettre_pv'),
+    path('pv/<int:pk>/supprimer/', views.supprimer_pv, name='supprimer_pv'),
 ]

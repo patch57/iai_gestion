@@ -76,7 +76,7 @@ def detail_cours(request, pk):
     seances = SeanceCours.objects.filter(cours=cours).order_by('-date')
     
     # Étudiants inscrits
-    inscriptions = cours.inscriptions_cours.filter(est_actif=True).select_related('etudiant')
+    inscriptions = cours.inscriptions_cours.filter(est_actif=True).select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom')
     
     # Ressources
     ressources = RessourceCours.objects.filter(cours=cours)
@@ -273,7 +273,7 @@ def feuille_presence(request, seance_id):
     seance = get_object_or_404(SeanceCours, pk=seance_id)
     
     # Étudiants inscrits au cours
-    inscriptions = seance.cours.inscriptions_cours.filter(est_actif=True)
+    inscriptions = seance.cours.inscriptions_cours.filter(est_actif=True).order_by('etudiant__nom', 'etudiant__prenom')
     
     if request.method == 'POST':
         for inscription in inscriptions:

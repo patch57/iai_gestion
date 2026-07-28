@@ -681,3 +681,68 @@ class NoteApprenant(models.Model):
 
     def __str__(self):
         return f"{self.apprenant.nom_complet} - {self.formation.get_nom_display()} : {self.note}/20"
+
+
+class FicheNotesAnonymat(models.Model):
+    """Modèle représentant une fiche de notes d'anonymat d'une classe pour une matière"""
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('VALIDE', 'Validé / Importé'),
+    ]
+    
+    matiere = models.ForeignKey('cours.Matiere', on_delete=models.CASCADE, related_name='fiches_anonymat')
+    salle = models.ForeignKey('cours.Salle', on_delete=models.CASCADE, related_name='fiches_anonymat', verbose_name="Salle physique")
+    annee_academique = models.CharField(max_length=9, default='2025-2026')
+    type_evaluation = models.ForeignKey(TypeEvaluation, on_delete=models.CASCADE, related_name='fiches_anonymat')
+    enseignant_nom = models.CharField(max_length=150, blank=True)
+    fichier_fiche = models.FileField(upload_to='fiches_anonymat/', blank=True, null=True)
+    statut = models.CharField(max_length=15, choices=STATUT_CHOICES, default='BROUILLON')
+    date_import = models.DateTimeField(auto_now_add=True)
+    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='fiches_anonymat_creees')
+
+    class Meta:
+        app_label = 'notes'
+        verbose_name = "Fiche de Notes d'Anonymat"
+        verbose_name_plural = "Fiches de Notes d'Anonymat"
+        ordering = ['-date_import']
+
+    def __str__(self):
+        return f"Fiche {self.matiere.code} - {self.salle.code} - {self.type_evaluation.nom} ({self.annee_academique})"
+
+
+class LigneFicheNotesAnonymat(models.Model):
+    """Modèle représentant une ligne de note d'une fiche d'anonymat"""
+    fiche = models.ForeignKey(FicheNotesAnonymat, on_delete=models.CASCADE, related_name='lignes')
+    numero_anonymat = models.CharField(max_length=20)
+    note = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    nom_manuscrit_detecte = models.CharField(max_length=255, blank=True)
+    etudiant = models.ForeignKey('etudiants.Etudiant', on_delete=models.SET_NULL, null=True, blank=True, related_name='lignes_anonymat')
+
+    class Meta:
+        app_label = 'notes'
+        verbose_name = "Ligne de Fiche d'Anonymat"
+        verbose_name_plural = "Lignes de Fiche d'Anonymat"
+        ordering = ['numero_anonymat']
+
+    def __str__(self):
+        return f"{self.numero_anonymat} : {self.note}/20 -> {self.etudiant.get_nom_complet() if self.etudiant else self.nom_manuscrit_detecte}"
+
+
+class ProcesVerbalNotes(models.Model):
+    """Procès-verbal de notes confidentiel généré à partir d'une fiche d'anonymat"""
+    fiche_anonymat = models.OneToOneField(FicheNotesAnonymat, on_delete=models.CASCADE, related_name='proces_verbal', null=True, blank=True)
+    titre = models.CharField(max_length=255)
+    date_generation = models.DateTimeField(auto_now_add=True)
+    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='pvs_crees')
+    est_transmis = models.BooleanField(default=False)
+    date_transmission = models.DateTimeField(null=True, blank=True)
+    fichier_excel = models.FileField(upload_to='proces_verbaux/', blank=True, null=True)
+
+    class Meta:
+        app_label = 'notes'
+        verbose_name = "Procès-verbal de Notes"
+        verbose_name_plural = "Procès-verbaux de Notes"
+        ordering = ['-date_generation']
+
+    def __str__(self):
+        return self.titre

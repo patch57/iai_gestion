@@ -110,15 +110,19 @@
             <!-- Notes d'information -->
             <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
                 <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-bullhorn mr-2 text-yellow-500"></i>Publier une Note d'Information</h3>
-                <form method="POST" class="space-y-4">
+                <form method="POST" enctype="multipart/form-data" class="space-y-4">
                     {% csrf_token %}
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Sujet / Titre</label>
-                        <input type="text" name="sujet" required placeholder="Ex: Report des évaluations" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                        <input type="text" name="sujet" required placeholder="Ex: Report des évaluations" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 font-medium text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Contenu de la Note d'Information</label>
-                        <textarea name="contenu" required rows="4" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500" placeholder="Rédigez la note ici..."></textarea>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Contenu de la Note (Optionnel si PDF importé)</label>
+                        <textarea name="contenu" rows="3" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm" placeholder="Rédigez la note ici..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 font-bold text-yellow-600"><i class="fas fa-file-pdf mr-1"></i>Importer la Note en PDF (Optionnel)</label>
+                        <input type="file" name="note_fichier" accept="application/pdf" class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100">
                     </div>
                     <button type="submit" class="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200">
                         Diffuser la Note
@@ -127,7 +131,7 @@
             </div>
         </div>
 
-        <!-- Procès-Verbaux d'Anonymat -->
+        <!-- Procès-Verbaux & Notes Publiées -->
         <div class="lg:col-span-2 space-y-8">
             <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
                 <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white flex justify-between items-center">
@@ -136,26 +140,81 @@
                 <div class="p-6">
                     <p class="text-sm text-gray-500 mb-4">Ces procès-verbaux sont transmis confidentiellement par le Chef de Service de l'Anonymat pour délibération.</p>
                     
-                    <!-- Simulation de liste de PV d'anonymat -->
+                    <!-- Liste réelle de PV d'anonymat -->
                     <div class="divide-y divide-gray-100">
+                        {% for pv in pvs %}
                         <div class="py-4 flex justify-between items-center">
                             <div>
-                                <h4 class="font-bold text-gray-800">PV Examen Semestre 1 - Génie Logiciel</h4>
-                                <p class="text-xs text-gray-400">Date de transmission: Aujourd'hui</p>
+                                <h4 class="font-bold text-gray-800">{{ pv.titre }}</h4>
+                                <p class="text-xs text-gray-400">Transmis par le Chef de l'Anonymat le {{ pv.date_transmission|date:"d/m/Y à H:i" }}</p>
                             </div>
-                            <a href="#" class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-xl text-xs font-bold transition duration-200">
-                                <i class="fas fa-download mr-1"></i>Télécharger le PV
-                            </a>
-                        </div>
-                        <div class="py-4 flex justify-between items-center">
-                            <div>
-                                <h4 class="font-bold text-gray-800">PV Examen Semestre 1 - Systèmes et Réseaux</h4>
-                                <p class="text-xs text-gray-400">Date de transmission: Hier</p>
+                            <div class="flex space-x-2">
+                                {% if pv.fiche_anonymat %}
+                                <a href="{% url 'notes:detail_pv' pk=pv.pk %}" class="text-green-700 hover:text-green-950 bg-green-50 hover:bg-green-150 px-4 py-2 rounded-xl text-xs font-bold transition duration-200 border border-green-100 flex items-center">
+                                    <i class="fas fa-eye mr-1"></i> Consulter / Imprimer
+                                </a>
+                                {% elif pv.fichier_excel %}
+                                <a href="{{ pv.fichier_excel.url }}" download class="text-blue-700 hover:text-blue-950 bg-blue-50 hover:bg-blue-150 px-4 py-2 rounded-xl text-xs font-bold transition duration-200 border border-blue-100 flex items-center">
+                                    <i class="fas fa-download mr-1"></i> Télécharger
+                                </a>
+                                {% endif %}
                             </div>
-                            <a href="#" class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-xl text-xs font-bold transition duration-200">
-                                <i class="fas fa-download mr-1"></i>Télécharger le PV
-                            </a>
                         </div>
+                        {% empty %}
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="fas fa-envelope-open-text text-3xl mb-2 block"></i>
+                            <p class="text-xs font-medium">Aucun procès-verbal de notes reçu pour l'instant.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes d'Information Diffusées -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-bullhorn mr-2"></i>Notes d'Information Diffusées</h3>
+                </div>
+                <div class="p-6">
+                    <p class="text-sm text-gray-500 mb-4">Historique des communiqués et notes d'information diffusés aux étudiants et formateurs.</p>
+                    
+                    <div class="divide-y divide-gray-100">
+                        {% for note in notes_info %}
+                        <div class="py-4 flex justify-between items-start gap-4">
+                            <div class="space-y-1 flex-1">
+                                <h4 class="font-bold text-gray-800">{{ note.titre }}</h4>
+                                <p class="text-xs text-gray-400">Publié le {{ note.date_publication|date:"d/m/Y à H:i" }}</p>
+                                {% if note.contenu %}
+                                <p class="text-xs text-gray-600 mt-2 bg-gray-50 p-3 rounded-xl border border-gray-100 whitespace-pre-line">{{ note.contenu }}</p>
+                                {% endif %}
+                                {% if note.fichier_pdf %}
+                                <div class="pt-2">
+                                    <span class="inline-flex items-center text-[10px] text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded border border-yellow-100 font-bold">
+                                        <i class="fas fa-file-pdf mr-1"></i> Fichier PDF officiel rattaché
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                {% if note.fichier_pdf %}
+                                <a href="{{ note.fichier_pdf.url }}" target="_blank" class="text-yellow-600 hover:text-yellow-800 bg-yellow-50 hover:bg-yellow-100 p-2.5 rounded-xl transition duration-200 border border-yellow-100">
+                                    <i class="fas fa-eye text-sm"></i>
+                                </a>
+                                {% endif %}
+                                <form method="POST" action="{% url 'tableau_bord:supprimer_note_info' pk=note.pk %}" onsubmit="return confirm('Voulez-vous vraiment retirer cette note d\'information ?');" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 p-2.5 rounded-xl transition duration-200 border border-red-100">
+                                        <i class="fas fa-trash-alt text-sm"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="fas fa-folder-open text-3xl mb-2 block"></i>
+                            <p class="text-xs font-medium">Aucune note d'information publiée active.</p>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>

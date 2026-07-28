@@ -52,7 +52,7 @@ def liste_inscriptions(request):
         queryset = queryset.filter(annee_academique_id=annee_id)
     
     # Pagination
-    paginator = Paginator(queryset.order_by('-date_inscription'), 20)
+    paginator = Paginator(queryset.order_by('etudiant__nom', 'etudiant__prenom'), 20)
     page = request.GET.get('page')
     inscriptions = paginator.get_page(page)
     
@@ -509,7 +509,7 @@ def recu_paiement(request, pk):
 @login_required
 def liste_bourses(request):
     """Liste des bourses d'études"""
-    bourses = Bourse.objects.all().select_related('etudiant', 'annee_academique', 'etudiant__filiere')
+    bourses = Bourse.objects.all().select_related('etudiant', 'annee_academique', 'etudiant__filiere').order_by('etudiant__nom', 'etudiant__prenom')
     
     # Filtres
     q = request.GET.get('q', '')

@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Validation — {{ fiche }}{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-6">
+    <!-- En-tête -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center space-x-4">
+            <a href="{% url 'notes:liste_fiches_anonymat' %}"
+               class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-gray-900">Validation de la Fiche d'Anonymat</h1>
+                <p class="text-sm text-gray-500 mt-0.5">
+                    {{ fiche.matiere.code }} — {{ fiche.salle.code }} — {{ fiche.type_evaluation.code }} — {{ fiche.annee_academique }}
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            {% if fiche.statut == 'BROUILLON' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                <i class="fas fa-edit mr-1"></i> Brouillon
+            </span>
+            {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                <i class="fas fa-check mr-1"></i> Validé
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="p-4 rounded-xl {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-green-50 text-green-800 border border-green-200{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Statistiques rapides -->
+    {% if stats %}
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div class="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+            <p class="text-xs text-gray-500">Étudiants</p>
+            <p class="text-xl font-bold text-gray-900">{{ stats.total }}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+            <p class="text-xs text-gray-500">Moyenne</p>
+            <p class="text-xl font-bold text-purple-600">{{ stats.moyenne }}/20</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+            <p class="text-xs text-gray-500">Min</p>
+            <p class="text-xl font-bold text-red-500">{{ stats.min }}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+            <p class="text-xs text-gray-500">Max</p>
+            <p class="text-xl font-bold text-green-600">{{ stats.max }}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+            <p class="text-xs text-gray-500">Réussites</p>
+            <p class="text-xl font-bold text-green-600">{{ stats.reussites }}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+            <p class="text-xs text-gray-500">Taux réussite</p>
+            <p class="text-xl font-bold {% if stats.taux_reussite >= 50 %}text-green-600{% else %}text-red-500{% endif %}">{{ stats.taux_reussite }}%</p>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+            <p class="text-xs text-gray-500">Matching</p>
+            <p class="text-xl font-bold {% if stats.taux_matching >= 70 %}text-green-600{% elif stats.taux_matching >= 40 %}text-yellow-600{% else %}text-red-500{% endif %}">{{ stats.taux_matching }}%</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Vue côte à côte -->
+    <form method="post" id="validation-form">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- GAUCHE : Image de la fiche -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-gray-700 flex items-center">
+                        <i class="fas fa-image text-purple-600 mr-2"></i> Fiche importée
+                    </h2>
+                    <div class="flex items-center space-x-1">
+                        <button type="button" onclick="zoomIn()" class="p-1.5 text-gray-500 hover:bg-gray-200 rounded transition-colors" title="Zoom +">
+                            <i class="fas fa-search-plus text-sm"></i>
+                        </button>
+                        <button type="button" onclick="zoomOut()" class="p-1.5 text-gray-500 hover:bg-gray-200 rounded transition-colors" title="Zoom -">
+                            <i class="fas fa-search-minus text-sm"></i>
+                        </button>
+                        <button type="button" onclick="resetZoom()" class="p-1.5 text-gray-500 hover:bg-gray-200 rounded transition-colors" title="Reset">
+                            <i class="fas fa-expand text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-auto max-h-[70vh] p-2 bg-gray-50" id="image-container">
+                    {% if fiche.fichier_fiche %}
+                    <img src="{{ fiche.fichier_fiche.url }}" alt="Fiche d'anonymat"
+                         id="fiche-image"
+                         class="w-full rounded-lg shadow transition-transform origin-top-left"
+                         style="transform: scale(1);">
+                    {% else %}
+                    <div class="text-center py-20 text-gray-400">
+                        <i class="fas fa-image text-5xl mb-4"></i>
+                        <p>Aucune image disponible</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- DROITE : Tableau des lignes détectées -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-gray-700 flex items-center">
+                        <i class="fas fa-table text-purple-600 mr-2"></i> Données détectées ({{ lignes|length }} lignes)
+                    </h2>
+                    {% if fiche.enseignant_nom %}
+                    <span class="text-xs text-gray-500">Enseignant : {{ fiche.enseignant_nom }}</span>
+                    {% endif %}
+                </div>
+                <div class="overflow-auto max-h-[70vh]">
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 z-10">
+                            <tr class="bg-gray-50 border-b border-gray-200">
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-12">#</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">N° Anon.</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">Nom manuscrit (OCR)</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">Étudiant matché</th>
+                                <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 w-20">Note</th>
+                                <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for ligne in lignes %}
+                            <tr class="hover:bg-purple-50/30 transition-colors {% if not ligne.etudiant %}bg-yellow-50/30{% endif %}">
+                                <td class="px-3 py-2 text-gray-400 text-xs">{{ forloop.counter }}</td>
+                                <td class="px-3 py-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-xs font-mono font-bold">
+                                        {{ ligne.numero_anonymat }}
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2 text-gray-700 text-xs font-medium" title="{{ ligne.nom_manuscrit_detecte }}">
+                                    {{ ligne.nom_manuscrit_detecte|truncatechars:30 }}
+                                </td>
+                                <td class="px-3 py-2">
+                                    <select name="etudiant_{{ ligne.id }}"
+                                            class="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:ring-purple-500 focus:border-purple-500 {% if ligne.etudiant %}bg-green-50 border-green-200{% else %}bg-yellow-50 border-yellow-200{% endif %}">
+                                        <option value="0">— Non identifié —</option>
+                                        {% for etud in etudiants_disponibles %}
+                                        <option value="{{ etud.id }}" {% if ligne.etudiant_id == etud.id %}selected{% endif %}>
+                                            {{ etud.nom }} {{ etud.prenom }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="px-3 py-2 text-center">
+                                    <input type="number" name="note_{{ ligne.id }}"
+                                           value="{{ ligne.note|default_if_none:'' }}"
+                                           step="0.25" min="0" max="20"
+                                           class="w-16 px-2 py-1 border border-gray-200 rounded text-center text-sm font-bold focus:ring-purple-500 focus:border-purple-500
+                                                  {% if ligne.note != None %}{% if ligne.note >= 10 %}text-green-700 bg-green-50{% else %}text-red-600 bg-red-50{% endif %}{% endif %}">
+                                </td>
+                                <td class="px-3 py-2 text-center">
+                                    {% if ligne.etudiant %}
+                                    <span class="w-5 h-5 inline-flex items-center justify-center rounded-full bg-green-100" title="Matché">
+                                        <i class="fas fa-check text-green-600 text-xs"></i>
+                                    </span>
+                                    {% else %}
+                                    <span class="w-5 h-5 inline-flex items-center justify-center rounded-full bg-yellow-100" title="Non matché">
+                                        <i class="fas fa-question text-yellow-600 text-xs"></i>
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <a href="{% url 'notes:liste_fiches_anonymat' %}"
+               class="px-5 py-2.5 text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                <i class="fas fa-arrow-left mr-2"></i> Retour
+            </a>
+            <div class="flex items-center space-x-3">
+                <button type="submit" name="sauvegarder"
+                        class="px-5 py-2.5 bg-white border-2 border-purple-600 text-purple-600 rounded-xl hover:bg-purple-50 transition-colors font-medium">
+                    <i class="fas fa-save mr-2"></i> Sauvegarder (brouillon)
+                </button>
+                {% if fiche.statut == 'BROUILLON' %}
+                <button type="submit" name="valider"
+                        class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium"
+                        onclick="return confirm('Valider et archiver cette fiche ? Les notes seront enregistrées définitivement.');">
+                    <i class="fas fa-check-double mr-2"></i> Valider et Enregistrer
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+let currentZoom = 1;
+const zoomStep = 0.25;
+
+function zoomIn() {
+    currentZoom = Math.min(currentZoom + zoomStep, 3);
+    applyZoom();
+}
+
+function zoomOut() {
+    currentZoom = Math.max(currentZoom - zoomStep, 0.5);
+    applyZoom();
+}
+
+function resetZoom() {
+    currentZoom = 1;
+    applyZoom();
+}
+
+function applyZoom() {
+    const img = document.getElementById('fiche-image');
+    if (img) {
+        img.style.transform = `scale(${currentZoom})`;
+    }
+}
+
+// Color-code note inputs on change
+document.querySelectorAll('input[type="number"][name^="note_"]').forEach(input => {
+    input.addEventListener('input', function() {
+        const val = parseFloat(this.value);
+        this.classList.remove('text-green-700', 'bg-green-50', 'text-red-600', 'bg-red-50');
+        if (!isNaN(val)) {
+            if (val >= 10) {
+                this.classList.add('text-green-700', 'bg-green-50');
+            } else {
+                this.classList.add('text-red-600', 'bg-red-50');
+            }
+        }
+    });
+});
+
+// Color-code student selects on change
+document.querySelectorAll('select[name^="etudiant_"]').forEach(select => {
+    select.addEventListener('change', function() {
+        this.classList.remove('bg-green-50', 'border-green-200', 'bg-yellow-50', 'border-yellow-200');
+        if (this.value !== '0') {
+            this.classList.add('bg-green-50', 'border-green-200');
+        } else {
+            this.classList.add('bg-yellow-50', 'border-yellow-200');
+        }
+    });
+});
+</script>
+{% endblock %}

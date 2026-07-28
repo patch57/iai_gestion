@@ -196,7 +196,7 @@ def saisie_notes(request, evaluation_id):
         return redirect('notes:detail_evaluation', pk=evaluation_id)
     
     # Étudiants inscrits au cours
-    inscriptions = evaluation.cours.inscriptions_cours.filter(est_actif=True)
+    inscriptions = evaluation.cours.inscriptions_cours.filter(est_actif=True).order_by('etudiant__nom', 'etudiant__prenom')
     
     if request.method == 'POST':
         modified_count = 0
@@ -499,7 +499,7 @@ def deliberation(request):
             etudiant__filiere=filiere,
             annee_academique=annee,
             semestre=semestre
-        ).select_related('etudiant').order_by('-moyenne_semestre')
+        ).select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom')
         
         # Calculer les statistiques
         stats = {
@@ -855,3 +855,603 @@ def api_stats_evaluation(request, evaluation_id):
     }
     
     return JsonResponse(data)
+
+
+# ========== FICHES D'ANONYMAT (CONFIDENTIEL) ==========
+
+from .models import FicheNotesAnonymat, LigneFicheNotesAnonymat
+from .forms import FicheAnonymatImportForm
+from .services import analyser_fiche_anonymat_image, match_etudiant_par_nom
+from apps.cours.models import Salle
+
+
+def _est_autorise_anonymat(user):
+    """Vérifie si l'utilisateur a accès aux fiches d'anonymat"""
+    return (
+        user.is_superuser
+        or getattr(user, 'type_utilisateur', None) in ('CHEF_ANONYMAT', 'ADMIN_SYSTEME')
+    )
+
+
+@login_required
+def liste_fiches_anonymat(request):
+    """Dashboard confidentiel des fiches de notes d'anonymat"""
+    if not _est_autorise_anonymat(request.user):
+        messages.error(request, "❌ Accès refusé. Section réservée au Chef de l'Anonymat.")
+        return redirect('tableau_bord:tableau_bord')
+
+    queryset = FicheNotesAnonymat.objects.all().select_related('matiere', 'salle', 'type_evaluation', 'cree_par')
+
+    # Filtres
+    statut = request.GET.get('statut', '')
+    if statut:
+        queryset = queryset.filter(statut=statut)
+
+    matiere_id = request.GET.get('matiere', '')
+    if matiere_id:
+        queryset = queryset.filter(matiere_id=matiere_id)
+
+    # Stats
+    total = queryset.count()
+    brouillons = queryset.filter(statut='BROUILLON').count()
+    valides = queryset.filter(statut='VALIDE').count()
+
+    # Pagination
+    paginator = Paginator(queryset.order_by('-date_import'), 20)
+    page = request.GET.get('page')
+    fiches = paginator.get_page(page)
+
+    from apps.cours.models import Matiere as CoursMatiere
+    context = {
+        'fiches': fiches,
+        'matieres': CoursMatiere.objects.all().order_by('code'),
+        'stats': {'total': total, 'brouillons': brouillons, 'valides': valides},
+        'statut_filtre': statut,
+        'matiere_filtre': matiere_id,
+        'titre': 'Fiches d\'Anonymat — Dashboard Confidentiel'
+    }
+    return render(request, 'notes/fiches_anonymat/liste.html', context)
+
+
+@login_required
+def importer_fiche_anonymat(request):
+    """Importer une fiche de notes d'anonymat (image ou PDF)"""
+    if not _est_autorise_anonymat(request.user):
+        messages.error(request, "❌ Accès refusé.")
+        return redirect('tableau_bord:tableau_bord')
+
+    if request.method == 'POST':
+        form = FicheAnonymatImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            fiche = form.save(commit=False)
+            fiche.cree_par = request.user
+            fiche.statut = 'BROUILLON'
+            fiche.save()
+
+            # Récupérer les étudiants de la classe liée à la salle
+            etudiants_classe = None
+            salle = fiche.salle
+            # Chercher une Classe correspondant au nom/code de la salle
+            from apps.etudiants.models import Classe, AnneeAcademique
+            annee_active = AnneeAcademique.get_active()
+            if annee_active:
+                classe = Classe.objects.filter(
+                    nom__icontains=salle.code,
+                    annee_academique=annee_active,
+                    est_active=True
+                ).first()
+                if not classe:
+                    classe = Classe.objects.filter(
+                        nom__icontains=salle.nom,
+                        annee_academique=annee_active,
+                        est_active=True
+                    ).first()
+                if classe:
+                    etudiants_classe = classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF'])
+
+            # Lancer l'analyse OCR
+            file_path = fiche.fichier_fiche.path if fiche.fichier_fiche else None
+            resultats = analyser_fiche_anonymat_image(file_path, etudiants_classe)
+
+            # Créer les lignes
+            for r in resultats:
+                LigneFicheNotesAnonymat.objects.create(
+                    fiche=fiche,
+                    numero_anonymat=r['numero_anonymat'],
+                    note=r['note'],
+                    nom_manuscrit_detecte=r['nom_manuscrit_detecte'],
+                    etudiant=r.get('etudiant')
+                )
+
+            messages.success(request, f"✅ Fiche importée avec {len(resultats)} ligne(s) détectée(s). Vérifiez et validez.")
+            return redirect('notes:valider_fiche_anonymat', pk=fiche.pk)
+    else:
+        form = FicheAnonymatImportForm()
+
+    context = {
+        'form': form,
+        'titre': 'Importer une Fiche d\'Anonymat'
+    }
+    return render(request, 'notes/fiches_anonymat/importer.html', context)
+
+
+@login_required
+def valider_fiche_anonymat(request, pk):
+    """Validation côte à côte d'une fiche d'anonymat"""
+    if not _est_autorise_anonymat(request.user):
+        messages.error(request, "❌ Accès refusé.")
+        return redirect('tableau_bord:tableau_bord')
+
+    fiche = get_object_or_404(FicheNotesAnonymat, pk=pk)
+    lignes = fiche.lignes.all().select_related('etudiant').order_by('numero_anonymat')
+
+    # Récupérer les étudiants pour les dropdowns de correction
+    etudiants_disponibles = []
+    from apps.etudiants.models import Classe, AnneeAcademique
+    annee_active = AnneeAcademique.get_active()
+    if annee_active:
+        classe = Classe.objects.filter(
+            nom__icontains=fiche.salle.code,
+            annee_academique=annee_active,
+            est_active=True
+        ).first()
+        if not classe:
+            classe = Classe.objects.filter(
+                nom__icontains=fiche.salle.nom,
+                annee_academique=annee_active,
+                est_active=True
+            ).first()
+        if classe:
+            etudiants_disponibles = list(classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom'))
+
+    if not etudiants_disponibles:
+        etudiants_disponibles = list(Etudiant.objects.filter(statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom')[:50])
+
+    if request.method == 'POST':
+        updated = 0
+        for ligne in lignes:
+            note_val = request.POST.get(f'note_{ligne.id}')
+            etud_id = request.POST.get(f'etudiant_{ligne.id}')
+
+            if note_val is not None and note_val != '':
+                try:
+                    from decimal import Decimal
+                    ligne.note = Decimal(note_val)
+                except Exception:
+                    pass
+
+            if etud_id:
+                try:
+                    ligne.etudiant_id = int(etud_id) if etud_id != '0' else None
+                except (ValueError, TypeError):
+                    ligne.etudiant_id = None
+            else:
+                ligne.etudiant_id = None
+
+            ligne.save()
+            updated += 1
+
+        # Vérifier si on valide
+        if 'valider' in request.POST:
+            # Synchroniser les lignes de notes avec les objets Note officiels en base de données
+            from django.utils import timezone
+            from apps.etudiants.models import Niveau
+            from apps.notes.models import Cours, Evaluation, Note
+            
+            note_count = 0
+            for ligne in lignes:
+                etud = ligne.etudiant
+                if etud and ligne.note is not None:
+                    # Déterminer le niveau
+                    niveau = etud.niveau
+                    if not niveau and etud.classe:
+                        niveau = etud.classe.niveau
+                    if not niveau:
+                        niveau = Niveau.objects.filter(filiere=etud.filiere).first()
+                    
+                    if not niveau:
+                        continue
+                    
+                    # Trouver ou créer la matière de notes correspondante
+                    from apps.notes.models import Matiere as NotesMatiere
+                    notes_matiere, _ = NotesMatiere.objects.get_or_create(
+                        code=fiche.matiere.code,
+                        defaults={
+                            'nom': fiche.matiere.nom,
+                            'credit': fiche.matiere.credits,
+                            'semestre': fiche.matiere.semestre,
+                            'volume_horaire': fiche.matiere.get_heures_totales()
+                        }
+                    )
+                    
+                    # Trouver ou créer le cours
+                    cours, _ = Cours.objects.get_or_create(
+                        matiere=notes_matiere,
+                        filiere=etud.filiere,
+                        niveau=niveau,
+                        annee_academique=fiche.annee_academique,
+                        defaults={
+                            'semestre': fiche.matiere.semestre,
+                            'volume_horaire': fiche.matiere.get_heures_totales()
+                        }
+                    )
+                    
+                    # Trouver ou créer l'évaluation
+                    evaluation, _ = Evaluation.objects.get_or_create(
+                        cours=cours,
+                        type_evaluation=fiche.type_evaluation,
+                        defaults={
+                            'titre': f"{fiche.type_evaluation.nom} - {fiche.matiere.nom}",
+                            'date_evaluation': fiche.date_import.date() if fiche.date_import else timezone.now().date(),
+                            'coefficient': fiche.type_evaluation.coefficient_default,
+                            'statut': 'TERMINEE',
+                            'est_publiee': True,
+                            'cree_par': request.user
+                        }
+                    )
+                    
+                    # Créer ou mettre à jour la note
+                    Note.objects.update_or_create(
+                        etudiant=etud,
+                        evaluation=evaluation,
+                        defaults={
+                            'valeur': ligne.note,
+                            'saisie_par': request.user,
+                            'est_validee': True
+                        }
+                    )
+                    note_count += 1
+            
+            fiche.statut = 'VALIDE'
+            fiche.save()
+            
+            # Créer/mettre à jour automatiquement le procès-verbal de notes
+            from apps.notes.models import ProcesVerbalNotes
+            titre_pv = f"PV Notes - {fiche.matiere.nom} - {fiche.salle.code} - {fiche.type_evaluation.nom} ({fiche.annee_academique})"
+            ProcesVerbalNotes.objects.update_or_create(
+                fiche_anonymat=fiche,
+                defaults={
+                    'titre': titre_pv,
+                    'cree_par': request.user
+                }
+            )
+            
+            messages.success(request, f"✅ Fiche validée avec {updated} ligne(s) enregistrée(s). {note_count} note(s) officielle(s) créée(s) / mise(s) à jour et Procès-Verbal archivé.")
+            return redirect('notes:liste_fiches_anonymat')
+        else:
+            messages.success(request, f"✅ {updated} ligne(s) mise(s) à jour (brouillon conservé).")
+            return redirect('notes:valider_fiche_anonymat', pk=fiche.pk)
+
+    # Calcul des stats pour affichage
+    notes_values = [float(l.note) for l in lignes if l.note is not None]
+    stats = {}
+    if notes_values:
+        stats['moyenne'] = round(sum(notes_values) / len(notes_values), 2)
+        stats['min'] = min(notes_values)
+        stats['max'] = max(notes_values)
+        stats['total'] = len(notes_values)
+        stats['reussites'] = sum(1 for n in notes_values if n >= 10)
+        stats['taux_reussite'] = round((stats['reussites'] / stats['total']) * 100, 1) if stats['total'] > 0 else 0
+        matched = sum(1 for l in lignes if l.etudiant is not None)
+        stats['matched'] = matched
+        stats['taux_matching'] = round((matched / stats['total']) * 100, 1) if stats['total'] > 0 else 0
+
+    context = {
+        'fiche': fiche,
+        'lignes': lignes,
+        'etudiants_disponibles': etudiants_disponibles,
+        'stats': stats,
+        'titre': f'Validation — {fiche}'
+    }
+    return render(request, 'notes/fiches_anonymat/valider.html', context)
+
+
+@login_required
+def supprimer_fiche_anonymat(request, pk):
+    """Supprimer une fiche d'anonymat brouillon"""
+    if not _est_autorise_anonymat(request.user):
+        messages.error(request, "❌ Accès refusé.")
+        return redirect('tableau_bord:tableau_bord')
+
+    fiche = get_object_or_404(FicheNotesAnonymat, pk=pk)
+
+    if request.method == 'POST':
+        fiche.delete()
+        messages.success(request, "🗑️ Fiche supprimée avec succès.")
+        return redirect('notes:liste_fiches_anonymat')
+
+    return redirect('notes:liste_fiches_anonymat')
+
+
+# ========== RECOURS ENSEIGNANT / ADMIN ==========
+
+@login_required
+def liste_recours(request):
+    """Liste des demandes de recours, filtrables par statut et matière"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    
+    if role in ('ETUDIANT', 'APPRENANT'):
+        queryset = RecoursNote.objects.filter(etudiant__utilisateur=user)
+        is_staff_or_teacher = False
+    else:
+        queryset = RecoursNote.objects.all()
+        is_staff_or_teacher = True
+        # Si c'est un enseignant/professeur, filtrer par ses cours
+        if role in ('ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR'):
+            queryset = queryset.filter(evaluation__cours__professeur=user)
+            
+    # Filtres
+    statut = request.GET.get('statut', '')
+    if statut:
+        queryset = queryset.filter(statut=statut)
+        
+    matiere_id = request.GET.get('matiere', '')
+    if matiere_id:
+        queryset = queryset.filter(evaluation__cours__matiere_id=matiere_id)
+        
+    # Pagination
+    paginator = Paginator(queryset.select_related('etudiant', 'evaluation__cours__matiere', 'evaluation__type_evaluation'), 20)
+    page = request.GET.get('page')
+    recours_list = paginator.get_page(page)
+    
+    from apps.cours.models import Matiere as CoursMatiere
+    context = {
+        'recours_list': recours_list,
+        'statut_filtre': statut,
+        'matiere_filtre': matiere_id,
+        'matieres': CoursMatiere.objects.all().order_by('code'),
+        'is_staff_or_teacher': is_staff_or_teacher,
+        'titre': 'Suivi des Recours de Notes'
+    }
+    return render(request, 'notes/recours/liste.html', context)
+
+
+@login_required
+def traiter_recours(request, pk):
+    """Traiter une demande de recours (validation ou rejet)"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    
+    if role in ('ETUDIANT', 'APPRENANT'):
+        messages.error(request, "❌ Accès refusé.")
+        return redirect('notes:mes_notes')
+        
+    recours = get_object_or_404(RecoursNote, pk=pk)
+    
+    # Vérifier l'autorisation pour l'enseignant
+    if role in ('ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR') and recours.evaluation.cours.professeur != user:
+        messages.error(request, "❌ Accès refusé : vous n'enseignez pas cette matière pour cette classe.")
+        return redirect('notes:liste_recours')
+        
+    if request.method == 'POST':
+        statut_decision = request.POST.get('statut')
+        decision_comm = request.POST.get('decision', '')
+        
+        if statut_decision in ('ACCEPTE', 'REJETE'):
+            recours.statut = statut_decision
+            recours.decision = decision_comm
+            recours.date_traitement = timezone.now()
+            recours.traite_par = user
+            recours.save()
+            
+            if statut_decision == 'ACCEPTE':
+                # Mettre à jour la note réelle de l'étudiant
+                note_obj = Note.objects.filter(etudiant=recours.etudiant, evaluation=recours.evaluation).first()
+                if note_obj:
+                    note_obj.valeur = recours.note_demandee
+                    note_obj.observation = f"Modifiée suite au recours #{recours.id}."
+                    note_obj.save()
+                    
+            messages.success(request, f"✅ Recours {recours.get_statut_display()} avec succès.")
+            return redirect('notes:liste_recours')
+        else:
+            messages.error(request, "❌ Action de décision invalide.")
+            
+    context = {
+        'recours': recours,
+        'titre': f"Traiter le recours - {recours.etudiant.get_nom_complet()}"
+    }
+    return render(request, 'notes/recours/traiter.html', context)
+
+
+# ========== BULLETIN ÉTUDIANT ==========
+
+@login_required
+def mon_bulletin(request):
+    """Espace personnel étudiant : Bulletin semestriel interactif"""
+    try:
+        etudiant = Etudiant.objects.get(utilisateur=request.user)
+    except Etudiant.DoesNotExist:
+        messages.error(request, '❌ Vous n\'êtes pas identifié en tant qu\'étudiant.')
+        return redirect('tableau_bord:tableau_bord')
+        
+    annee = get_annee_academique_active(request)
+    bulletins = Bulletin.objects.filter(etudiant=etudiant).order_by('-annee_academique', 'semestre')
+    
+    semestre = request.GET.get('semestre', '1')
+    try:
+        semestre_int = int(semestre)
+    except ValueError:
+        semestre_int = 1
+        
+    bulletin_actif = bulletins.filter(annee_academique=annee, semestre=semestre_int).first()
+    
+    details = []
+    progression = 0
+    total_credits = 0
+    credits_obtenus = 0
+    
+    if bulletin_actif:
+        details = bulletin_actif.details.all().select_related('matiere')
+        total_credits = sum(d.credits for d in details)
+        credits_obtenus = bulletin_actif.credits_obtenus
+        progression = round((credits_obtenus / total_credits) * 100, 1) if total_credits > 0 else 0
+        
+    context = {
+        'etudiant': etudiant,
+        'bulletins': bulletins,
+        'bulletin_actif': bulletin_actif,
+        'details': details,
+        'progression': progression,
+        'total_credits': total_credits,
+        'credits_obtenus': credits_obtenus,
+        'annee': annee,
+        'semestre_actif': semestre_int,
+        'titre': 'Mon Bulletin Semestriel'
+      }
+    return render(request, 'notes/bulletin/mon_bulletin.html', context)
+
+
+# ========== APIs AJAX (STATISTIQUES) ==========
+
+@login_required
+def api_notes_etudiant(request, etudiant_id):
+    """API JSON : Notes d'un étudiant particulier"""
+    role = getattr(request.user, 'type_utilisateur', None)
+    
+    if role in ('ETUDIANT', 'APPRENANT'):
+        try:
+            etudiant = Etudiant.objects.get(utilisateur=request.user)
+            if etudiant.id != etudiant_id:
+                return JsonResponse({'error': 'Accès interdit'}, status=403)
+        except Etudiant.DoesNotExist:
+            return JsonResponse({'error': 'Profil étudiant introuvable'}, status=404)
+    else:
+        etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+        
+    notes = Note.objects.filter(etudiant=etudiant, est_validee=True).select_related('evaluation__cours__matiere', 'evaluation__type_evaluation')
+    data = []
+    for note in notes:
+        data.append({
+            'evaluation': note.evaluation.titre,
+            'matiere_code': note.evaluation.cours.matiere.code,
+            'matiere_nom': note.evaluation.cours.matiere.nom,
+            'type_evaluation': note.evaluation.type_evaluation.nom,
+            'valeur': float(note.valeur),
+            'coefficient': float(note.evaluation.coefficient),
+            'note_ponderee': float(note.get_note_ponderee()),
+            'date': note.evaluation.date_evaluation.isoformat(),
+        })
+        
+    return JsonResponse({
+        'etudiant': etudiant.get_nom_complet(),
+        'notes': data
+    })
+
+
+@login_required
+def api_moyennes_filiere(request, filiere_id):
+    """API JSON : Statistiques globales des moyennes par semestre d'une filière"""
+    role = getattr(request.user, 'type_utilisateur', None)
+    if role in ('ETUDIANT', 'APPRENANT'):
+        return JsonResponse({'error': 'Accès interdit'}, status=403)
+        
+    filiere = get_object_or_404(Filiere, pk=filiere_id)
+    annee = get_annee_academique_active(request)
+    
+    bulletins = Bulletin.objects.filter(
+        etudiant__filiere=filiere,
+        annee_academique=annee,
+        est_valide=True
+    )
+    
+    stats = []
+    for sem in [1, 2]:
+        avg_sem = bulletins.filter(semestre=sem).aggregate(avg=Avg('moyenne_semestre'))['avg']
+        stats.append({
+            'semestre': sem,
+            'moyenne_generale': round(float(avg_sem), 2) if avg_sem else None,
+            'effectif_total': bulletins.filter(semestre=sem).count(),
+            'admis': bulletins.filter(semestre=sem, decision='ADMIS').count(),
+            'ajournes': bulletins.filter(semestre=sem, decision='AJOURNE').count(),
+        })
+        
+    return JsonResponse({
+        'filiere': filiere.nom,
+        'annee_academique': annee,
+        'statistiques': stats
+    })
+
+
+# ========== PROCÈS-VERBAUX DE NOTES ==========
+
+@login_required
+def detail_pv(request, pk):
+    """Affiche le procès-verbal de notes (format imprimable officiel)"""
+    role = getattr(request.user, 'type_utilisateur', None)
+    if role not in ('CHEF_ANONYMAT', 'CHEF_ETUDES', 'ADMIN_SYSTEME') and not request.user.is_superuser:
+        messages.error(request, "❌ Accès réservé aux personnes autorisées.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    from apps.notes.models import ProcesVerbalNotes
+    from django.utils import timezone
+    pv = get_object_or_404(ProcesVerbalNotes, pk=pk)
+    
+    lignes = []
+    coefficient = 1.00
+    enseignant_nom = ""
+    niveau_nom = "I"
+    
+    if pv.fiche_anonymat:
+        lignes = pv.fiche_anonymat.lignes.all().select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom')
+        coefficient = pv.fiche_anonymat.type_evaluation.coefficient_default
+        enseignant_nom = pv.fiche_anonymat.enseignant_nom
+        
+        # Déterminer le niveau
+        if lignes.exists() and lignes.first().etudiant and lignes.first().etudiant.niveau:
+            num = lignes.first().etudiant.niveau.numero
+            romains = {1: 'I', 2: 'II', 3: 'III'}
+            niveau_nom = romains.get(num, str(num))
+            
+    context = {
+        'pv': pv,
+        'lignes': lignes,
+        'coefficient': coefficient,
+        'enseignant_nom': enseignant_nom,
+        'niveau_nom': niveau_nom,
+        'date_impression': timezone.now(),
+        'titre': pv.titre
+    }
+    return render(request, 'notes/pv/detail_pv.html', context)
+
+
+@login_required
+def transmettre_pv(request, pk):
+    """Transmet le PV confidentiellement au Chef des Études"""
+    if not _est_autorise_anonymat(request.user):
+        messages.error(request, "❌ Action réservée au Chef de l'Anonymat.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    from apps.notes.models import ProcesVerbalNotes
+    from django.utils import timezone
+    pv = get_object_or_404(ProcesVerbalNotes, pk=pk)
+    
+    if request.method == 'POST':
+        pv.est_transmis = True
+        pv.date_transmission = timezone.now()
+        pv.save()
+        messages.success(request, f"✉️ Le procès-verbal \"{pv.titre}\" a été transmis confidentiellement au Chef des Études.")
+        
+    return redirect('tableau_bord:tableau_bord')
+
+
+@login_required
+def supprimer_pv(request, pk):
+    """Supprime un Procès-verbal de notes (le fait disparaître pour le Chef de l'Anonymat et le Chef des Études)"""
+    if not _est_autorise_anonymat(request.user):
+        messages.error(request, "❌ Action réservée au Chef de l'Anonymat.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    from apps.notes.models import ProcesVerbalNotes
+    pv = get_object_or_404(ProcesVerbalNotes, pk=pk)
+    
+    if request.method == 'POST':
+        titre = pv.titre
+        # Supprimer le fichier physique s'il existe
+        if pv.fichier_excel:
+            pv.fichier_excel.delete(save=False)
+        pv.delete()
+        messages.success(request, f"🗑️ Le procès-verbal \"{titre}\" a été supprimé avec succès.")
+        
+    return redirect('tableau_bord:tableau_bord')

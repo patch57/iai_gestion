@@ -84,9 +84,17 @@
                     </div>
                 </div>
                 
-                <button type="button" onclick="toggleDetails('details-{{ c_data.classe.id }}', this)" class="bg-green-50 hover:bg-green-100 text-green-700 font-bold py-2 px-4 rounded-xl text-xs flex items-center transition duration-200">
-                    <i class="fas fa-chevron-down mr-2 transition-transform duration-200"></i> Voir la liste
-                </button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="toggleDetails('details-{{ c_data.classe.id }}', this)" class="bg-green-50 hover:bg-green-100 text-green-700 font-bold py-2 px-4 rounded-xl text-xs flex items-center transition duration-200">
+                        <i class="fas fa-chevron-down mr-2 transition-transform duration-200"></i> Voir la liste
+                    </button>
+                    
+                    {% if user_type == 'CHEF_COMPTABILITE' or user_type == 'ADMIN_FINANCIER' or request.user.is_superuser %}
+                    <a href="{% url 'tableau_bord:export_pdf_paiements_classe' salle_id=c_data.classe.id %}" target="_blank" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold py-2 px-4 rounded-xl text-xs flex items-center transition duration-200 shadow-sm border border-red-100">
+                        <i class="fas fa-file-pdf mr-2"></i> Télécharger PDF
+                    </a>
+                    {% endif %}
+                </div>
             </div>
 
             <!-- Liste des Étudiants (détails masqués par défaut) -->

@@ -231,8 +231,9 @@ def etudiant_dashboard(request):
     absences = Presence.objects.filter(etudiant=etudiant, statut__in=['ABSENT', 'RETARD'])
     notes = Note.objects.filter(etudiant=etudiant, est_validee=True)
     
-    from .models import ReglementInterieur
+    from .models import ReglementInterieur, NoteInformation
     reglement_actif = ReglementInterieur.objects.filter(est_actif=True).first()
+    notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
     
     context = {
         'etudiant': etudiant,
@@ -246,6 +247,7 @@ def etudiant_dashboard(request):
         'absences': absences,
         'notes': notes,
         'reglement_actif': reglement_actif,
+        'notes_info': notes_info,
         'titre': 'Espace Étudiant',
         'date_aujourdhui': timezone.now()
     }
@@ -277,9 +279,13 @@ def apprenant_dashboard(request):
     formations_disponibles = Formation.objects.filter(est_active=True).exclude(id__in=apprenant.formations.all())
     apprenant.recalculer_solde()
     
+    from .models import NoteInformation
+    notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
+    
     context = {
         'apprenant': apprenant,
         'formations_disponibles': formations_disponibles,
+        'notes_info': notes_info,
         'titre': 'Espace Apprenant'
     }
     return render(request, 'tableau_bord/apprenant_dashboard.html', context)
@@ -343,6 +349,9 @@ def enseignant_dashboard(request):
         auteur__type_utilisateur='APPRENANT'
     ).exclude(statut='TRAITE').select_related('auteur')
     
+    from .models import NoteInformation
+    notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
+    
     context = {
         'professeur': professeur,
         'cours_enseignes': cours_enseignes,
@@ -351,6 +360,7 @@ def enseignant_dashboard(request):
         'apprenants_continue': apprenants_continue,
         'apprenants_certif': apprenants_certif,
         'requetes_apprenants': requetes_apprenants,
+        'notes_info': notes_info,
         'titre': 'Tableau de Bord - Formateur & Chef de Service'
     }
     return render(request, 'tableau_bord/enseignant_dashboard.html', context)
@@ -417,44 +427,83 @@ def chef_etudes_dashboard(request):
     from apps.inscriptions.utils import get_current_academic_year_code
     from apps.etudiants.models import Niveau
     from apps.cours.models import Salle
-    if request.method == 'POST' and request.FILES.get('emploi_fichier'):
-        filiere_id = request.POST.get('filiere_id')
-        niveau_id = request.POST.get('niveau_id')
-        salle_id = request.POST.get('salle_id')
-        
-        filiere = get_object_or_404(Filiere, id=filiere_id)
-        
-        niveau = None
-        if niveau_id:
-            niveau = get_object_or_404(Niveau, id=niveau_id)
+    if request.method == 'POST':
+        if request.FILES.get('emploi_fichier'):
+            filiere_id = request.POST.get('filiere_id')
+            niveau_id = request.POST.get('niveau_id')
+            salle_id = request.POST.get('salle_id')
             
-        salle = None
-        if salle_id:
-            salle = get_object_or_404(Salle, id=salle_id)
+            filiere = get_object_or_404(Filiere, id=filiere_id)
             
-        EmploiDuTemps.objects.create(
-            filiere=filiere,
-            niveau=niveau,
-            salle=salle,
-            annee_academique=get_current_academic_year_code(),
-            semestre=1,
-            fichier_pdf=request.FILES.get('emploi_fichier'),
-            date_debut=timezone.now().date(),
-            date_fin=timezone.now().date() + timedelta(days=120)
-        )
-        messages.success(request, "Emploi du temps mis à jour avec succès.")
-        return redirect('tableau_bord:tableau_bord')
+            niveau = None
+            if niveau_id:
+                niveau = get_object_or_404(Niveau, id=niveau_id)
+                
+            salle = None
+            if salle_id:
+                salle = get_object_or_404(Salle, id=salle_id)
+                
+            annee_academique = get_current_academic_year_code()
+            semestre = 1
+            
+            # Supprimer l'ancien emploi du temps s'il existe pour la même combinaison unique
+            existing_emplois = EmploiDuTemps.objects.filter(
+                filiere=filiere,
+                niveau=niveau,
+                salle=salle,
+                annee_academique=annee_academique,
+                semestre=semestre
+            )
+            for old_emp in existing_emplois:
+                if old_emp.fichier_pdf:
+                    old_emp.fichier_pdf.delete(save=False)
+                old_emp.delete()
+                
+            EmploiDuTemps.objects.create(
+                filiere=filiere,
+                niveau=niveau,
+                salle=salle,
+                annee_academique=annee_academique,
+                semestre=semestre,
+                fichier_pdf=request.FILES.get('emploi_fichier'),
+                date_debut=timezone.now().date(),
+                date_fin=timezone.now().date() + timedelta(days=120)
+            )
+            messages.success(request, "Emploi du temps mis à jour avec succès.")
+            return redirect('tableau_bord:tableau_bord')
+            
+        elif request.POST.get('sujet') or request.FILES.get('note_fichier'):
+            from apps.tableau_bord.models import NoteInformation
+            titre = request.POST.get('sujet')
+            contenu = request.POST.get('contenu', '')
+            fichier_pdf = request.FILES.get('note_fichier')
+            
+            NoteInformation.objects.create(
+                titre=titre,
+                contenu=contenu,
+                fichier_pdf=fichier_pdf,
+                cree_par=request.user
+            )
+            messages.success(request, "📢 Note d'information publiée avec succès.")
+            return redirect('tableau_bord:tableau_bord')
         
+    from apps.notes.models import ProcesVerbalNotes
+    from apps.tableau_bord.models import NoteInformation
+    
     filieres = Filiere.objects.all()
     niveaux = Niveau.objects.all()
     salles = Salle.objects.all()
     emplois = EmploiDuTemps.objects.select_related('filiere', 'niveau', 'salle').all()
+    pvs = ProcesVerbalNotes.objects.filter(est_transmis=True).select_related('fiche_anonymat__matiere', 'fiche_anonymat__salle', 'fiche_anonymat__type_evaluation')
+    notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
     
     context = {
         'filieres': filieres,
         'niveaux': niveaux,
         'salles': salles,
         'emplois': emplois,
+        'pvs': pvs,
+        'notes_info': notes_info,
         'titre': 'Espace Chef des Études'
     }
     return render(request, 'tableau_bord/chef_etudes_dashboard.html', context)
@@ -462,12 +511,23 @@ def chef_etudes_dashboard(request):
 
 @login_required
 def chef_anonymat_dashboard(request):
+    from apps.notes.models import ProcesVerbalNotes
+    
     if request.method == 'POST' and request.FILES.get('pv_fichier'):
-        messages.success(request, "Procès-verbal d'anonymat téléversé avec succès.")
+        titre = request.POST.get('titre')
+        ProcesVerbalNotes.objects.create(
+            titre=titre,
+            fichier_excel=request.FILES.get('pv_fichier'),
+            cree_par=request.user
+        )
+        messages.success(request, "✅ Procès-verbal d'anonymat téléversé avec succès.")
         return redirect('tableau_bord:tableau_bord')
         
+    pvs = ProcesVerbalNotes.objects.all().select_related('fiche_anonymat__matiere', 'fiche_anonymat__salle', 'fiche_anonymat__type_evaluation')
+    
     context = {
-        'titre': "Espace Chef de l'Anonymat"
+        'titre': "Espace Chef de l'Anonymat",
+        'pvs': pvs
     }
     return render(request, 'tableau_bord/chef_anonymat_dashboard.html', context)
 
@@ -786,9 +846,7 @@ def statistiques(request):
         if etudiant:
             from decimal import Decimal
             base_scolarite = Decimal('461000.00')
-            recus = etudiant.recuspaiement_set.filter(statut='VALIDE') if hasattr(etudiant, 'recuspaiement_set') else []
-            if not recus and hasattr(etudiant, 'recus_paiements'):
-                recus = etudiant.recus_paiements.filter(statut='VALIDE')
+            recus = etudiant.recus.filter(statut='VALIDE') if hasattr(etudiant, 'recus') else []
             montant_paye = sum(r.montant_mentionne for r in recus)
             penalites_info = calculer_penalites_etudiant(etudiant)
             total_du = base_scolarite + penalites_info['total']
@@ -1653,9 +1711,7 @@ def liste_classes_partagee(request):
             
             # Pour la comptabilité, on calcule les détails financiers
             if user_type in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER'] or request.user.is_superuser:
-                recus = etudiant.recuspaiement_set.filter(statut='VALIDE') if hasattr(etudiant, 'recuspaiement_set') else []
-                if not recus and hasattr(etudiant, 'recus_paiements'):
-                    recus = etudiant.recus_paiements.filter(statut='VALIDE')
+                recus = etudiant.recus.filter(statut='VALIDE') if hasattr(etudiant, 'recus') else []
                 
                 montant_paye = sum(r.montant_mentionne for r in recus)
                 penalites_info = calculer_penalites_etudiant(etudiant)
@@ -1726,3 +1782,451 @@ def liste_classes_partagee(request):
     }
     
     return render(request, 'tableau_bord/liste_classes_partagee.html', context)
+
+
+@login_required
+def supprimer_note_info(request, pk):
+    """Supprime (désactive) une note d'information"""
+    if request.user.type_utilisateur != 'CHEF_ETUDES' and not request.user.is_superuser:
+        messages.error(request, "❌ Action réservée au Chef des Études.")
+        return redirect('tableau_bord:tableau_bord')
+        
+    from apps.tableau_bord.models import NoteInformation
+    note = get_object_or_404(NoteInformation, pk=pk)
+    
+    if request.method == 'POST':
+        note.est_active = False
+        note.save()
+        messages.success(request, "🗑️ Note d'information supprimée.")
+        
+    return redirect('tableau_bord:tableau_bord')
+
+
+@login_required
+def export_pdf_paiements_classe(request, salle_id):
+    """
+    Génère un PDF très esthétique et professionnel montrant l'état des paiements des étudiants d'une classe (salle).
+    """
+    # Autoriser uniquement la comptabilité/finance et les admins
+    user_type = getattr(request.user, 'type_utilisateur', '')
+    if user_type not in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER'] and not request.user.is_staff:
+        messages.error(request, "Accès refusé. Vous n'avez pas l'autorisation d'accéder à ce service.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.cours.models import Salle
+    from apps.etudiants.models import Classe, Etudiant
+    from apps.cours.views import find_matching_salle
+    from apps.paiements.services import calculer_penalites_etudiant
+    from decimal import Decimal
+    
+    salle = get_object_or_404(Salle, pk=salle_id)
+    annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+    
+    # Retrouver les classes actives correspondant à cette salle
+    classes_active = list(Classe.objects.filter(annee_academique=annee_active).select_related('filiere', 'niveau'))
+    matching_classes = []
+    for c in classes_active:
+        if find_matching_salle(c) == salle:
+            matching_classes.append(c)
+            
+    # Étudiants de ces classes
+    etudiants_list = Etudiant.objects.filter(classe__in=matching_classes).order_by('nom', 'prenom')
+    
+    # Déterminer la filière, niveau et année académique
+    filiere_nom = "Génie Logiciel"
+    niveau_num = 1
+    annee_code = annee_active.code if annee_active else "2026-2027"
+    
+    if matching_classes:
+        filiere_nom = matching_classes[0].filiere.nom
+        niveau_num = matching_classes[0].niveau.numero
+    else:
+        if "SR" in salle.code.upper() or "SYSTEME" in salle.nom.upper():
+            filiere_nom = "Systèmes et Réseaux"
+        for n in [1, 2]:
+            if str(n) in salle.code or str(n) in salle.nom:
+                niveau_num = n
+
+    # Préparer les données pour ReportLab
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Etat_Paiement_{salle.nom.replace(" ", "_")}.pdf"'
+    
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=A4,
+        rightMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        topMargin=1.5*cm,
+        bottomMargin=1.5*cm
+    )
+    
+    styles = getSampleStyleSheet()
+    
+    # Styles personnalisés
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=16,
+        textColor=colors.HexColor('#064E3B'), # Vert IAI
+        alignment=1, # Centré
+        spaceAfter=15
+    )
+    
+    header_style = ParagraphStyle(
+        'HeaderStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        alignment=0
+    )
+    
+    header_right_style = ParagraphStyle(
+        'HeaderRightStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        alignment=2
+    )
+    
+    meta_style = ParagraphStyle(
+        'MetaStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor('#333333')
+    )
+    
+    table_header_style = ParagraphStyle(
+        'TableHeader',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7.5,
+        leading=9,
+        textColor=colors.white,
+        alignment=1 # Centré
+    )
+    
+    table_cell_style = ParagraphStyle(
+        'TableCell',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7,
+        leading=9
+    )
+    
+    table_cell_bold = ParagraphStyle(
+        'TableCellBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7,
+        leading=9
+    )
+    
+    table_cell_right = ParagraphStyle(
+        'TableCellRight',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7,
+        leading=9,
+        alignment=2
+    )
+
+    table_cell_right_bold = ParagraphStyle(
+        'TableCellRightBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7,
+        leading=9,
+        alignment=2
+    )
+    
+    solvable_badge = ParagraphStyle(
+        'SolvableBadge',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7,
+        leading=9,
+        textColor=colors.HexColor('#065F46'),
+        alignment=1
+    )
+
+    insolvable_badge = ParagraphStyle(
+        'InsolvableBadge',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7,
+        leading=9,
+        textColor=colors.HexColor('#991B1B'),
+        alignment=1
+    )
+
+    elements = []
+    
+    # Entête officiel
+    header_left_text = "<b>RÉPUBLIQUE DU CAMEROUN</b><br/><font size=6 color='#666666'>Paix - Travail - Patrie</font><br/><b>INSTITUT AFRICAIN D'INFORMATIQUE</b><br/><font size=6.5 color='#064E3B'>CENTRE DE DOUALA (PK10)</font>"
+    header_right_text = "<b>DIRECTION FINANCIÈRE & COMPTABILITÉ</b><br/><font size=6 color='#666666'>Année Académique : " + annee_code + "</font><br/><font size=6 color='#666666'>Édité le : " + timezone.now().strftime('%d/%m/%Y à %H:%M') + "</font>"
+    
+    header_table = Table(
+        [[Paragraph(header_left_text, header_style), Paragraph(header_right_text, header_right_style)]],
+        colWidths=[9.5*cm, 8.5*cm]
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#064E3B'), spaceAfter=8))
+    
+    # Titre du document
+    elements.append(Paragraph(f"ÉTAT DE PAIEMENT DES SCOLARITÉS — CLASSE : {salle.nom.upper()}", title_style))
+    
+    # Métadonnées de la classe
+    meta_text_1 = f"<b>Filière :</b> {filiere_nom}<br/><b>Niveau :</b> {niveau_num}"
+    meta_text_2 = f"<b>Salle physique :</b> {salle.nom}<br/><b>Effectif :</b> {len(etudiants_list)} / {salle.capacite} étudiant(s)"
+    
+    meta_table = Table(
+        [[Paragraph(meta_text_1, meta_style), Paragraph(meta_text_2, meta_style)]],
+        colWidths=[9*cm, 9*cm]
+    )
+    meta_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F9FAFB')),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#E5E7EB')),
+    ]))
+    elements.append(meta_table)
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Tableau des étudiants
+    # Colonnes : N°, Matricule, Nom complet, Total dû, Montant Payé, Reste à payer, Statut
+    table_data = [
+        [
+            Paragraph("<b>N°</b>", table_header_style),
+            Paragraph("<b>Matricule</b>", table_header_style),
+            Paragraph("<b>Nom complet</b>", table_header_style),
+            Paragraph("<b>Total Dû</b>", table_header_style),
+            Paragraph("<b>Montant Payé</b>", table_header_style),
+            Paragraph("<b>Reste à Payer</b>", table_header_style),
+            Paragraph("<b>Statut</b>", table_header_style),
+        ]
+    ]
+    
+    total_attendu_classe = Decimal('0.00')
+    total_recouvre_classe = Decimal('0.00')
+    nb_insolvables = 0
+    nb_solvables = 0
+    
+    for idx, etudiant in enumerate(etudiants_list, 1):
+        recus = etudiant.recus.filter(statut='VALIDE') if hasattr(etudiant, 'recus') else []
+            
+        montant_paye = sum(r.montant_mentionne for r in recus)
+        penalites_info = calculer_penalites_etudiant(etudiant)
+        base_scolarite = Decimal('461000.00')
+        total_du = base_scolarite + penalites_info['total']
+        reste_payer = max(0, total_du - montant_paye)
+        solvable = reste_payer == 0
+        
+        # Cumuls de classe
+        total_attendu_classe += total_du
+        total_recouvre_classe += montant_paye
+        
+        if solvable:
+            nb_solvables += 1
+            status_paragraph = Paragraph("<b>Solvable</b>", solvable_badge)
+        else:
+            nb_insolvables += 1
+            status_paragraph = Paragraph("<b>Insolvable</b>", insolvable_badge)
+            
+        row = [
+            Paragraph(str(idx), table_cell_bold),
+            Paragraph(etudiant.matricule, table_cell_bold),
+            Paragraph(etudiant.get_nom_complet(), table_cell_style),
+            Paragraph(f"{total_du:,.0f} F", table_cell_right_bold),
+            Paragraph(f"{montant_paye:,.0f} F", table_cell_right),
+            Paragraph(f"{reste_payer:,.0f} F", table_cell_right_bold),
+            status_paragraph
+        ]
+        table_data.append(row)
+        
+    # Si aucun étudiant
+    if len(etudiants_list) == 0:
+        table_data.append([Paragraph("Aucun étudiant réparti dans cette classe pour le moment.", table_cell_style)] + [Paragraph("", table_cell_style)] * 6)
+        
+    # Styles du tableau ReportLab
+    col_widths = [1*cm, 3*cm, 5.5*cm, 2.2*cm, 2.2*cm, 2.2*cm, 1.9*cm]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    
+    t_style = [
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#064E3B')), # Fond vert en tête
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('TOPPADDING', (0,0), (-1,0), 6),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E5E7EB')),
+        ('PADDING', (0,1), (-1,-1), 4),
+    ]
+    
+    # Alternance des lignes (sauf header)
+    for i in range(1, len(table_data)):
+        if i % 2 == 0:
+            t_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F9FAFB')))
+            
+    t.setStyle(TableStyle(t_style))
+    elements.append(t)
+    elements.append(Spacer(1, 0.6*cm))
+    
+    # Bloc récapitulatif comptable
+    reste_recouvrer_classe = max(0, total_attendu_classe - total_recouvre_classe)
+    taux_recouvrement = round((total_recouvre_classe / total_attendu_classe * 100), 1) if total_attendu_classe > 0 else 100.0
+    
+    recap_title_style = ParagraphStyle(
+        'RecapTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        textColor=colors.HexColor('#064E3B'),
+        spaceAfter=5
+    )
+    
+    recap_text_1 = f"<b>Total attendu classe :</b> {total_attendu_classe:,.0f} FCFA<br/><b>Total payé :</b> {total_recouvre_classe:,.0f} FCFA<br/><b>Reste à recouvrer :</b> {reste_recouvrer_classe:,.0f} FCFA"
+    recap_text_2 = f"<b>Taux de recouvrement :</b> {taux_recouvrement}%<br/><b>Étudiants solvables :</b> {nb_solvables}<br/><b>Étudiants insolvables :</b> <font color='#991B1B'><b>{nb_insolvables}</b></font>"
+    
+    recap_table = Table(
+        [
+            [Paragraph("<b>RÉCAPITULATIF FINANCIER DE LA CLASSE</b>", recap_title_style), Paragraph("", recap_title_style)],
+            [Paragraph(recap_text_1, meta_style), Paragraph(recap_text_2, meta_style)]
+        ],
+        colWidths=[9*cm, 9*cm]
+    )
+    recap_table.setStyle(TableStyle([
+        ('SPAN', (0,0), (1,0)),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#ECFDF5')),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#A7F3D0')),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    elements.append(recap_table)
+    elements.append(Spacer(1, 0.8*cm))
+    
+    # Signatures
+    signature_style = ParagraphStyle(
+        'Signature',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        alignment=2 # Droite
+    )
+    signature_text = "Le Chef de Service de la Comptabilité<br/><br/><br/><br/>_________________________"
+    signature_table = Table([[Paragraph("", signature_style), Paragraph(signature_text, signature_style)]], colWidths=[11*cm, 7*cm])
+    elements.append(signature_table)
+
+    doc.build(elements)
+    return response
+
+
+@login_required
+def lancer_transition_annee(request):
+    """
+    Vue pour déclencher la transition vers la nouvelle année universitaire (réservée à l'ADMIN_SYSTEME).
+    """
+    user_type = getattr(request.user, 'type_utilisateur', '')
+    if user_type != 'ADMIN_SYSTEME' and not request.user.is_superuser:
+        messages.error(request, "Accès refusé. Action réservée à l'Administrateur Système.")
+        return redirect('tableau_bord:tableau_bord')
+
+    if request.method == 'POST':
+        from django.db import transaction
+        from apps.etudiants.models import AnneeAcademique as AA_etud
+        from apps.inscriptions.models import AnneeAcademique as AA_insc
+        from apps.etudiants.models import Etudiant, Classe
+        import re
+        from datetime import date
+        
+        try:
+            with transaction.atomic():
+                active_etud = AA_etud.get_active() or AA_etud.objects.filter(est_active=True).first()
+                if not active_etud:
+                    messages.error(request, "Impossible de transitionner : aucune année académique active n'a été trouvée.")
+                    return redirect('tableau_bord:tableau_bord')
+                    
+                code_courant = active_etud.code
+                match = re.match(r'^(\d{4})-(\d{4})$', code_courant)
+                if not match:
+                    messages.error(request, f"Format de code d'année académique invalide : {code_courant}")
+                    return redirect('tableau_bord:tableau_bord')
+                    
+                annee_debut_courante = int(match.group(1))
+                annee_fin_courante = int(match.group(2))
+                
+                nouvel_annee_debut = annee_fin_courante
+                nouvel_annee_fin = annee_fin_courante + 1
+                nouveau_code = f"{nouvel_annee_debut}-{nouvel_annee_fin}"
+                
+                date_debut_nouveau = date(nouvel_annee_debut, 10, 1)
+                date_fin_nouveau = date(nouvel_annee_fin, 9, 30)
+                
+                # 1. Désactiver l'ancienne année
+                AA_etud.objects.filter(est_active=True).update(est_active=False)
+                AA_insc.objects.filter(est_actuelle=True).update(est_actuelle=False)
+                
+                # 2. Créer et activer la nouvelle année
+                nouveau_etud, created_etud = AA_etud.objects.get_or_create(
+                    code=nouveau_code,
+                    defaults={
+                        'date_debut': date_debut_nouveau,
+                        'date_fin': date_fin_nouveau,
+                        'est_active': True
+                    }
+                )
+                if not created_etud:
+                    nouveau_etud.est_active = True
+                    nouveau_etud.save()
+                    
+                nouveau_insc, created_insc = AA_insc.objects.get_or_create(
+                    code=nouveau_code,
+                    defaults={
+                        'date_debut': date_debut_nouveau,
+                        'date_fin': date_fin_nouveau,
+                        'est_actuelle': True,
+                        'est_ouverte_inscription': True
+                    }
+                )
+                if not created_insc:
+                    nouveau_insc.est_actuelle = True
+                    nouveau_insc.est_ouverte_inscription = True
+                    nouveau_insc.save()
+                    
+                # 3. Archiver les étudiants de niveau 2 (passent à DIPLOME)
+                diplomes_count = Etudiant.objects.filter(
+                    annee_academique=active_etud,
+                    niveau__numero=2,
+                    statut__in=['INSCRIT', 'ACTIF']
+                ).update(statut='DIPLOME')
+                
+                # 4. Désactiver les classes de l'année précédente
+                classes_archivees_count = Classe.objects.filter(
+                    annee_academique=active_etud,
+                    est_active=True
+                ).update(est_active=False)
+                
+                messages.success(
+                    request, 
+                    f"🎉 Clôture annuelle réussie ! L'année {code_courant} a été archivée. "
+                    f"La nouvelle année {nouveau_code} (Octobre {nouvel_annee_debut} - Septembre {nouvel_annee_fin}) est désormais active. "
+                    f"{diplomes_count} étudiant(s) diplômé(s). {classes_archivees_count} classe(s) archivée(s)."
+                )
+        except Exception as e:
+            messages.error(request, f"Une erreur s'est produite lors de la transition : {str(e)}")
+            
+    return redirect('tableau_bord:tableau_bord')

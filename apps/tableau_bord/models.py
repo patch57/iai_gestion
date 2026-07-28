@@ -594,3 +594,27 @@ class ReglementInterieur(models.Model):
         if self.est_actif:
             ReglementInterieur.objects.filter(est_actif=True).exclude(pk=self.pk).update(est_actif=False)
         super().save(*args, **kwargs)
+
+
+class NoteInformation(models.Model):
+    """Note d'information officielle diffusée par l'administration"""
+    titre = models.CharField(max_length=200)
+    contenu = models.TextField(blank=True, null=True)
+    fichier_pdf = models.FileField(upload_to='notes_information/', blank=True, null=True)
+    date_publication = models.DateTimeField(auto_now_add=True)
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='notes_publiees'
+    )
+    est_active = models.BooleanField(default=True)
+
+    class Meta:
+        app_label = 'tableau_bord'
+        verbose_name = "Note d'Information"
+        verbose_name_plural = "Notes d'Information"
+        ordering = ['-date_publication']
+
+    def __str__(self):
+        return self.titre

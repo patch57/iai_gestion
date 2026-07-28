@@ -46,3 +46,20 @@ class DeliberationAdmin(admin.ModelAdmin):
 @admin.register(RecoursNote)
 class RecoursNoteAdmin(admin.ModelAdmin):
     list_display = ['etudiant', 'evaluation', 'statut', 'date_soumission']
+
+
+from .models import FicheNotesAnonymat, LigneFicheNotesAnonymat
+
+
+class LigneFicheNotesAnonymatInline(admin.TabularInline):
+    model = LigneFicheNotesAnonymat
+    extra = 0
+    readonly_fields = ['nom_manuscrit_detecte']
+
+
+@admin.register(FicheNotesAnonymat)
+class FicheNotesAnonymatAdmin(admin.ModelAdmin):
+    list_display = ['matiere', 'salle', 'type_evaluation', 'annee_academique', 'statut', 'date_import', 'cree_par']
+    list_filter = ['statut', 'annee_academique', 'type_evaluation']
+    search_fields = ['matiere__code', 'matiere__nom', 'salle__code']
+    inlines = [LigneFicheNotesAnonymatInline]

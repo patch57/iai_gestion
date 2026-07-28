@@ -114,6 +114,43 @@
         </div>
     </div>
 
+    {% if request.user.type_utilisateur == 'ADMIN_SYSTEME' or request.user.is_superuser %}
+    <!-- Administration - Clôture et Transition Annuelle -->
+    <div class="mb-8 bg-gradient-to-r from-red-50 to-orange-50 rounded-3xl p-6 border border-red-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fadeInUp">
+        <div>
+            <span class="bg-red-100 text-red-800 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-red-200">
+                <i class="fas fa-tools mr-1"></i> Espace Administration Système
+            </span>
+            <h3 class="text-lg font-bold text-gray-900 mt-2">Clôture Annuelle & Transition Universitaire</h3>
+            <p class="text-sm text-gray-600 mt-1">
+                La transition archivera l'année active <span class="font-bold text-red-700">{{ annee_academique }}</span>, créera la nouvelle année d'octobre à octobre, diplômera les étudiants de Niveau 2 et archivera les anciennes classes physiques.
+            </p>
+        </div>
+        
+        <form action="{% url 'tableau_bord:lancer_transition_annee' %}" method="POST" onsubmit="return confirmTransition(event)" class="w-full md:w-auto">
+            {% csrf_token %}
+            <button type="submit" class="w-full md:w-auto inline-flex items-center justify-center bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-2xl shadow-md transition duration-200 transform hover:-translate-y-0.5">
+                <i class="fas fa-archive mr-2"></i> Lancer la transition annuelle
+            </button>
+        </form>
+    </div>
+    
+    <script>
+    function confirmTransition(event) {
+        event.preventDefault();
+        const firstConfirm = confirm("⚠️ ATTENTION : Vous êtes sur le point de clore définitivement l'année universitaire active.\n\nCette action va :\n1. Archiver et désactiver les classes et l'année en cours.\n2. Mettre automatiquement les étudiants de Niveau 2 dans le statut 'Diplômé'.\n3. Créer et activer la nouvelle année universitaire.\n\nVoulez-vous continuer ?");
+        if (firstConfirm) {
+            const secondConfirm = confirm("👉 Confirmation finale : Êtes-vous absolument sûr de vouloir lancer la transition annuelle ? Cette action est irréversible.");
+            if (secondConfirm) {
+                event.target.submit();
+                return true;
+            }
+        }
+        return false;
+    }
+    </script>
+    {% endif %}
+
     <!-- Statistics Cards - Style moderne vert et jaune -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Total Étudiants -->

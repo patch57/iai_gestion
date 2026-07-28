@@ -57,11 +57,15 @@ urlpatterns = [
     path('imprimer/', views.imprimer_dashboard, name='imprimer_dashboard'),
     path('geolocalisation/', views.geolocalisation, name='geolocalisation'),
     path('classes/', views.liste_classes_partagee, name='liste_classes_partagee'),
+    path('classes/<int:salle_id>/export-pdf/', views.export_pdf_paiements_classe, name='export_pdf_paiements_classe'),
     
     # API pour les graphiques (AJAX)
     path('api/donnees/', views.api_donnees_dashboard, name='api_donnees_dashboard'),
     path('api/notifications-non-lues/', views.api_notifications_non_lues, name='api_notifications_non_lues'),
     path('api/statistiques-rapides/', views.api_statistiques_rapides, name='api_statistiques_rapides'),
+    # Notes d'information
+    path('notes-info/<int:pk>/supprimer/', views.supprimer_note_info, name='supprimer_note_info'),
+    path('administration/transition-annee/', views.lancer_transition_annee, name='lancer_transition_annee'),
 ]
 
 # URLs pour les vues basées sur les classes (si utilisées)

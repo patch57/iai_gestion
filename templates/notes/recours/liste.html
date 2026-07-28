@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Recours de Notes — IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-6">
+    <!-- En-tête -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center space-x-4">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center shadow-lg">
+                <i class="fas fa-balance-scale text-white text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Demandes de Recours sur Notes</h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    {% if is_staff_or_teacher %}
+                    Gestion et arbitrage des réclamations de notes soumises par les étudiants.
+                    {% else %}
+                    Suivez l'évolution de vos demandes de recours académiques.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+        <form method="get" class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Statut</label>
+                <select name="statut" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500">
+                    <option value="">Tous les statuts</option>
+                    <option value="EN_ATTENTE" {% if statut_filtre == 'EN_ATTENTE' %}selected{% endif %}>En Attente</option>
+                    <option value="ACCEPTE" {% if statut_filtre == 'ACCEPTE' %}selected{% endif %}>Accepté</option>
+                    <option value="REJETE" {% if statut_filtre == 'REJETE' %}selected{% endif %}>Rejeté</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Matière</label>
+                <select name="matiere" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500">
+                    <option value="">Toutes les matières</option>
+                    {% for m in matieres %}
+                    <option value="{{ m.id }}" {% if matiere_filtre == m.id|stringformat:"d" %}selected{% endif %}>{{ m.code }} - {{ m.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
+                <i class="fas fa-filter mr-1"></i> Filtrer
+            </button>
+            <a href="{% url 'notes:liste_recours' %}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+                Réinitialiser
+            </a>
+        </form>
+    </div>
+
+    <!-- Tableau -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {% if recours_list %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-left">
+                        {% if is_staff_or_teacher %}
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Étudiant</th>
+                        {% endif %}
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Matière</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Évaluation</th>
+                        <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Note Actuelle</th>
+                        <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Note Demandée</th>
+                        <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for recours in recours_list %}
+                    <tr class="hover:bg-gray-50/50 transition-colors">
+                        {% if is_staff_or_teacher %}
+                        <td class="px-6 py-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
+                                    {{ recours.etudiant.nom|slice:":1" }}{{ recours.etudiant.prenom|slice:":1" }}
+                                </div>
+                                <div>
+                                    <div class="text-sm font-semibold text-gray-900">{{ recours.etudiant.get_nom_complet }}</div>
+                                    <div class="text-xs text-gray-500">{{ recours.etudiant.matricule }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        {% endif %}
+                        <td class="px-6 py-4">
+                            <span class="text-sm font-medium text-gray-900" title="{{ recours.evaluation.cours.matiere.nom }}">
+                                {{ recours.evaluation.cours.matiere.code }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">
+                            {{ recours.evaluation.titre|truncatechars:30 }}
+                        </td>
+                        <td class="px-6 py-4 text-center font-semibold text-gray-900">
+                            {{ recours.note_actuelle }}/20
+                        </td>
+                        <td class="px-6 py-4 text-center font-bold text-purple-600">
+                            {{ recours.note_demandee }}/20
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if recours.statut == 'EN_ATTENTE' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <i class="fas fa-hourglass-half mr-1"></i> En Attente
+                            </span>
+                            {% elif recours.statut == 'ACCEPTE' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-1"></i> Accepté
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="fas fa-times-circle mr-1"></i> Rejeté
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            {{ recours.date_soumission|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if is_staff_or_teacher %}
+                                {% if recours.statut == 'EN_ATTENTE' %}
+                                <a href="{% url 'notes:traiter_recours' pk=recours.pk %}"
+                                   class="inline-flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
+                                    <i class="fas fa-gavel mr-1"></i> Décider
+                                </a>
+                                {% else %}
+                                <a href="{% url 'notes:traiter_recours' pk=recours.pk %}"
+                                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition">
+                                    <i class="fas fa-eye mr-1"></i> Détails
+                                </a>
+                                {% endif %}
+                            {% else %}
+                                <!-- Pour l'étudiant -->
+                                <button type="button" 
+                                        onclick="showDetailsModal('{{ recours.motif|escapejs }}', '{{ recours.decision|escapejs }}', '{{ recours.statut }}')"
+                                        class="inline-flex items-center px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-xs font-bold transition">
+                                    <i class="fas fa-info-circle mr-1"></i> Motif / Décision
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if recours_list.has_other_pages %}
+        <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <p class="text-sm text-gray-500">{{ recours_list.paginator.count }} demande(s) au total</p>
+            <div class="flex space-x-1">
+                {% if recours_list.has_previous %}
+                <a href="?page={{ recours_list.previous_page_number }}&statut={{ statut_filtre }}&matiere={{ matiere_filtre }}"
+                   class="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Préc.</a>
+                {% endif %}
+                <span class="px-3 py-1 text-sm bg-purple-600 text-white rounded-lg">{{ recours_list.number }}</span>
+                {% if recours_list.has_next %}
+                <a href="?page={{ recours_list.next_page_number }}&statut={{ statut_filtre }}&matiere={{ matiere_filtre }}"
+                   class="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Suiv.</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-16">
+            <div class="w-20 h-20 mx-auto rounded-full bg-red-50 flex items-center justify-center mb-4">
+                <i class="fas fa-balance-scale text-red-400 text-3xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-700 mb-2">Aucun recours trouvé</h3>
+            <p class="text-gray-500">Aucune demande de recours de notes n'est enregistrée pour le moment.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Détails Étudiant (seulement étudiant) -->
+{% if not is_staff_or_teacher %}
+<div id="details-modal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-6 mx-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-balance-scale text-purple-600 mr-2"></i>Détails du Recours</h3>
+            <button onclick="hideDetailsModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        <div class="space-y-4 text-sm text-gray-600">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase">Motif de votre demande :</p>
+                <div class="p-3 bg-gray-50 rounded-lg mt-1 border" id="modal-motif"></div>
+            </div>
+            <div id="modal-decision-container">
+                <p class="text-xs font-bold text-gray-400 uppercase">Décision de l'administration :</p>
+                <div class="p-3 bg-purple-50 text-purple-900 rounded-lg mt-1 border border-purple-200" id="modal-decision"></div>
+            </div>
+        </div>
+        <div class="flex justify-end pt-3">
+            <button onclick="hideDetailsModal()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showDetailsModal(motif, decision, statut) {
+    document.getElementById('modal-motif').textContent = motif || "Aucun motif spécifié.";
+    const decContainer = document.getElementById('modal-decision-container');
+    const decDiv = document.getElementById('modal-decision');
+    
+    if (statut === 'EN_ATTENTE') {
+        decContainer.classList.add('hidden');
+    } else {
+        decContainer.classList.remove('hidden');
+        decDiv.textContent = decision || "Aucun commentaire apporté.";
+    }
+    
+    document.getElementById('details-modal').classList.remove('hidden');
+}
+
+function hideDetailsModal() {
+    document.getElementById('details-modal').classList.add('hidden');
+}
+</script>
+{% endif %}
+{% endblock %}

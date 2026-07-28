@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pv.titre }}{% endblock %}
+
+{% block content %}
+<!-- Print-specific styles -->
+<style>
+    @media print {
+        /* Hide navbar, sidebar, print buttons and anything else not needed for print */
+        nav, sidebar, header, .no-print, button, a {
+            display: none !important;
+        }
+        body, .content-container, main {
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+        }
+        .print-card {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+    }
+</style>
+
+<div class="p-6 max-w-5xl mx-auto space-y-6">
+    <!-- Action bar (No print) -->
+    <div class="flex items-center justify-between no-print bg-white p-4 border border-gray-200 rounded-2xl shadow-sm">
+        <div class="flex items-center space-x-2">
+            <a href="javascript:history.back()" class="p-2 text-gray-500 hover:bg-gray-150 rounded-xl transition-colors">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <span class="text-sm font-bold text-gray-700">Retour au tableau de bord</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="window.print()" class="px-4 py-2 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center">
+                <i class="fas fa-print mr-1.5"></i> Imprimer le PV
+            </button>
+        </div>
+    </div>
+
+    <!-- Printable Fiche de Notes / PV -->
+    <div class="bg-white border border-gray-300 shadow-lg rounded-3xl p-8 md:p-12 print-card font-serif text-black max-w-full">
+        <!-- Logo et En-tête IAI -->
+        <div class="text-center space-y-1">
+            <div class="flex justify-center mb-2">
+                <img src="/static/images/logo_iai.png" alt="IAI-Cameroun" class="h-14 object-contain" onerror="this.src='https://www.iaicameroun.com/images/logo.png';">
+            </div>
+            <h3 class="text-xs uppercase tracking-wide font-bold">Établissement Inter-États d'Enseignement Supérieur</h3>
+            <h4 class="text-xs uppercase tracking-wide font-medium">Représentation du Cameroun</h4>
+            <h2 class="text-sm uppercase tracking-wider font-extrabold text-gray-900">Centre d'Excellence Technologique Paul Biya</h2>
+            <p class="text-[10px] text-gray-500">BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57 / 242 72 99 58</p>
+            <p class="text-[10px] text-gray-500">Site web: www.iaicameroun.com — E-mail: contact@iaicameroun.com</p>
+        </div>
+
+        <div class="my-6 border-b-2 border-double border-gray-400"></div>
+
+        <!-- Titre Fiche de Notes -->
+        <div class="text-center space-y-2 mb-8">
+            <h1 class="text-2xl font-black tracking-widest uppercase underline decoration-double">Procès-Verbal de Notes</h1>
+            <div class="text-lg font-bold">
+                Classe : <span class="border-b border-black px-4 font-sans font-bold">{{ pv.fiche_anonymat.salle.code }}</span>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2 text-xs font-semibold pt-2 text-left max-w-3xl mx-auto border border-gray-300 p-4 rounded-xl">
+                <div>Année Académique : <span class="font-bold underline">{{ pv.fiche_anonymat.annee_academique }}</span></div>
+                <div class="text-center">Centre de formation : <span class="font-bold">Douala</span></div>
+                <div class="text-right">Niveau : <span class="font-bold underline">{{ niveau_nom }}</span></div>
+            </div>
+        </div>
+
+        <!-- Métadonnées Matière / Enseignant -->
+        <div class="space-y-2 mb-6 text-sm">
+            <div class="flex border-b border-dashed border-gray-400 pb-1">
+                <span class="font-bold w-48">Nom de l'Enseignant(e) :</span>
+                <span class="font-medium text-gray-900 font-sans uppercase">{{ enseignant_nom|default:"—" }}</span>
+            </div>
+            <div class="flex border-b border-dashed border-gray-400 pb-1">
+                <span class="font-bold w-48">Matière :</span>
+                <span class="font-semibold text-gray-900 font-sans uppercase">{{ pv.fiche_anonymat.matiere.code }} - {{ pv.fiche_anonymat.matiere.nom }}</span>
+            </div>
+            <div class="flex border-b border-dashed border-gray-400 pb-1">
+                <span class="font-bold w-48">Type d'évaluation :</span>
+                <span class="font-medium text-gray-900 font-sans uppercase">{{ pv.fiche_anonymat.type_evaluation.nom }}</span>
+            </div>
+            <div class="flex border-b border-dashed border-gray-400 pb-1">
+                <span class="font-bold w-48">Coefficient :</span>
+                <span class="font-medium font-sans">{{ coefficient }}</span>
+            </div>
+        </div>
+
+        <!-- Tableau des Notes -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse border border-black font-sans">
+                <thead>
+                    <tr class="bg-gray-100 border-b border-black text-center font-bold">
+                        <th class="border-r border-black p-2 w-10">N°</th>
+                        <th class="border-r border-black p-2 text-left w-48">NOMS</th>
+                        <th class="border-r border-black p-2 text-left w-48">PRÉNOMS</th>
+                        <th class="border-r border-black p-2 w-32">MATRICULE</th>
+                        <th class="border-r border-black p-2 w-20">NOTE CC</th>
+                        <th class="border-r border-black p-2 w-20">NOTE EXAMEN</th>
+                        <th class="p-2 w-20">NOTE FINALE</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-black/50">
+                    {% for ligne in lignes %}
+                    <tr class="border-b border-black/40">
+                        <td class="border-r border-black p-2 text-center text-gray-500 font-semibold">{{ forloop.counter }}</td>
+                        <td class="border-r border-black p-2 font-bold uppercase">{{ ligne.etudiant.nom }}</td>
+                        <td class="border-r border-black p-2 uppercase">{{ ligne.etudiant.prenom }}</td>
+                        <td class="border-r border-black p-2 text-center font-mono font-bold">{{ ligne.etudiant.matricule }}</td>
+                        
+                        <!-- Note CC -->
+                        <td class="border-r border-black p-2 text-center font-semibold text-gray-800">
+                            {% if pv.fiche_anonymat.type_evaluation.code == 'CC' %}
+                                {{ ligne.note|floatformat:2 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Note Examen -->
+                        <td class="border-r border-black p-2 text-center font-semibold text-gray-800">
+                            {% if pv.fiche_anonymat.type_evaluation.code == 'EXAM' or pv.fiche_anonymat.type_evaluation.code == 'RATT' %}
+                                {{ ligne.note|floatformat:2 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Note Finale -->
+                        <td class="p-2 text-center font-black text-sm">
+                            {{ ligne.note|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="p-10 text-center text-gray-400">Aucun étudiant renseigné pour cette fiche.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Emplacement des signatures -->
+        <div class="mt-12 grid grid-cols-2 gap-8 text-xs font-bold pt-8">
+            <div class="text-left">
+                <p class="underline">Signature de l'Enseignant :</p>
+                <div class="h-20"></div>
+                <p class="text-gray-400 font-normal">Date : ____/____/20___</p>
+            </div>
+            <div class="text-right">
+                <p class="underline">Visa du Chef de Service de l'Anonymat :</p>
+                <div class="h-20"></div>
+                <p class="text-gray-400 font-normal">Date : ____/____/20___</p>
+            </div>
+        </div>
+
+        <!-- Mentions confidentielles -->
+        <div class="mt-8 border-t border-gray-300 pt-4 text-[10px] text-gray-400 text-center italic">
+            Document généré automatiquement le {{ date_impression|date:"d/m/Y à H:i" }} par le système de gestion IAI-Gestion. Archivage Confidentiel.
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Importer une Fiche d'Anonymat{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-4xl mx-auto space-y-6">
+    <!-- En-tête -->
+    <div class="flex items-center space-x-4">
+        <a href="{% url 'notes:liste_fiches_anonymat' %}"
+           class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Importer une Fiche d'Anonymat</h1>
+            <p class="text-sm text-gray-500 mt-1">Chargez l'image ou le PDF de la fiche manuscrite</p>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="p-4 rounded-xl {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-green-50 text-green-800 border border-green-200{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6" id="import-form">
+        {% csrf_token %}
+
+        <!-- Informations de la fiche -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-info-circle text-purple-600 mr-2"></i>
+                    Informations de la fiche
+                </h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="id_matiere" class="block text-sm font-medium text-gray-700 mb-1">Matière *</label>
+                        {{ form.matiere }}
+                        {% if form.matiere.errors %}
+                        <p class="text-xs text-red-500 mt-1">{{ form.matiere.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="id_salle" class="block text-sm font-medium text-gray-700 mb-1">Salle / Classe *</label>
+                        {{ form.salle }}
+                        {% if form.salle.errors %}
+                        <p class="text-xs text-red-500 mt-1">{{ form.salle.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="id_type_evaluation" class="block text-sm font-medium text-gray-700 mb-1">Type d'évaluation *</label>
+                        {{ form.type_evaluation }}
+                        {% if form.type_evaluation.errors %}
+                        <p class="text-xs text-red-500 mt-1">{{ form.type_evaluation.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="id_enseignant_nom" class="block text-sm font-medium text-gray-700 mb-1">Enseignant</label>
+                        {{ form.enseignant_nom }}
+                    </div>
+                    <div>
+                        <label for="id_annee_academique" class="block text-sm font-medium text-gray-700 mb-1">Année académique *</label>
+                        {{ form.annee_academique }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zone de Drag & Drop -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-cloud-upload-alt text-purple-600 mr-2"></i>
+                    Charger la fiche
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="drop-zone"
+                     class="relative border-2 border-dashed border-purple-300 rounded-2xl p-12 text-center hover:border-purple-500 hover:bg-purple-50/50 transition-all cursor-pointer group"
+                     onclick="document.getElementById('fichier-fiche-input').click();">
+
+                    {{ form.fichier_fiche }}
+
+                    <!-- État initial -->
+                    <div id="drop-placeholder" class="space-y-4">
+                        <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fas fa-cloud-upload-alt text-purple-500 text-3xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-lg font-semibold text-gray-700">Glissez-déposez votre fiche ici</p>
+                            <p class="text-sm text-gray-500 mt-1">ou <span class="text-purple-600 font-medium underline">cliquez pour parcourir</span></p>
+                        </div>
+                        <div class="flex items-center justify-center space-x-3 text-xs text-gray-400">
+                            <span class="px-2 py-1 bg-gray-100 rounded">PNG</span>
+                            <span class="px-2 py-1 bg-gray-100 rounded">JPG</span>
+                            <span class="px-2 py-1 bg-gray-100 rounded">PDF</span>
+                            <span>— Max 10 Mo</span>
+                        </div>
+                    </div>
+
+                    <!-- Aperçu après sélection -->
+                    <div id="drop-preview" class="hidden space-y-4">
+                        <img id="preview-img" src="" alt="Aperçu" class="max-h-64 mx-auto rounded-xl shadow-lg border border-gray-200">
+                        <p id="preview-name" class="text-sm font-medium text-gray-700"></p>
+                        <p id="preview-size" class="text-xs text-gray-500"></p>
+                        <button type="button" onclick="resetFile(event)" class="text-sm text-red-500 hover:text-red-700 font-medium">
+                            <i class="fas fa-times mr-1"></i> Retirer
+                        </button>
+                    </div>
+                </div>
+                {% if form.fichier_fiche.errors %}
+                <p class="text-sm text-red-500 mt-2"><i class="fas fa-exclamation-circle mr-1"></i>{{ form.fichier_fiche.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Boutons -->
+        <div class="flex items-center justify-between">
+            <a href="{% url 'notes:liste_fiches_anonymat' %}"
+               class="px-5 py-2.5 text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                <i class="fas fa-arrow-left mr-2"></i> Annuler
+            </a>
+            <button type="submit" id="submit-btn"
+                    class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-magic mr-2"></i>
+                Analyser et Importer
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('fichier-fiche-input');
+const placeholder = document.getElementById('drop-placeholder');
+const preview = document.getElementById('drop-preview');
+const previewImg = document.getElementById('preview-img');
+const previewName = document.getElementById('preview-name');
+const previewSize = document.getElementById('preview-size');
+
+// Drag & Drop
+['dragenter', 'dragover'].forEach(evt => {
+    dropZone.addEventListener(evt, e => {
+        e.preventDefault();
+        dropZone.classList.add('border-purple-500', 'bg-purple-50');
+    });
+});
+['dragleave', 'drop'].forEach(evt => {
+    dropZone.addEventListener(evt, e => {
+        e.preventDefault();
+        dropZone.classList.remove('border-purple-500', 'bg-purple-50');
+    });
+});
+dropZone.addEventListener('drop', e => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        showPreview(files[0]);
+    }
+});
+
+// File input change
+fileInput.addEventListener('change', function() {
+    if (this.files.length > 0) {
+        showPreview(this.files[0]);
+    }
+});
+
+function showPreview(file) {
+    placeholder.classList.add('hidden');
+    preview.classList.remove('hidden');
+    previewName.textContent = file.name;
+    previewSize.textContent = (file.size / 1024 / 1024).toFixed(2) + ' Mo';
+
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            previewImg.src = e.target.result;
+            previewImg.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    } else {
+        previewImg.classList.add('hidden');
+        previewName.innerHTML = '<i class="fas fa-file-pdf text-red-500 text-4xl mb-2 block"></i>' + file.name;
+    }
+}
+
+function resetFile(e) {
+    e.stopPropagation();
+    fileInput.value = '';
+    preview.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+}
+
+// Loading state on submit
+document.getElementById('import-form').addEventListener('submit', function() {
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Analyse en cours...';
+});
+</script>
+{% endblock %}

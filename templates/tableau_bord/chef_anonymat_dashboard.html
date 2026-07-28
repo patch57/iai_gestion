@@ -15,30 +15,130 @@
     </div>
 
     <!-- Actions rapides -->
-    <div class="max-w-3xl mx-auto mb-8">
-        <a href="{% url 'tableau_bord:liste_classes_partagee' %}" class="w-full bg-white hover:bg-gray-50 text-green-700 font-bold py-4 px-6 rounded-2xl shadow-md border border-gray-100 transition duration-200 flex items-center justify-center gap-3">
-            <i class="fas fa-school text-xl text-green-600"></i> Consulter les Listes de Classes (Préparation Anonymat)
+    <div class="max-w-7xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <a href="{% url 'tableau_bord:liste_classes_partagee' %}" class="bg-white hover:bg-gray-50 text-green-700 font-bold py-4 px-6 rounded-2xl shadow-md border border-gray-100 transition duration-200 flex items-center justify-center gap-3">
+            <i class="fas fa-school text-xl text-green-600"></i> Consulter les Classes (Préparation Anonymat)
+        </a>
+        <a href="{% url 'notes:liste_fiches_anonymat' %}" class="bg-white hover:bg-gray-50 text-purple-700 font-bold py-4 px-6 rounded-2xl shadow-md border border-gray-100 transition duration-200 flex items-center justify-center gap-3">
+            <i class="fas fa-user-secret text-xl text-purple-600"></i> Section Fiches d'Anonymat (Confidentiel)
         </a>
     </div>
 
-    <div class="max-w-3xl mx-auto bg-white rounded-3xl shadow-lg border border-gray-100 p-8">
-        <h3 class="font-bold text-2xl text-gray-800 mb-2 text-center"><i class="fas fa-user-secret text-green-700 mr-2"></i>Transmettre un Procès-Verbal</h3>
-        <p class="text-sm text-gray-500 text-center mb-8">Conformément aux règles de sécurité, ce document ne sera transmis et visible que par le Chef de Service des Études.</p>
-        
-        <form method="POST" enctype="multipart/form-data" class="space-y-6">
-            {% csrf_token %}
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Titre du PV / Matière concernée</label>
-                <input type="text" name="titre" required placeholder="Ex: PV Anonymat - Programmation Web 1 - GL L1" class="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-green-500 focus:border-green-500">
+    <!-- Messages -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto mb-6">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-green-50 text-green-800 border border-green-200{% endif %} font-medium text-sm">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- GAUCHE : Liste des Procès-Verbaux de Notes (2 Cols) -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 md:p-8">
+                <h2 class="font-extrabold text-xl text-gray-800 mb-2 flex items-center">
+                    <i class="fas fa-archive text-green-700 mr-2"></i> Procès-Verbaux de Notes Archivés
+                </h2>
+                <p class="text-sm text-gray-500 mb-6">Consultez, imprimez ou transmettez de manière sécurisée les procès-verbaux de notes.</p>
+                
+                {% if pvs %}
+                <div class="divide-y divide-gray-150">
+                    {% for pv in pvs %}
+                    <div class="py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div class="space-y-1">
+                            <h4 class="font-bold text-gray-800 flex items-center">
+                                <i class="fas fa-file-invoice text-green-600 mr-2"></i> {{ pv.titre }}
+                            </h4>
+                            <p class="text-xs text-gray-400">
+                                Généré le {{ pv.date_generation|date:"d/m/Y à H:i" }} 
+                                {% if pv.fiche_anonymat %}
+                                • Matière : {{ pv.fiche_anonymat.matiere.code }}
+                                {% endif %}
+                            </p>
+                            
+                            <!-- Statut de transmission -->
+                            <div class="pt-1">
+                                {% if pv.est_transmis %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-150 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i> Transmis confidentiellement le {{ pv.date_transmission|date:"d/m/Y H:i" }}
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800">
+                                    <i class="fas fa-clock mr-1"></i> En attente de transmission
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            {% if pv.fiche_anonymat %}
+                            <a href="{% url 'notes:detail_pv' pk=pv.pk %}"
+                               class="inline-flex items-center px-3.5 py-2 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-xl text-xs transition duration-150 shadow-sm border border-green-100">
+                                <i class="fas fa-print mr-1"></i> Consulter / Imprimer
+                            </a>
+                            {% elif pv.fichier_excel %}
+                            <a href="{{ pv.fichier_excel.url }}" download
+                               class="inline-flex items-center px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-xs transition duration-150 shadow-sm border border-blue-100">
+                                <i class="fas fa-download mr-1"></i> Télécharger (Fichier)
+                            </a>
+                            {% endif %}
+                            
+                            {% if not pv.est_transmis %}
+                            <form method="post" action="{% url 'notes:transmettre_pv' pk=pv.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="inline-flex items-center px-3.5 py-2 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold rounded-xl text-xs transition duration-150 shadow-md">
+                                    <i class="fas fa-paper-plane mr-1"></i> Transmettre
+                                </button>
+                            </form>
+                            {% endif %}
+                            
+                            <!-- Suppression du PV -->
+                            <form method="post" action="{% url 'notes:supprimer_pv' pk=pv.pk %}" class="inline" onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer définitivement ce Procès-Verbal ? Cette action est irréversible et le supprimera également chez le Chef des Études s\'il a été transmis.');">
+                                {% csrf_token %}
+                                <button type="submit" class="inline-flex items-center px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-xl text-xs transition duration-150 shadow-sm border border-red-100">
+                                    <i class="fas fa-trash-alt mr-1"></i> Supprimer
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                    <i class="fas fa-folder-open text-gray-300 text-4xl mb-3 block"></i>
+                    <p class="text-sm text-gray-500 font-medium">Aucun procès-verbal archivé pour l'instant.</p>
+                </div>
+                {% endif %}
             </div>
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Fichier du Procès-Verbal (PDF, Word, Excel)</label>
-                <input type="file" name="pv_fichier" required class="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+        </div>
+
+        <!-- DROITE : Téléverser un Procès-Verbal Manuel (1 Col) -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 md:p-8">
+                <h3 class="font-bold text-lg text-gray-800 mb-2 flex items-center">
+                    <i class="fas fa-file-upload text-green-700 mr-2"></i> Téléverser un PV
+                </h3>
+                <p class="text-xs text-gray-400 font-semibold mb-6">Archivez ou transmettez manuellement un fichier externe.</p>
+                
+                <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Titre du PV / Matière</label>
+                        <input type="text" name="titre" required placeholder="Ex: PV Examen - Mathématiques - GL L1" class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Fichier du PV (PDF, Excel, Word)</label>
+                        <input type="file" name="pv_fichier" required class="block w-full text-xs text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 text-sm">
+                        <i class="fas fa-upload mr-2"></i> Téléverser et Archiver
+                    </button>
+                </form>
             </div>
-            <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition duration-200 text-lg">
-                <i class="fas fa-paper-plane mr-2"></i>Transmettre Confidentiellement
-            </button>
-        </form>
+        </div>
     </div>
 </div>
 {% endblock %}

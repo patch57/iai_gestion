@@ -293,6 +293,29 @@
                 </li>
                 
                 <!-- Notes & Évaluations -->
+                {% if user.est_etudiant %}
+                <li>
+                    <a href="{% url 'notes:mes_notes' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-chart-line w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Mes Notes</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'notes:mon_bulletin' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-file-invoice w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Mon Bulletin</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'notes:liste_recours' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-balance-scale w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Mes Recours</span>
+                    </a>
+                </li>
+                {% else %}
                 <li>
                     <a href="/notes/evaluations/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -300,6 +323,14 @@
                         <span>Notes & Évaluations</span>
                     </a>
                 </li>
+                <li>
+                    <a href="{% url 'notes:liste_recours' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-balance-scale w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Recours Académiques</span>
+                    </a>
+                </li>
+                {% endif %}
                 
                 <!-- Inscriptions & Paiements -->
                 {% if not user.est_etudiant %}
@@ -330,6 +361,21 @@
                     </a>
                 </li>
             </ul>
+            
+            <!-- Fiches d'Anonymat (confidentiel) -->
+            {% if user.type_utilisateur == 'CHEF_ANONYMAT' or user.type_utilisateur == 'ADMIN_SYSTEME' or user.is_superuser %}
+            <div class="my-3 border-t border-gray-200"></div>
+            <ul class="space-y-1">
+                <li>
+                    <a href="{% url 'notes:liste_fiches_anonymat' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-700 transition-all group">
+                        <i class="fas fa-user-secret w-5 h-5 mr-3 group-hover:text-purple-600 text-gray-500"></i>
+                        <span>Fiches d'Anonymat</span>
+                        <span class="ml-auto px-1.5 py-0.5 text-[10px] bg-red-100 text-red-700 rounded font-bold">CONFIDENTIEL</span>
+                    </a>
+                </li>
+            </ul>
+            {% endif %}
             
             <!-- Divider -->
             <div class="my-4 border-t border-gray-200"></div>

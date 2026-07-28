@@ -381,3 +381,58 @@ class NoteApprenantForm(forms.ModelForm):
                 Column('commentaire', css_class='col-span-8'),
             )
         )
+
+
+from apps.cours.models import Matiere as CoursMatiere, Salle
+from .models import FicheNotesAnonymat
+
+
+class FicheAnonymatImportForm(forms.ModelForm):
+    """Formulaire d'importation d'une fiche de notes d'anonymat"""
+
+    class Meta:
+        model = FicheNotesAnonymat
+        fields = ['matiere', 'salle', 'type_evaluation', 'enseignant_nom', 'annee_academique', 'fichier_fiche']
+        widgets = {
+            'matiere': forms.Select(attrs={'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500'}),
+            'salle': forms.Select(attrs={'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500'}),
+            'type_evaluation': forms.Select(attrs={'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500'}),
+            'enseignant_nom': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500',
+                'placeholder': 'Nom de l\'enseignant (optionnel)'
+            }),
+            'annee_academique': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500',
+            }),
+            'fichier_fiche': forms.FileInput(attrs={
+                'class': 'hidden',
+                'accept': 'image/png,image/jpeg,image/jpg,application/pdf',
+                'id': 'fichier-fiche-input',
+            }),
+        }
+        labels = {
+            'matiere': 'Matière',
+            'salle': 'Salle / Classe',
+            'type_evaluation': "Type d'évaluation",
+            'enseignant_nom': "Nom de l'enseignant",
+            'annee_academique': 'Année académique',
+            'fichier_fiche': 'Fiche (image ou PDF)',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['matiere'].queryset = CoursMatiere.objects.all().order_by('code')
+        self.fields['salle'].queryset = Salle.objects.all().order_by('code')
+        self.fields['type_evaluation'].queryset = TypeEvaluation.objects.filter(est_actif=True)
+        self.fields['enseignant_nom'].required = False
+        self.fields['annee_academique'].initial = '2025-2026'
+
+    def clean_fichier_fiche(self):
+        fichier = self.cleaned_data.get('fichier_fiche')
+        if fichier:
+            ext = fichier.name.split('.')[-1].lower()
+            if ext not in ['png', 'jpg', 'jpeg', 'pdf']:
+                raise forms.ValidationError("Format non supporté. Utilisez PNG, JPG ou PDF.")
+            if fichier.size > 10 * 1024 * 1024:
+                raise forms.ValidationError("Le fichier ne doit pas dépasser 10 Mo.")
+        return fichier

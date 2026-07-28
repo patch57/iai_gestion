@@ -53,4 +53,6 @@ urlpatterns = [
     path('paiement-succes/', views.paiement_succes, name='paiement_succes'),
     path('configurer-cinetpay/', views.configurer_cinetpay, name='configurer_cinetpay'),
     path('configurer-cinetpay/simuler/', views.simuler_webhook_ipn, name='simuler_webhook_ipn'),
+    path('tester-smtp/', views.tester_smtp, name='tester_smtp'),
+    path('tester-ocr/', views.tester_ocr, name='tester_ocr'),
 ]

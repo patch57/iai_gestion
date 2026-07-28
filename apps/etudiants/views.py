@@ -119,8 +119,11 @@ def liste_etudiants(request):
             queryset = queryset.filter(sexe=sexe)
     
     # Tri
-    tri = request.GET.get('tri', '-date_inscription')
-    queryset = queryset.order_by(tri)
+    tri = request.GET.get('tri', 'nom')
+    if tri == 'nom':
+        queryset = queryset.order_by('nom', 'prenom')
+    else:
+        queryset = queryset.order_by(tri)
     
     # Pagination
     paginator = Paginator(queryset, 20)
@@ -463,7 +466,7 @@ def detail_classe(request, pk):
     """Détail d'une classe avec liste des étudiants"""
     classe = get_object_or_404(Classe.objects.select_related('filiere', 'niveau', 'annee_academique'), pk=pk)
     
-    etudiants = Etudiant.objects.filter(classe=classe, statut__in=['ACTIF', 'INSCRIT']).select_related('utilisateur')
+    etudiants = Etudiant.objects.filter(classe=classe, statut__in=['ACTIF', 'INSCRIT']).select_related('utilisateur').order_by('nom', 'prenom')
     
     # Statistiques de la classe
     stats = {
@@ -1392,44 +1395,169 @@ def _exporter_excel(queryset):
 
 
 def _exporter_pdf(queryset):
-    """Export PDF"""
+    """Export PDF avec en-tête IAI-Cameroun officiel et mise en page moderne"""
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from django.utils import timezone
+        import os
+        from django.conf import settings
         
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="etudiants.pdf"'
+        response['Content-Disposition'] = 'attachment; filename="liste_etudiants.pdf"'
         
-        doc = SimpleDocTemplate(response, pagesize=A4)
+        # Marges de 36 points (0.5 inch) pour maximiser l'espace imprimable
+        doc = SimpleDocTemplate(
+            response, 
+            pagesize=A4, 
+            rightMargin=36, 
+            leftMargin=36, 
+            topMargin=36, 
+            bottomMargin=36
+        )
         story = []
         styles = getSampleStyleSheet()
         
-        titre = Paragraph("Liste des Étudiants", styles['Title'])
-        story.append(titre)
-        story.append(Spacer(1, 20))
+        # Définition des styles personnalisés
+        style_header_instit = ParagraphStyle(
+            'HeaderInstitutionnel',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=10,
+            leading=12,
+            alignment=1, # Centré
+            textColor=colors.HexColor('#0F5132')
+        )
         
-        data = [['Matricule', 'Nom', 'Prénom', 'Filière']]
-        for e in queryset[:50]:
-            data.append([e.matricule, e.nom, e.prenom, e.filiere.nom if e.filiere else ''])
+        style_header_sub = ParagraphStyle(
+            'HeaderSub',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            leading=10,
+            alignment=1, # Centré
+            textColor=colors.HexColor('#6c757d')
+        )
         
-        table = Table(data)
+        style_title = ParagraphStyle(
+            'DocTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=16,
+            leading=20,
+            alignment=1, # Centré
+            textColor=colors.HexColor('#198754'),
+            spaceAfter=15
+        )
+        
+        style_cell = ParagraphStyle(
+            'TableCell',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor('#212529')
+        )
+        
+        style_cell_bold = ParagraphStyle(
+            'TableCellBold',
+            parent=style_cell,
+            fontName='Helvetica-Bold'
+        )
+
+        style_cell_header = ParagraphStyle(
+            'TableCellHeader',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=11,
+            alignment=1, # Centré
+            textColor=colors.white
+        )
+        
+        # 1. En-tête IAI-Cameroun officiel (Logo vectoriel robuste)
+        from reportlab.graphics.shapes import Drawing, Circle, String
+        logo_img = Drawing(45, 45)
+        logo_img.add(Circle(22.5, 22.5, 22, fillColor=colors.HexColor('#0F5132'), strokeColor=colors.HexColor('#FFC107'), strokeWidth=1.5))
+        logo_img.add(String(22.5, 16.5, "IAI", textAnchor="middle", fontSize=13, fontName="Helvetica-Bold", fillColor=colors.white))
+        logo_img.hAlign = 'CENTER'
+        story.append(logo_img)
+        story.append(Spacer(1, 8))
+            
+        story.append(Paragraph("INSTITUT AFRICAIN D'INFORMATIQUE (IAI)", style_header_instit))
+        story.append(Paragraph("Établissement Inter-États d'Enseignement Supérieur", style_header_sub))
+        story.append(Paragraph("REPRÉSENTATION DU CAMEROUN — CENTRE D'EXCELLENCE PAUL BIYA", style_header_instit))
+        story.append(Paragraph("BP 13 719 Yaoundé • Tél: (237) 242 72 99 57 • contact@iaicameroun.com", style_header_sub))
+        story.append(Spacer(1, 10))
+        
+        # Ligne de séparation verte
+        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#0F5132'), spaceAfter=15))
+        
+        # 2. Titre du document
+        story.append(Paragraph("REGISTRE DES ÉTUDIANTS", style_title))
+        
+        # 3. Tableau des étudiants
+        # En-têtes de colonnes
+        headers = [
+            Paragraph("N°", style_cell_header),
+            Paragraph("Matricule", style_cell_header),
+            Paragraph("Nom & Prénom(s)", style_cell_header),
+            Paragraph("Filière", style_cell_header),
+            Paragraph("Statut", style_cell_header)
+        ]
+        data = [headers]
+        
+        for idx, e in enumerate(queryset, 1):
+            statut_display = e.get_statut_display() if hasattr(e, 'get_statut_display') else e.statut
+            data.append([
+                Paragraph(str(idx), style_cell),
+                Paragraph(e.matricule, style_cell_bold),
+                Paragraph(f"{e.nom} {e.prenom}", style_cell),
+                Paragraph(e.filiere.nom if e.filiere else 'Non spécifié', style_cell),
+                Paragraph(statut_display, style_cell)
+            ])
+            
+        # Largeurs de colonnes (Total largeur disponible sur A4 avec marges de 36 : 595.27 - 72 = 523.27)
+        col_widths = [25, 110, 198, 120, 70]
+        
+        table = Table(data, colWidths=col_widths, repeatRows=1)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F5132')), # En-tête vert foncé
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F4F9F4')]), # Alternance de lignes
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')), # Bordures fines gris clair
         ]))
         
         story.append(table)
+        story.append(Spacer(1, 25))
+        
+        # 4. Bloc signature
+        style_signature = ParagraphStyle(
+            'Signature',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            leading=11,
+            alignment=2 # Droite
+        )
+        date_jour = timezone.now().strftime('%d/%m/%Y')
+        story.append(Paragraph(f"Fait à Yaoundé, le {date_jour}", style_signature))
+        story.append(Spacer(1, 5))
+        story.append(Paragraph("<b>La Direction des Études</b>", style_signature))
+        story.append(Spacer(1, 40))
+        
         doc.build(story)
         return response
-    except ImportError:
+    except Exception as e:
+        # En cas d'erreur ou d'importation manquante, fallback sur CSV
+        print(f"Erreur export PDF: {str(e)}")
         return _exporter_csv(queryset)
     
 # ==================== EXPORT DES FILIÈRES ====================

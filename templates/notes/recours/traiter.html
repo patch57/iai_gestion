@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Arbitrage Recours — {{ recours.etudiant.get_nom_complet }}{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-4xl mx-auto space-y-6">
+    <!-- En-tête -->
+    <div class="flex items-center space-x-4">
+        <a href="{% url 'notes:liste_recours' %}"
+           class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+            <i class="fas fa-arrow-left text-lg"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Arbitrage de la Demande de Recours</h1>
+            <p class="text-sm text-gray-500 mt-1">
+                {{ recours.etudiant.get_nom_complet }} ({{ recours.etudiant.matricule }}) — {{ recours.evaluation.cours.matiere.nom }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="p-4 rounded-xl {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-green-50 text-green-800 border border-green-200{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Informations & Comparatif Note (2 cols) -->
+        <div class="md:col-span-2 space-y-6">
+            <!-- Détails de la réclamation -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <h2 class="text-base font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-info-circle text-purple-600 mr-2"></i> Détails de l'évaluation
+                </h2>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Évaluation :</span>
+                        <span class="font-medium text-gray-900">{{ recours.evaluation.titre }}</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Type :</span>
+                        <span class="font-medium text-gray-900">{{ recours.evaluation.type_evaluation.nom }}</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Matière :</span>
+                        <span class="font-medium text-gray-900">{{ recours.evaluation.cours.matiere.code }} - {{ recours.evaluation.cours.matiere.nom }}</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Date d'évaluation :</span>
+                        <span class="font-medium text-gray-900">{{ recours.evaluation.date_evaluation|date:"d F Y" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motif de l'étudiant -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
+                <h2 class="text-base font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-quote-left text-purple-600 mr-2"></i> Justification de l'étudiant
+                </h2>
+                <div class="p-4 bg-gray-50 text-gray-700 rounded-xl italic border border-gray-100 text-sm whitespace-pre-line">
+                    "{{ recours.motif }}"
+                </div>
+                <div class="text-xs text-gray-400 flex items-center justify-between">
+                    <span>Soumis le : {{ recours.date_soumission|date:"d/m/Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section de modification & décision (1 col) -->
+        <div class="space-y-6">
+            <!-- Comparaison des notes -->
+            <div class="bg-gradient-to-br from-purple-900 to-indigo-950 text-white rounded-2xl p-6 shadow-md text-center space-y-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-purple-200">Comparatif des notes</h3>
+                <div class="flex items-center justify-around">
+                    <div>
+                        <p class="text-xs text-purple-200">Note Actuelle</p>
+                        <p class="text-3xl font-black mt-1 text-red-400">{{ recours.note_actuelle }}/20</p>
+                    </div>
+                    <div class="text-purple-300">
+                        <i class="fas fa-arrow-right text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-purple-200">Note Demandée</p>
+                        <p class="text-3xl font-black mt-1 text-green-400">{{ recours.note_demandee }}/20</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire de Décision -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <h3 class="text-base font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-gavel text-purple-600 mr-2"></i> Rendre une décision
+                </h3>
+                
+                {% if recours.statut == 'EN_ATTENTE' %}
+                <form method="post" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Décision</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex items-center justify-center p-3 border rounded-xl cursor-pointer hover:bg-green-50 transition-colors group border-gray-200">
+                                <input type="radio" name="statut" value="ACCEPTE" required class="sr-only" onclick="updateDecisionStyle('ACCEPTE')">
+                                <span id="btn-accepter" class="text-sm font-bold text-gray-600 group-hover:text-green-700">
+                                    <i class="fas fa-check-circle mr-1.5 text-green-500"></i> Accepter
+                                </span>
+                            </label>
+                            <label class="flex items-center justify-center p-3 border rounded-xl cursor-pointer hover:bg-red-50 transition-colors group border-gray-200">
+                                <input type="radio" name="statut" value="REJETE" required class="sr-only" onclick="updateDecisionStyle('REJETE')">
+                                <span id="btn-rejeter" class="text-sm font-bold text-gray-600 group-hover:text-red-700">
+                                    <i class="fas fa-times-circle mr-1.5 text-red-500"></i> Rejeter
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="decision-comment" class="block text-xs font-bold text-gray-400 uppercase mb-2">Commentaires / Décision (obligatoire)</label>
+                        <textarea name="decision" id="decision-comment" rows="4" required
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-purple-500 focus:border-purple-500"
+                                  placeholder="Justifiez la décision prise..."></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 text-sm">
+                        Enregistrer la décision
+                    </button>
+                </form>
+                {% else %}
+                <!-- Déjà traité -->
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Statut :</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1
+                                     {% if recours.statut == 'ACCEPTE' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {% if recours.statut == 'ACCEPTE' %}
+                            <i class="fas fa-check-circle mr-1"></i> Accepté
+                            {% else %}
+                            <i class="fas fa-times-circle mr-1"></i> Rejeté
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-gray-400 uppercase">Commentaire de décision :</span>
+                        <div class="p-3 bg-gray-50 rounded-lg mt-1 border text-gray-700">
+                            {{ recours.decision }}
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-400">
+                        <span>Traité par : {{ recours.traite_par.get_full_name|default:recours.traite_par.username }}</span><br>
+                        <span>Date de traitement : {{ recours.date_traitement|date:"d/m/Y à H:i" }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateDecisionStyle(type) {
+    const btnAcc = document.getElementById('btn-accepter').parentElement;
+    const btnRej = document.getElementById('btn-rejeter').parentElement;
+    
+    if (type === 'ACCEPTE') {
+        btnAcc.classList.add('border-green-500', 'bg-green-50');
+        btnAcc.querySelector('span').classList.add('text-green-700');
+        
+        btnRej.classList.remove('border-red-500', 'bg-red-50');
+        btnRej.querySelector('span').classList.remove('text-red-700');
+    } else {
+        btnRej.classList.add('border-red-500', 'bg-red-50');
+        btnRej.querySelector('span').classList.add('text-red-700');
+        
+        btnAcc.classList.remove('border-green-500', 'bg-green-50');
+        btnAcc.querySelector('span').classList.remove('text-green-700');
+    }
+}
+</script>
+{% endblock %}

@@ -1459,44 +1459,84 @@ def configurer_cinetpay(request):
 
     # Si formulaire soumis pour enregistrer les paramètres
     if request.method == 'POST':
-        api_key = request.POST.get('api_key', '').strip()
-        site_id = request.POST.get('site_id', '').strip()
-        secret_key = request.POST.get('secret_key', '').strip()
-        mode = request.POST.get('mode', 'SANDBOX').strip()
-        base_url = request.POST.get('base_url', '').strip()
+        form_type = request.POST.get('form_type', 'cinetpay')
+        
+        if form_type == 'cinetpay':
+            api_key = request.POST.get('api_key', '').strip()
+            site_id = request.POST.get('site_id', '').strip()
+            secret_key = request.POST.get('secret_key', '').strip()
+            mode = request.POST.get('mode', 'SANDBOX').strip()
+            base_url = request.POST.get('base_url', '').strip()
 
-        # Sauvegarder dans le modèle Configuration
-        for key, val, desc in [
-            ('CINETPAY_API_KEY', api_key, "Clé API CinetPay"),
-            ('CINETPAY_SITE_ID', site_id, "ID de Site CinetPay"),
-            ('CINETPAY_SECRET_KEY', secret_key, "Clé Secrète CinetPay"),
-            ('CINETPAY_MODE', mode, "Mode d'exécution de CinetPay (SANDBOX/PRODUCTION)"),
-            ('SITE_BASE_URL', base_url, "URL de base de notre site pour les callbacks IPN"),
-        ]:
-            if val:
+            # Sauvegarder dans le modèle Configuration
+            for key, val, desc in [
+                ('CINETPAY_API_KEY', api_key, "Clé API CinetPay"),
+                ('CINETPAY_SITE_ID', site_id, "ID de Site CinetPay"),
+                ('CINETPAY_SECRET_KEY', secret_key, "Clé Secrète CinetPay"),
+                ('CINETPAY_MODE', mode, "Mode d'exécution de CinetPay (SANDBOX/PRODUCTION)"),
+                ('SITE_BASE_URL', base_url, "URL de base de notre site pour les callbacks IPN"),
+            ]:
+                if val:
+                    cfg, created = Configuration.objects.get_or_create(cle=key)
+                    cfg.valeur = val
+                    cfg.description = desc
+                    cfg.modifie_par = user
+                    cfg.save()
+                    
+            # Mettre à jour les variables en mémoire pour la session active du serveur
+            if api_key:
+                django_settings.CINETPAY_API_KEY = api_key
+            if site_id:
+                django_settings.CINETPAY_SITE_ID = site_id
+            if secret_key:
+                django_settings.CINETPAY_SECRET_KEY = secret_key
+            if mode:
+                django_settings.CINETPAY_MODE = mode
+            if base_url:
+                django_settings.SITE_BASE_URL = base_url
+
+            # Mettre à jour les URL dérivées
+            django_settings.CINETPAY_PAYMENT_URL = f'{getattr(django_settings, "CINETPAY_BASE_URL", "https://api-checkout.cinetpay.com")}/v2/payment'
+            django_settings.CINETPAY_CHECK_URL = f'{getattr(django_settings, "CINETPAY_BASE_URL", "https://api-checkout.cinetpay.com")}/v2/payment/check'
+
+            messages.success(request, "Configuration CinetPay mise à jour avec succès !")
+            
+        elif form_type == 'smtp':
+            email_host = request.POST.get('email_host', '').strip()
+            email_port = request.POST.get('email_port', '587').strip()
+            email_host_user = request.POST.get('email_host_user', '').strip()
+            email_host_password = request.POST.get('email_host_password', '').strip()
+            email_use_tls = request.POST.get('email_use_tls', 'false').strip()
+            email_use_ssl = request.POST.get('email_use_ssl', 'false').strip()
+            default_from_email = request.POST.get('default_from_email', '').strip()
+
+            for key, val, desc in [
+                ('EMAIL_HOST', email_host, "Hôte du serveur SMTP"),
+                ('EMAIL_PORT', email_port, "Port du serveur SMTP"),
+                ('EMAIL_HOST_USER', email_host_user, "Nom d'utilisateur SMTP"),
+                ('EMAIL_HOST_PASSWORD', email_host_password, "Mot de passe SMTP"),
+                ('EMAIL_USE_TLS', email_use_tls, "Activer TLS pour SMTP (True/False)"),
+                ('EMAIL_USE_SSL', email_use_ssl, "Activer SSL pour SMTP (True/False)"),
+                ('DEFAULT_FROM_EMAIL', default_from_email, "Adresse d'expéditeur par défaut"),
+            ]:
                 cfg, created = Configuration.objects.get_or_create(cle=key)
                 cfg.valeur = val
                 cfg.description = desc
                 cfg.modifie_par = user
                 cfg.save()
-                
-        # Mettre à jour les variables en mémoire pour la session active du serveur
-        if api_key:
-            django_settings.CINETPAY_API_KEY = api_key
-        if site_id:
-            django_settings.CINETPAY_SITE_ID = site_id
-        if secret_key:
-            django_settings.CINETPAY_SECRET_KEY = secret_key
-        if mode:
-            django_settings.CINETPAY_MODE = mode
-        if base_url:
-            django_settings.SITE_BASE_URL = base_url
 
-        # Mettre à jour les URL dérivées
-        django_settings.CINETPAY_PAYMENT_URL = f'{getattr(django_settings, "CINETPAY_BASE_URL", "https://api-checkout.cinetpay.com")}/v2/payment'
-        django_settings.CINETPAY_CHECK_URL = f'{getattr(django_settings, "CINETPAY_BASE_URL", "https://api-checkout.cinetpay.com")}/v2/payment/check'
+            # Mettre à jour les variables en mémoire pour la session active
+            django_settings.EMAIL_HOST = email_host
+            django_settings.EMAIL_PORT = int(email_port) if email_port.isdigit() else 587
+            django_settings.EMAIL_HOST_USER = email_host_user
+            if email_host_password:
+                django_settings.EMAIL_HOST_PASSWORD = email_host_password
+            django_settings.EMAIL_USE_TLS = email_use_tls.lower() == 'true'
+            django_settings.EMAIL_USE_SSL = email_use_ssl.lower() == 'true'
+            django_settings.DEFAULT_FROM_EMAIL = default_from_email
 
-        messages.success(request, "Configuration CinetPay mise à jour avec succès (appliquée en mémoire) !")
+            messages.success(request, "Configuration SMTP mise à jour avec succès !")
+
         return redirect('paiements:configurer_cinetpay')
 
     # Charger les configurations depuis la BD, sinon depuis les settings Django
@@ -1505,18 +1545,28 @@ def configurer_cinetpay(request):
         return cfg.valeur if cfg else default_val
 
     config_data = {
+        # CinetPay
         'api_key': get_config('CINETPAY_API_KEY', getattr(django_settings, 'CINETPAY_API_KEY', '')),
         'site_id': get_config('CINETPAY_SITE_ID', getattr(django_settings, 'CINETPAY_SITE_ID', '')),
         'secret_key': get_config('CINETPAY_SECRET_KEY', getattr(django_settings, 'CINETPAY_SECRET_KEY', '')),
         'mode': get_config('CINETPAY_MODE', getattr(django_settings, 'CINETPAY_MODE', 'SANDBOX')),
         'base_url': get_config('SITE_BASE_URL', getattr(django_settings, 'SITE_BASE_URL', 'http://127.0.0.1:8000')),
+        
+        # SMTP
+        'email_host': get_config('EMAIL_HOST', getattr(django_settings, 'EMAIL_HOST', 'smtp.gmail.com')),
+        'email_port': get_config('EMAIL_PORT', getattr(django_settings, 'EMAIL_PORT', '587')),
+        'email_host_user': get_config('EMAIL_HOST_USER', getattr(django_settings, 'EMAIL_HOST_USER', '')),
+        'email_host_password': get_config('EMAIL_HOST_PASSWORD', getattr(django_settings, 'EMAIL_HOST_PASSWORD', '')),
+        'email_use_tls': get_config('EMAIL_USE_TLS', str(getattr(django_settings, 'EMAIL_USE_TLS', True)).lower()),
+        'email_use_ssl': get_config('EMAIL_USE_SSL', str(getattr(django_settings, 'EMAIL_USE_SSL', False)).lower()),
+        'default_from_email': get_config('DEFAULT_FROM_EMAIL', getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@iai-cameroun.com')),
     }
 
     # Liste des transactions (ou toutes les transactions récentes pour audit)
     transactions = TransactionPaiement.objects.select_related('etudiant').order_by('-date_creation')[:20]
 
     context = {
-        'titre': 'Configuration CinetPay & Simulateur',
+        'titre': 'Console d\'Administration & Services',
         'config': config_data,
         'transactions': transactions,
         'debug_mode': django_settings.DEBUG,
@@ -1624,3 +1674,178 @@ def simuler_webhook_ipn(request):
                 'status': 'error',
                 'message': f"Erreur de simulation interne : {str(ex)}"
             }, status=500)
+
+
+@login_required
+def tester_smtp(request):
+    """
+    Teste l'envoi d'e-mail avec les paramètres SMTP saisis.
+    """
+    user = request.user
+    role = getattr(user, 'type_utilisateur', 'ETUDIANT')
+    if role not in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'ADMIN_SYSTEME', 'DIRECTEUR']:
+        return JsonResponse({'status': 'error', 'message': "Accès refusé."}, status=403)
+
+    if request.method == 'POST':
+        import json
+        try:
+            body = json.loads(request.body)
+            email_dest = body.get('destinataire', '').strip()
+            host = body.get('email_host', '').strip()
+            port = body.get('email_port', '587').strip()
+            username = body.get('email_host_user', '').strip()
+            password = body.get('email_host_password', '').strip()
+            use_tls = body.get('email_use_tls', False)
+            use_ssl = body.get('email_use_ssl', False)
+            sender = body.get('default_from_email', '').strip() or 'noreply@iai-cameroun.com'
+        except (json.JSONDecodeError, ValueError):
+            email_dest = request.POST.get('destinataire', '').strip()
+            host = request.POST.get('email_host', '').strip()
+            port = request.POST.get('email_port', '587').strip()
+            username = request.POST.get('email_host_user', '').strip()
+            password = request.POST.get('email_host_password', '').strip()
+            use_tls = request.POST.get('email_use_tls') == 'true'
+            use_ssl = request.POST.get('email_use_ssl') == 'true'
+            sender = request.POST.get('default_from_email', '').strip() or 'noreply@iai-cameroun.com'
+
+        if not email_dest:
+            return JsonResponse({'status': 'error', 'message': "L'adresse du destinataire est requise."}, status=400)
+
+        # Si le mot de passe est masqué, on récupère le mot de passe stocké en base
+        if not password or password == '••••••••••••••••':
+            password = Configuration.get_valeur('EMAIL_HOST_PASSWORD', django_settings.EMAIL_HOST_PASSWORD)
+
+        from django.core.mail import get_connection, EmailMessage
+        try:
+            # Créer une connexion SMTP à la volée avec les paramètres fournis
+            connection = get_connection(
+                backend='django.core.mail.backends.smtp.EmailBackend',
+                host=host,
+                port=int(port) if port.isdigit() else 587,
+                username=username,
+                password=password,
+                use_tls=use_tls,
+                use_ssl=use_ssl,
+                timeout=10
+            )
+            
+            sujet = "IAI-Gestion - Test de connexion de messagerie"
+            message_body = (
+                f"Bonjour,\n\n"
+                f"Ce message confirme que la configuration du serveur SMTP de messagerie pour l'application IAI-Gestion est correcte.\n\n"
+                f"Détails de la connexion de test :\n"
+                f"- Hôte SMTP : {host}\n"
+                f"- Port : {port}\n"
+                f"- Sécurité : {'TLS' if use_tls else 'SSL' if use_ssl else 'Aucune'}\n"
+                f"- Utilisateur : {username}\n\n"
+                f"Généré automatiquement par le système d'administration de l'IAI-Cameroun."
+            )
+            
+            email = EmailMessage(
+                subject=sujet,
+                body=message_body,
+                from_email=sender,
+                to=[email_dest],
+                connection=connection
+            )
+            
+            # Envoyer le message
+            email.send(fail_silently=False)
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': f"E-mail de test envoyé avec succès à {email_dest} !"
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur test SMTP : {str(e)}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f"L'envoi de l'e-mail a échoué. Détails de l'erreur : {str(e)}"
+            }, status=500)
+
+    return JsonResponse({'status': 'error', 'message': "Méthode non autorisée."}, status=405)
+
+
+@login_required
+def tester_ocr(request):
+    """
+    Teste l'extraction de texte et de données (OCR) sur un reçu téléversé.
+    """
+    user = request.user
+    role = getattr(user, 'type_utilisateur', 'ETUDIANT')
+    if role not in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'ADMIN_SYSTEME', 'DIRECTEUR']:
+        return JsonResponse({'status': 'error', 'message': "Accès refusé."}, status=403)
+
+    if request.method == 'POST' and request.FILES.get('recu'):
+        recu_file = request.FILES['recu']
+        
+        # Enregistrer temporairement le fichier
+        from django.core.files.storage import default_storage
+        from django.core.files.base import ContentFile
+        from datetime import date
+        
+        temp_path = default_storage.save(f'tmp_ocr_{user.id}_{recu_file.name}', ContentFile(recu_file.read()))
+        absolute_path = default_storage.path(temp_path)
+        
+        try:
+            from .ocr_service import extraire_texte, extraire_montants, extraire_references, extraire_dates, detecter_banque, detecter_nom_remettant
+            
+            # 1. Extraire le texte brut
+            texte_brut = extraire_texte(absolute_path)
+            
+            if not texte_brut:
+                if default_storage.exists(temp_path):
+                    default_storage.delete(temp_path)
+                return JsonResponse({
+                    'status': 'warning',
+                    'message': "Aucun texte n'a pu être extrait. Vérifiez que le fichier est lisible et qu'il s'agit d'un PDF textuel ou d'une image claire.",
+                    'data': {
+                        'montant': None,
+                        'reference': None,
+                        'date': None,
+                        'banque': None,
+                        'remettant': None,
+                        'texte_brut': ''
+                    }
+                })
+                
+            # 2. Parser le texte
+            montants = extraire_montants(texte_brut)
+            references = extraire_references(texte_brut)
+            dates_trouvees = extraire_dates(texte_brut)
+            banque = detecter_banque(texte_brut)
+            remettant = detecter_nom_remettant(texte_brut)
+            
+            # Formatage pour l'UI
+            montant_detecte = float(montants[0]) if montants else None
+            reference_detectee = references[0] if references else None
+            date_detectee = dates_trouvees[0].strftime('%d/%m/%Y') if dates_trouvees else None
+            
+            # Supprimer le fichier temporaire
+            if default_storage.exists(temp_path):
+                default_storage.delete(temp_path)
+                
+            return JsonResponse({
+                'status': 'success',
+                'message': "Analyse OCR terminée avec succès.",
+                'data': {
+                    'montant': montant_detecte,
+                    'reference': reference_detectee,
+                    'date': date_detectee,
+                    'banque': banque,
+                    'remettant': remettant,
+                    'texte_brut': texte_brut[:2000]  # Limiter la taille pour l'affichage
+                }
+            })
+            
+        except Exception as e:
+            if default_storage.exists(temp_path):
+                default_storage.delete(temp_path)
+            logger.error(f"Erreur test OCR : {str(e)}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f"Erreur lors du traitement OCR : {str(e)}"
+            }, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': "Fichier de reçu manquant dans la requête POST."}, status=400)
