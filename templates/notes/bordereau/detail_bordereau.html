@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Permet l'affichage des noms de matières verticalement de bas en haut */
+    .vertical-text-header {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        text-align: left;
+        white-space: nowrap;
+        padding: 15px 5px;
+        font-size: 10px;
+        font-weight: bold;
+        min-height: 120px;
+    }
+    
+    @media print {
+        nav, sidebar, header, .no-print, button, a {
+            display: none !important;
+        }
+        body, .content-container, main {
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+        }
+        .print-card {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+    }
+</style>
+
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+    <!-- Barre d'action supérieure (no-print) -->
+    <div class="flex items-center justify-between no-print bg-white p-4 border border-gray-200 rounded-3xl shadow-sm">
+        <div class="flex items-center space-x-2">
+            <a href="{% url 'notes:liste_bordereaux' %}" class="p-2 text-gray-500 hover:bg-gray-150 rounded-xl transition-colors">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <span class="text-sm font-bold text-gray-700">Retour aux Bordereaux</span>
+        </div>
+        <div class="flex items-center space-x-3">
+            <!-- Bouton de diffusion par email sécurisé -->
+            <form method="POST" action="{% url 'notes:diffuser_resultats' salle_id=classe.id %}" onsubmit="return confirm('Voulez-vous vraiment diffuser confidentiellement par e-mail les résultats individuels sécurisés à tous les étudiants de la classe de {{ classe.nom }} ?');" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-blue-700 to-indigo-600 hover:from-blue-800 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center">
+                    <i class="fas fa-paper-plane mr-1.5"></i> Diffuser les Résultats
+                </button>
+            </form>
+            <button onclick="window.print()" class="px-5 py-2.5 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center">
+                <i class="fas fa-print mr-1.5"></i> Imprimer le Bordereau
+            </button>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="p-4 rounded-xl no-print {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-green-50 text-green-800 border border-green-200{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Bordereau de Notes Imprimable -->
+    <div class="bg-white border border-gray-300 shadow-xl rounded-3xl p-8 print-card font-sans text-black">
+        <!-- Logo et En-tête officiel IAI-Cameroun -->
+        <div class="text-center space-y-1">
+            <div class="flex justify-center mb-3">
+                <img src="https://www.iaicameroun.com/images/logo.png" alt="IAI-Cameroun" class="h-16 object-contain">
+            </div>
+            <h3 class="text-xs uppercase tracking-wide font-extrabold">Etablissement Inter – Etats d’Enseignement Supérieur</h3>
+            <h4 class="text-xs uppercase tracking-wide font-medium">Représentation du Cameroun</h4>
+            <h2 class="text-sm uppercase tracking-wider font-black text-gray-900">CENTRE D’EXCELLENCE TECHNOLOGIQUE PAUL BIYA</h2>
+            <p class="text-[10px] text-gray-500">BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57 / 242 72 99 58 / 691 902 120 Site web: www.iaicameroun.com — E-mail: contact@iaicameroun.com</p>
+        </div>
+
+        <div class="my-6 border-b-2 border-double border-gray-400"></div>
+
+        <div class="text-center space-y-2 mb-6">
+            <h1 class="text-2xl font-black uppercase tracking-widest decoration-double underline">BORDEREAU DE NOTES</h1>
+            
+            <!-- Informations complémentaires de la classe -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px] font-bold border border-gray-300 p-3 rounded-2xl bg-gray-50 max-w-4xl mx-auto text-left">
+                <div>Campus : <span class="text-green-700">Yaoundé</span></div>
+                <div>Niveau : <span class="text-green-700">Niveau {{ classe.niveau.numero }}</span></div>
+                <div>Classe : <span class="text-green-700">{{ classe.nom }}</span></div>
+                <div>Année Académique : <span class="text-green-700">{{ classe.annee_academique.code }}</span></div>
+                <div class="text-right">Date : <span class="text-green-700">{{ date_generation|date:"d/m/Y H:i" }}</span></div>
+            </div>
+        </div>
+
+        <!-- Grand tableau horizontal des notes par UE -->
+        <div class="overflow-x-auto border border-gray-300 rounded-2xl shadow-sm">
+            <table class="min-w-full divide-y divide-gray-300 text-left border-collapse">
+                <!-- En-tête des UEs -->
+                <thead>
+                    <tr class="bg-gray-100 text-[10px] uppercase font-bold text-gray-800">
+                        <th colspan="8" class="px-3 py-2 border-r border-b border-gray-300 text-center">Étudiant</th>
+                        {% for ue in ues %}
+                            {% if ue.temp_matieres %}
+                                <th colspan="{{ ue.temp_matieres|length|add:2 }}" class="px-2 py-2 border-r border-b border-gray-300 text-center bg-green-50/50 text-green-800">
+                                    {{ ue.nom }}
+                                </th>
+                            {% else %}
+                                <th colspan="{{ ue.matieres.count|add:2 }}" class="px-2 py-2 border-r border-b border-gray-300 text-center bg-green-50/50 text-green-800">
+                                    {{ ue.nom }}
+                                </th>
+                            {% endif %}
+                        {% endfor %}
+                        <th colspan="8" class="px-2 py-2 border-b border-gray-300 text-center bg-yellow-50/50 text-yellow-800">Résultats Semestre</th>
+                    </tr>
+                    
+                    <!-- En-tête des matières -->
+                    <tr class="bg-gray-50 text-[9px] text-gray-700 font-bold border-b border-gray-300">
+                        <!-- Colonnes Info Étudiant -->
+                        <th class="px-2 py-2 border-r border-gray-300 w-8">N°</th>
+                        <th class="px-2 py-2 border-r border-gray-300 min-w-[120px]">Noms</th>
+                        <th class="px-2 py-2 border-r border-gray-300 min-w-[100px]">Prénoms</th>
+                        <th class="px-2 py-2 border-r border-gray-300 w-16">Date naiss.</th>
+                        <th class="px-2 py-2 border-r border-gray-300 w-16">Lieu naiss.</th>
+                        <th class="px-2 py-2 border-r border-gray-300 w-24">Matricule</th>
+                        <th class="px-2 py-2 border-r border-gray-300 w-16">Filière</th>
+                        <th class="px-2 py-2 border-r border-gray-300 w-16">Pays</th>
+                        
+                        <!-- Matières de chaque UE -->
+                        {% for ue in ues %}
+                            {% if ue.temp_matieres %}
+                                {% for mat in ue.temp_matieres %}
+                                    <th class="border-r border-gray-300 p-0 text-center align-bottom w-12">
+                                        <div class="vertical-text-header">{{ mat.nom }}</div>
+                                    </th>
+                                {% endfor %}
+                            {% else %}
+                                {% for mat in ue.matieres.all %}
+                                    <th class="border-r border-gray-300 p-0 text-center align-bottom w-12">
+                                        <div class="vertical-text-header">{{ mat.nom }}</div>
+                                    </th>
+                                {% endfor %}
+                            {% endif %}
+                            <th class="px-1 py-2 border-r border-gray-300 text-center bg-green-50 text-[8px] uppercase">Moyenne UE</th>
+                            <th class="px-1 py-2 border-r border-gray-300 text-center bg-green-50 text-[8px] uppercase">Mention</th>
+                        {% endfor %}
+                        
+                        <!-- Colonnes de Résultats Finaux -->
+                        <th class="px-1 py-2 border-r border-gray-300 text-center bg-yellow-50">total points</th>
+                        <th class="px-1 py-2 border-r border-gray-300 text-center bg-yellow-50">Moyenne</th>
+                        <th class="px-1 py-2 border-r border-gray-300 text-center bg-yellow-50">Rang</th>
+                        <th class="px-1 py-2 border-r border-gray-300 text-center bg-yellow-50">Crédits</th>
+                        <th class="px-1 py-2 border-r border-gray-300 text-center bg-yellow-50">Abs.</th>
+                        <th class="px-1 py-2 border-r border-gray-300 text-center bg-yellow-50">Ret.</th>
+                        <th class="px-1 py-2 border-r border-gray-300 text-center bg-yellow-50">Disc.</th>
+                        <th class="px-2 py-2 text-center bg-yellow-50">Décision</th>
+                    </tr>
+                </thead>
+                
+                <!-- Corps du tableau -->
+                <tbody class="divide-y divide-gray-200 text-[10px] font-medium text-gray-900">
+                    {% for row in resultats %}
+                    <tr class="hover:bg-gray-50 border-b border-gray-200">
+                        <td class="px-2 py-2 border-r border-gray-250 text-center">{{ row.index }}</td>
+                        <td class="px-2 py-2 border-r border-gray-250 font-bold uppercase truncate">{{ row.etudiant.nom }}</td>
+                        <td class="px-2 py-2 border-r border-gray-250 truncate">{{ row.etudiant.prenom }}</td>
+                        <td class="px-2 py-2 border-r border-gray-250 text-center">{{ row.etudiant.date_naissance|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="px-2 py-2 border-r border-gray-250 truncate">{{ row.etudiant.lieu_naissance|default:"—" }}</td>
+                        <td class="px-2 py-2 border-r border-gray-250 text-center font-mono">{{ row.etudiant.matricule }}</td>
+                        <td class="px-2 py-2 border-r border-gray-250 text-center font-bold text-green-700">{{ row.etudiant.filiere.code }}</td>
+                        <td class="px-2 py-2 border-r border-gray-250 text-center">{{ row.etudiant.nationalite|default:"Cameroun" }}</td>
+                        
+                        <!-- Notes des matières de chaque UE -->
+                        {% for ue_res in row.ues %}
+                            {% for note_mat in ue_res.notes_matieres %}
+                                <td class="px-1 py-2 border-r border-gray-250 text-center font-mono {% if note_mat.note < 10.0 %}text-red-600 font-bold{% endif %}">
+                                    {{ note_mat.note_format }}
+                                </td>
+                            {% endfor %}
+                            <td class="px-1 py-2 border-r border-gray-250 text-center font-bold font-mono bg-green-50/20 {% if ue_res.moyenne < 10.0 %}text-red-600{% endif %}">
+                                {{ ue_res.moyenne_format }}
+                            </td>
+                            <td class="px-1 py-2 border-r border-gray-250 text-center font-bold bg-green-50/20 {% if ue_res.mention == 'NV' %}text-red-600{% else %}text-green-700{% endif %}">
+                                {{ ue_res.mention }}
+                            </td>
+                        {% endfor %}
+                        
+                        <!-- Résultats Globaux -->
+                        <td class="px-1 py-2 border-r border-gray-250 text-center font-mono bg-yellow-50/20">{{ row.total_points|floatformat:1 }}</td>
+                        <td class="px-1 py-2 border-r border-gray-250 text-center font-bold font-mono bg-yellow-50/20 {% if row.moyenne_generale < 10.0 %}text-red-600{% endif %}">
+                            {{ row.moyenne_format }}
+                        </td>
+                        <td class="px-1 py-2 border-r border-gray-250 text-center font-bold bg-yellow-50/20 text-indigo-700">{{ row.rang }}</td>
+                        <td class="px-1 py-2 border-r border-gray-250 text-center font-bold bg-yellow-50/20">{{ row.credits_capitalises }}</td>
+                        <td class="px-1 py-2 border-r border-gray-250 text-center text-gray-400 bg-yellow-50/20">0</td>
+                        <td class="px-1 py-2 border-r border-gray-250 text-center text-gray-400 bg-yellow-50/20">0</td>
+                        <td class="px-1 py-2 border-r border-gray-250 text-center text-gray-400 bg-yellow-50/20">—</td>
+                        <td class="px-2 py-2 text-center font-extrabold bg-yellow-50/20 {% if row.decision == 'Ajourné' %}text-red-700 bg-red-50/35{% else %}text-green-700 bg-green-50/35{% endif %}">
+                            {{ row.decision|upper }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Bilan global de la classe -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold text-gray-600 border border-gray-300 p-4 rounded-2xl bg-gray-50 max-w-lg">
+            <div>Nombre total d'étudiants : <span class="font-bold text-gray-900">{{ resultats|length }}</span></div>
+            <div>Taux de réussite global : <span class="font-bold text-green-700">{{ stats.taux_reussite }}%</span></div>
+        </div>
+        
+        <!-- Pied de page officiel du PV -->
+        <div class="mt-12 grid grid-cols-2 gap-6 text-center text-xs">
+            <div>
+                <p class="font-bold underline">Le Jury des Délibérations</p>
+                <div class="h-20"></div>
+                <p class="text-gray-400">(Signatures des membres du Jury)</p>
+            </div>
+            <div>
+                <p class="font-bold underline">Le Chef du Service des Études</p>
+                <div class="h-20"></div>
+                <p class="font-bold text-gray-900">IAI-Cameroun Centre de Douala</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        nav, sidebar, header, .no-print, button, a {
+            display: none !important;
+        }
+        body, .content-container, main {
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+        }
+        .print-card {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+    }
+</style>
+
+<div class="p-6 max-w-4xl mx-auto space-y-6">
+    <!-- Action bar (No print) -->
+    <div class="flex items-center justify-between no-print bg-white p-4 border border-gray-200 rounded-3xl shadow-sm">
+        <span class="text-sm font-bold text-gray-700">Relevé de notes individuel et confidentiel</span>
+        <button onclick="window.print()" class="px-5 py-2.5 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center">
+            <i class="fas fa-print mr-1.5"></i> Imprimer mon Relevé
+        </button>
+    </div>
+
+    <!-- Printable Card -->
+    <div class="bg-white border border-gray-300 shadow-xl rounded-3xl p-8 md:p-12 print-card font-sans text-black">
+        <!-- Logo et En-tête IAI -->
+        <div class="text-center space-y-1">
+            <div class="flex justify-center mb-3">
+                <img src="https://www.iaicameroun.com/images/logo.png" alt="IAI-Cameroun" class="h-14 object-contain">
+            </div>
+            <h3 class="text-xs uppercase tracking-wide font-extrabold">Etablissement Inter – Etats d’Enseignement Supérieur</h3>
+            <h4 class="text-xs uppercase tracking-wide font-medium">Représentation du Cameroun</h4>
+            <h2 class="text-sm uppercase tracking-wider font-black text-gray-900">CENTRE D’EXCELLENCE TECHNOLOGIQUE PAUL BIYA</h2>
+            <p class="text-[9px] text-gray-400">BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57 / 242 72 99 58 Site: www.iaicameroun.com</p>
+        </div>
+
+        <div class="my-6 border-b-2 border-double border-gray-400"></div>
+
+        <!-- Titre Fiche de Notes -->
+        <div class="text-center space-y-2 mb-6">
+            <h1 class="text-xl font-black tracking-wider uppercase underline decoration-double">RELEVÉ DE NOTES INDIVIDUEL</h1>
+            <div class="text-sm font-bold">
+                Année Académique : <span class="border-b border-black px-2">{{ classe.annee_academique.code }}</span>
+            </div>
+        </div>
+
+        <!-- Infos Étudiant -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-gray-50 p-5 rounded-2xl border border-gray-200 mb-8">
+            <div class="space-y-2">
+                <div><span class="font-bold text-gray-500 mr-2">Matricule :</span> <span class="font-bold font-mono">{{ etudiant.matricule }}</span></div>
+                <div><span class="font-bold text-gray-500 mr-2">Nom Complet :</span> <span class="font-bold uppercase text-gray-800">{{ etudiant.get_nom_complet }}</span></div>
+                <div><span class="font-bold text-gray-500 mr-2">Date de naissance :</span> <span class="font-semibold">{{ etudiant.date_naissance|date:"d/m/Y"|default:"—" }}</span></div>
+            </div>
+            <div class="space-y-2">
+                <div><span class="font-bold text-gray-500 mr-2">Classe / Salle :</span> <span class="font-bold text-green-700">{{ classe.nom }}</span></div>
+                <div><span class="font-bold text-gray-500 mr-2">Filière :</span> <span class="font-semibold">{{ filiere.nom }} ({{ filiere.code }})</span></div>
+                <div><span class="font-bold text-gray-500 mr-2">Niveau :</span> <span class="font-semibold">Niveau {{ niveau.numero }}</span></div>
+            </div>
+        </div>
+
+        <!-- Tableau des Notes par UE -->
+        <div class="space-y-6">
+            {% for ue_res in releve_ues %}
+            <div class="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                <!-- Header UE -->
+                <div class="bg-gradient-to-r from-green-800 to-green-700 p-4 text-white flex justify-between items-center text-xs">
+                    <span class="font-bold">{{ ue_res.ue.nom }}</span>
+                    <span class="bg-white/20 border border-white/10 px-2 py-0.5 rounded font-bold uppercase">Moyenne UE : {{ ue_res.moyenne_format }} ({{ ue_res.mention }})</span>
+                </div>
+                
+                <!-- Table Matières -->
+                <table class="min-w-full divide-y divide-gray-200 text-left border-collapse">
+                    <thead class="bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
+                        <tr>
+                            <th class="px-4 py-2 w-32 border-r border-gray-200">Code</th>
+                            <th class="px-4 py-2 border-r border-gray-200">Matière</th>
+                            <th class="px-3 py-2 w-16 border-r border-gray-200 text-center">CC (40%)</th>
+                            <th class="px-3 py-2 w-16 border-r border-gray-200 text-center">Exam (60%)</th>
+                            <th class="px-3 py-2 w-16 border-r border-gray-200 text-center">Rattrapage</th>
+                            <th class="px-4 py-2 w-24 text-center">Note Finale</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-150 text-xs font-semibold text-gray-700">
+                        {% for n in ue_res.notes %}
+                        <tr class="hover:bg-gray-50/50">
+                            <td class="px-4 py-2.5 border-r border-gray-200 font-mono">{{ n.matiere.code }}</td>
+                            <td class="px-4 py-2.5 border-r border-gray-200">{{ n.matiere.nom }}</td>
+                            <td class="px-3 py-2.5 border-r border-gray-200 text-center font-mono text-gray-500">{{ n.cc|floatformat:1|default:"—" }}</td>
+                            <td class="px-3 py-2.5 border-r border-gray-200 text-center font-mono text-gray-500">{{ n.exam|floatformat:1|default:"—" }}</td>
+                            <td class="px-3 py-2.5 border-r border-gray-200 text-center font-mono {% if n.rattrapage %}text-yellow-600 font-bold{% else %}text-gray-400{% endif %}">
+                                {{ n.rattrapage|floatformat:1|default:"—" }}
+                            </td>
+                            <td class="px-4 py-2.5 text-center font-bold font-mono {% if n.note_finale < 10.0 %}text-red-600{% else %}text-green-700{% endif %}">
+                                {{ n.note_finale_format }}/20
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Synthèse Semestrielle / Annuelle -->
+        <div class="mt-8 border-2 border-double border-gray-300 rounded-2xl p-6 bg-gray-50 max-w-md ml-auto">
+            <h3 class="font-bold text-sm uppercase text-gray-800 mb-4 pb-2 border-b border-gray-200">Synthèse des Résultats</h3>
+            <div class="grid grid-cols-2 gap-3 text-xs font-semibold text-gray-600">
+                <div>Moyenne Générale :</div>
+                <div class="text-right font-bold text-gray-900 font-mono text-sm {% if moyenne_generale < 10.0 %}text-red-600{% endif %}">{{ moyenne_format }}/20</div>
+                
+                <div>Crédits Capitalisés :</div>
+                <div class="text-right font-bold text-gray-900">{{ credits_capitalises }}/{{ total_coefficients|floatformat:0 }}</div>
+                
+                <div>Rang dans la classe :</div>
+                <div class="text-right font-bold text-indigo-700">{{ rang }}e sur {{ effectif }}</div>
+                
+                <div>Mention :</div>
+                <div class="text-right font-bold text-gray-800">{{ mention }}</div>
+                
+                <div class="col-span-2 my-1 border-t border-dashed border-gray-200"></div>
+                
+                <div class="text-sm font-bold uppercase text-gray-800">Décision Finale :</div>
+                <div class="text-right text-sm font-extrabold uppercase {% if decision == 'Ajourné' %}text-red-700{% else %}text-green-700{% endif %}">{{ decision }}</div>
+            </div>
+        </div>
+
+        <!-- Pied de page et Signature -->
+        <div class="mt-12 text-right text-xs">
+            <p class="text-gray-500">Généré de manière sécurisée et confidentielle par l'IAI-Cameroun.</p>
+            <p class="font-bold text-gray-700 mt-2">Le Service des Examens et Notes</p>
+            <div class="h-16"></div>
+            <p class="text-gray-400 font-bold italic">Document officiel sans signature physique nécessaire</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

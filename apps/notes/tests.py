@@ -2,7 +2,7 @@ from django.test import TestCase
 from datetime import date
 from apps.authentification.models import Utilisateur
 from apps.etudiants.models import Etudiant, Filiere, AnneeAcademique, Niveau
-from apps.notes.models import TypeEvaluation, Matiere, Cours, Evaluation, Note, Bulletin
+from apps.notes.models import TypeEvaluation, Matiere, Cours, Evaluation, Note, Bulletin, UniteEnseignement
 
 class NotesModelsTestCase(TestCase):
     def setUp(self):
@@ -444,4 +444,134 @@ class FicheAnonymatTestCase(TestCase):
         
         # S'assurer que le PV existe toujours en base de données
         self.assertTrue(ProcesVerbalNotes.objects.filter(pk=pv.pk).exists())
+
+
+class BordereauxTestCase(TestCase):
+    """Tests pour la génération du bordereau par UE, formule CC/Exam et rattrapage"""
+
+    def setUp(self):
+        self.filiere = Filiere.objects.create(code='GL', nom='Génie Logiciel', duree_ans=3)
+        self.niveau = Niveau.objects.create(filiere=self.filiere, numero=1, code='GL1-test-b')
+        self.annee = AnneeAcademique.objects.create(
+            code='2025-2026',
+            date_debut=date(2025, 9, 1),
+            date_fin=date(2026, 8, 31),
+            est_active=True
+        )
+        
+        self.chef_etudes = Utilisateur.objects.create_user(
+            username='chef_etudes_b@iai.com', email='chef_etudes_b@iai.com',
+            password='password123', type_utilisateur='CHEF_ETUDES'
+        )
+        
+        self.stud_user = Utilisateur.objects.create_user(
+            username='student_b@iai.com', email='student_b@iai.com',
+            password='password123', type_utilisateur='ETUDIANT',
+            matricule='GL.CMR.D014.2526D'
+        )
+        self.etudiant = Etudiant.objects.create(
+            utilisateur=self.stud_user, nom='TENE', prenom='CLAUDE',
+            email='student_b@iai.com', telephone='670000004',
+            adresse='Douala', date_naissance=date(2000, 1, 1),
+            lieu_naissance='Douala', sexe='M',
+            filiere=self.filiere, annee_academique=self.annee,
+            matricule='GL.CMR.D014.2526D'
+        )
+        
+        from apps.etudiants.models import Classe
+        self.salle = Classe.objects.create(
+            nom='GL3D',
+            filiere=self.filiere,
+            niveau=self.niveau,
+            annee_academique=self.annee,
+            effectif_max=30
+        )
+        self.etudiant.classe = self.salle
+        self.etudiant.statut = 'INSCRIT'
+        self.etudiant.save()
+
+        self.ue = UniteEnseignement.objects.create(
+            code='UE_TEST', nom='UE Bases de données avancées',
+            filiere=self.filiere, niveau=self.niveau
+        )
+        
+        self.matiere = Matiere.objects.create(
+            code='INF301', nom='BD Oracle', credit=4, semestre=1,
+            unite_enseignement=self.ue
+        )
+        
+        self.cours = Cours.objects.create(
+            matiere=self.matiere, filiere=self.filiere,
+            niveau=self.niveau, annee_academique='2025-2026',
+            semestre=1
+        )
+        
+        self.type_cc = TypeEvaluation.objects.create(code='CC', nom='CC', coefficient_default=1.00)
+        self.type_exam = TypeEvaluation.objects.create(code='EXAM', nom='Examen', coefficient_default=1.00)
+        self.type_ratt = TypeEvaluation.objects.create(code='RATT', nom='Rattrapage', coefficient_default=1.00)
+
+        self.eval_cc = Evaluation.objects.create(
+            cours=self.cours, type_evaluation=self.type_cc,
+            titre='CC Oracle', date_evaluation=date.today(),
+            coefficient=1.00, note_maximale=20.00
+        )
+        self.eval_exam = Evaluation.objects.create(
+            cours=self.cours, type_evaluation=self.type_exam,
+            titre='Exam Oracle', date_evaluation=date.today(),
+            coefficient=1.00, note_maximale=20.00
+        )
+        self.eval_ratt = Evaluation.objects.create(
+            cours=self.cours, type_evaluation=self.type_ratt,
+            titre='Ratt Oracle', date_evaluation=date.today(),
+            coefficient=1.00, note_maximale=20.00
+        )
+
+    def test_formule_calcul_note_standard(self):
+        # 10.0 en CC et 15.0 en examen
+        Note.objects.create(etudiant=self.etudiant, evaluation=self.eval_cc, valeur=Decimal('10.00'), est_validee=True)
+        Note.objects.create(etudiant=self.etudiant, evaluation=self.eval_exam, valeur=Decimal('15.00'), est_validee=True)
+        
+        self.client.login(username='chef_etudes_b@iai.com', password='password123')
+        
+        response = self.client.get(f'/notes/bordereaux/salle/{self.salle.pk}/')
+        self.assertEqual(response.status_code, 200)
+        
+        # Note finale attendue : (10 * 0.4) + (15 * 0.6) = 4 + 9 = 13
+        resultats = response.context['resultats']
+        self.assertEqual(len(resultats), 1)
+        self.assertEqual(resultats[0]['ues'][0]['notes_matieres'][0]['note'], 13.0)
+        self.assertEqual(resultats[0]['moyenne_generale'], 13.0)
+        self.assertEqual(resultats[0]['decision'], 'Admis')
+
+    def test_formule_calcul_avec_rattrapage(self):
+        # 10.0 en CC, 8.0 en examen et 12.0 en rattrapage
+        Note.objects.create(etudiant=self.etudiant, evaluation=self.eval_cc, valeur=Decimal('10.00'), est_validee=True)
+        Note.objects.create(etudiant=self.etudiant, evaluation=self.eval_exam, valeur=Decimal('8.00'), est_validee=True)
+        Note.objects.create(etudiant=self.etudiant, evaluation=self.eval_ratt, valeur=Decimal('12.00'), est_validee=True)
+        
+        self.client.login(username='chef_etudes_b@iai.com', password='password123')
+        response = self.client.get(f'/notes/bordereaux/salle/{self.salle.pk}/')
+        
+        # Note finale attendue avec rattrapage écrasant examen :
+        # (10 * 0.4) + (12 * 0.6) = 4 + 7.2 = 11.2
+        resultats = response.context['resultats']
+        self.assertEqual(resultats[0]['ues'][0]['notes_matieres'][0]['note'], 11.2)
+
+    def test_consultation_individuelle_securisee(self):
+        from django.core import signing
+        
+        # Préparer le jeton sécurisé
+        token_data = {
+            'etudiant_id': self.etudiant.id,
+            'salle_id': self.salle.id,
+            'annee_code': self.salle.annee_academique.code
+        }
+        token = signing.dumps(token_data)
+        
+        # Consulter sans être connecté
+        response = self.client.get(f'/notes/releve/consulter/{token}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['etudiant'], self.etudiant)
+        self.assertEqual(response.context['classe'], self.salle)
+
 

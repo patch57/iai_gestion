@@ -37,6 +37,23 @@ class TypeEvaluation(models.Model):
         return f"{self.code} - {self.nom}"
 
 
+class UniteEnseignement(models.Model):
+    """Modèle représentant une Unité d'Enseignement (UE) regroupant plusieurs matières"""
+    code = models.CharField(max_length=20, unique=True)
+    nom = models.CharField(max_length=150)
+    filiere = models.ForeignKey('etudiants.Filiere', on_delete=models.CASCADE, related_name='ues', null=True, blank=True)
+    niveau = models.ForeignKey('etudiants.Niveau', on_delete=models.CASCADE, related_name='ues', null=True, blank=True)
+    
+    class Meta:
+        app_label = 'notes'
+        verbose_name = "Unité d'Enseignement"
+        verbose_name_plural = "Unités d'Enseignement"
+        ordering = ['code']
+
+    def __str__(self):
+        return f"{self.code} - {self.nom}"
+
+
 class Matiere(models.Model):
     """Matière enseignée"""
     SEMESTRE_CHOICES = [
@@ -55,6 +72,7 @@ class Matiere(models.Model):
     )
     volume_horaire = models.PositiveIntegerField(default=30)
     est_actif = models.BooleanField(default=True)
+    unite_enseignement = models.ForeignKey(UniteEnseignement, on_delete=models.SET_NULL, null=True, blank=True, related_name='matieres')
     
     class Meta:
         app_label = 'notes'

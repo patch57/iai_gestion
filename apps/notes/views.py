@@ -1455,3 +1455,510 @@ def supprimer_pv(request, pk):
         messages.success(request, f"🗑️ Le procès-verbal \"{titre}\" a été supprimé avec succès.")
         
     return redirect('tableau_bord:tableau_bord')
+
+
+@login_required
+def liste_bordereaux(request):
+    """Affiche la liste des classes pour lesquelles générer un bordereau"""
+    role = getattr(request.user, 'type_utilisateur', None)
+    if role not in ('CHEF_ETUDES', 'ADMIN_SYSTEME') and not request.user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef des Études.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.etudiants.models import Classe, AnneeAcademique
+    annee_active = AnneeAcademique.get_active()
+    classes = Classe.objects.filter(annee_academique=annee_active, est_active=True).order_by('nom')
+
+    context = {
+        'classes': classes,
+        'annee_active': annee_active,
+        'titre': 'Bordereaux de Notes'
+    }
+    return render(request, 'notes/bordereau/liste_salles.html', context)
+
+
+@login_required
+def generer_bordereau(request, salle_id):
+    """Génère le bordereau de notes officiel d'une classe regroupé par UE"""
+    role = getattr(request.user, 'type_utilisateur', None)
+    if role not in ('CHEF_ETUDES', 'ADMIN_SYSTEME') and not request.user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef des Études.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.etudiants.models import Classe
+    from apps.notes.models import UniteEnseignement, Matiere, Note, TypeEvaluation
+    
+    classe = get_object_or_404(Classe, pk=salle_id)
+    etudiants = classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom')
+    filiere = classe.filiere
+    niveau = classe.niveau
+    annee_academique = classe.annee_academique
+
+    # Récupérer les UEs associées à la filière et au niveau
+    ues = list(UniteEnseignement.objects.filter(filiere=filiere, niveau=niveau).prefetch_related('matieres'))
+    
+    # Récupérer toutes les matières de la filière/niveau
+    from apps.notes.models import Cours
+    cours_classe = Cours.objects.filter(filiere=filiere, niveau=niveau, annee_academique=annee_academique.code)
+    matieres_ids = cours_classe.values_list('matiere_id', flat=True)
+    matieres_toutes = list(Matiere.objects.filter(id__in=matieres_ids))
+
+    # Associer les matières sans UE à une UE virtuelle pour ne rien perdre
+    matieres_avec_ue = []
+    for ue in ues:
+        matieres_avec_ue.extend(ue.matieres.all())
+    
+    matieres_sans_ue = [m for m in matieres_toutes if m not in matieres_avec_ue]
+    
+    if matieres_sans_ue:
+        ue_virtuelle = UniteEnseignement(code='UE_AUTRES', nom='Matières Fondamentales / Optionnelles')
+        # On attache temporairement dans le code
+        ue_virtuelle.temp_matieres = matieres_sans_ue
+        ues.append(ue_virtuelle)
+
+    # Récupérer les types d'évaluations
+    type_cc = TypeEvaluation.objects.filter(code='CC').first()
+    type_exam = TypeEvaluation.objects.filter(code='EXAM').first()
+    type_ratt = TypeEvaluation.objects.filter(code='RATT').first()
+    if not type_ratt:
+        # Créer à la volée le type Rattrapage s'il n'existe pas en base de données
+        type_ratt = TypeEvaluation.objects.create(code='RATT', nom='Rattrapage', coefficient_default=1.00)
+
+    # Pré-charger toutes les notes des étudiants pour cette classe
+    from django.db.models import Q
+    evaluations_cours = []
+    for c in cours_classe:
+        evaluations_cours.extend(c.evaluations.all())
+        
+    notes_queryset = Note.objects.filter(
+        etudiant__in=etudiants,
+        evaluation__in=evaluations_cours,
+        est_validee=True
+    ).select_related('etudiant', 'evaluation', 'evaluation__cours', 'evaluation__cours__matiere', 'evaluation__type_evaluation')
+
+    # Structurer les notes pour un accès rapide : dict[etudiant_id][matiere_code][type_code] = valeur
+    notes_dict = {}
+    for note in notes_queryset:
+        et_id = note.etudiant_id
+        mat_code = note.evaluation.cours.matiere.code
+        type_code = note.evaluation.type_evaluation.code
+        
+        if et_id not in notes_dict:
+            notes_dict[et_id] = {}
+        if mat_code not in notes_dict[et_id]:
+            notes_dict[et_id][mat_code] = {}
+        notes_dict[et_id][mat_code][type_code] = float(note.valeur)
+
+    # Construire la grille des résultats par étudiant
+    resultats_etudiants = []
+    for index, etudiant in enumerate(etudiants, 1):
+        et_id = etudiant.id
+        et_notes = notes_dict.get(et_id, {})
+        
+        detail_etudiant = {
+            'index': index,
+            'etudiant': etudiant,
+            'ues': [],
+            'total_points': 0.0,
+            'total_coefficients': 0.0,
+            'credits_capitalises': 0,
+            'moyenne_generale': 0.0,
+            'decision': 'Ajourné',
+            'mention': 'Insuffisant'
+        }
+
+        for ue in ues:
+            matieres_ue = getattr(ue, 'temp_matieres', ue.matieres.all())
+            ue_notes = []
+            ue_total_points = 0.0
+            ue_total_coefficients = 0.0
+            
+            for mat in matieres_ue:
+                coef = float(mat.credit)  # Le crédit fait office de coefficient pour le calcul de moyenne d'UE
+                mat_n = et_notes.get(mat.code, {})
+                
+                cc_val = mat_n.get('CC')
+                exam_val = mat_n.get('EXAM')
+                ratt_val = mat_n.get('RATT')
+                
+                # Règle de calcul : Rattrapage écrase et remplace Examen
+                exam_envisage = exam_val
+                if exam_envisage is None:
+                    exam_envisage = 0.0
+                if ratt_val is not None:
+                    exam_envisage = ratt_val
+                
+                cc_envisage = cc_val if cc_val is not None else 0.0
+                
+                # Calcul de la note finale : (CC * 40% + EXAM * 60%)
+                if cc_val is None and exam_val is None and ratt_val is None:
+                    note_finale = 0.0
+                else:
+                    note_finale = (cc_envisage * 0.4) + (exam_envisage * 0.6)
+                
+                note_finale = round(note_finale, 2)
+                
+                ue_notes.append({
+                    'matiere': mat,
+                    'note': note_finale,
+                    'note_format': f"{note_finale:.1f}".replace('.', ',') if (cc_val is not None or exam_val is not None or ratt_val is not None) else "0,0"
+                })
+                
+                ue_total_points += note_finale * coef
+                ue_total_coefficients += coef
+                
+                if note_finale >= 10.0:
+                    detail_etudiant['credits_capitalises'] += mat.credit
+
+            # Calcul moyenne UE
+            moyenne_ue = 0.0
+            if ue_total_coefficients > 0:
+                moyenne_ue = round(ue_total_points / ue_total_coefficients, 3)
+                
+            ue_mention = "V" if moyenne_ue >= 10.0 else "NV"
+            
+            detail_etudiant['ues'].append({
+                'ue': ue,
+                'notes_matieres': ue_notes,
+                'moyenne': moyenne_ue,
+                'moyenne_format': f"{moyenne_ue:.3f}".replace('.', ','),
+                'mention': ue_mention
+            })
+            
+            detail_etudiant['total_points'] += ue_total_points
+            detail_etudiant['total_coefficients'] += ue_total_coefficients
+
+        # Moyenne générale
+        moyenne_g = 0.0
+        if detail_etudiant['total_coefficients'] > 0:
+            moyenne_g = round(detail_etudiant['total_points'] / detail_etudiant['total_coefficients'], 4)
+            
+        detail_etudiant['moyenne_generale'] = moyenne_g
+        detail_etudiant['moyenne_format'] = f"{moyenne_g:.4f}".replace('.', ',')
+        
+        # Décision et mention générale
+        if moyenne_g >= 10.0:
+            detail_etudiant['decision'] = 'Admis'
+            if moyenne_g >= 16.0:
+                detail_etudiant['mention'] = 'Très Bien'
+            elif moyenne_g >= 14.0:
+                detail_etudiant['mention'] = 'Bien'
+            elif moyenne_g >= 12.0:
+                detail_etudiant['mention'] = 'Assez Bien'
+            else:
+                detail_etudiant['mention'] = 'Passable'
+        else:
+            detail_etudiant['decision'] = 'Ajourné'
+            detail_etudiant['mention'] = 'Insuffisant'
+            
+        resultats_etudiants.append(detail_etudiant)
+
+    # Calcul des rangs
+    resultats_etudiants.sort(key=lambda x: x['moyenne_generale'], reverse=True)
+    for rang, det in enumerate(resultats_etudiants, 1):
+        det['rang'] = rang
+
+    # Restaurer l'ordre alphabétique pour l'affichage final
+    resultats_etudiants.sort(key=lambda x: (x['etudiant'].nom, x['etudiant'].prenom))
+
+    # Calcul des statistiques globales du bordereau
+    stats_bordereau = {
+        'moyennes_matieres': {},
+        'taux_reussite': 0.0
+    }
+    if resultats_etudiants:
+        admis_count = sum(1 for d in resultats_etudiants if d['decision'] == 'Admis')
+        stats_bordereau['taux_reussite'] = round((admis_count / len(resultats_etudiants)) * 100, 1)
+
+    from django.utils import timezone
+    context = {
+        'classe': classe,
+        'ues': ues,
+        'resultats': resultats_etudiants,
+        'stats': stats_bordereau,
+        'date_generation': timezone.now(),
+        'titre': f"Bordereau de notes {classe.nom}"
+    }
+    return render(request, 'notes/bordereau/detail_bordereau.html', context)
+
+
+@login_required
+def diffuser_resultats(request, salle_id):
+    """Envoie par e-mail les résultats individuels et sécurisés de chaque étudiant"""
+    role = getattr(request.user, 'type_utilisateur', None)
+    if role not in ('CHEF_ETUDES', 'ADMIN_SYSTEME') and not request.user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef des Études.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.etudiants.models import Classe
+    from django.core import signing
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from django.urls import reverse
+    
+    classe = get_object_or_404(Classe, pk=salle_id)
+    etudiants = classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF'])
+    
+    if request.method == 'POST':
+        email_sent = 0
+        site_url = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
+        
+        for etudiant in etudiants:
+            if not etudiant.email and etudiant.utilisateur and etudiant.utilisateur.email:
+                etudiant.email = etudiant.utilisateur.email
+                
+            if etudiant.email:
+                # Génération du jeton signé sécurisé
+                token_data = {
+                    'etudiant_id': etudiant.id,
+                    'salle_id': classe.id,
+                    'annee_code': classe.annee_academique.code
+                }
+                token = signing.dumps(token_data)
+                
+                url_consultation = f"{site_url}{reverse('notes:consulter_resultat_individuel', kwargs={'token': token})}"
+                
+                sujet = f"Publication de vos résultats — {classe.annee_academique.code}"
+                message_html = f"""
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #15803d; margin: 0; text-transform: uppercase; font-size: 20px;">IAI-Cameroun</h2>
+                        <p style="color: #6b7280; font-size: 12px; margin: 4px 0 0 0;">Centre d'Excellence Technologique Paul Biya</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <p style="font-size: 16px; font-weight: bold; color: #1f2937; margin: 0 0 12px 0;">Bonjour {etudiant.get_nom_complet()},</p>
+                        <p style="font-size: 14px; color: #4b5563; line-height: 1.5; margin: 0 0 16px 0;">Les résultats officiels du semestre pour la classe de <strong>{classe.nom}</strong> ont été publiés par le Chef des Études.</p>
+                        <p style="font-size: 14px; color: #4b5563; line-height: 1.5; margin: 0 0 16px 0;">Pour consulter et télécharger votre relevé de notes individuel de manière 100% sécurisée, veuillez cliquer sur le bouton ci-dessous :</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <a href="{url_consultation}" style="display: inline-block; background: linear-gradient(to right, #15803d, #16a34a); color: white; font-weight: bold; text-decoration: none; padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2); font-size: 14px;">Consulter mes Notes</a>
+                    </div>
+                    
+                    <div style="border-top: 1px solid #f3f4f6; pt: 16px; text-align: center;">
+                        <p style="font-size: 11px; color: #9ca3af; margin: 12px 0 0 0;">Ce lien de consultation est personnel, unique et sécurisé. Ne le partagez avec personne.</p>
+                        <p style="font-size: 11px; color: #9ca3af; margin: 4px 0 0 0;">© 2026 IAI-Cameroun Douala — Tous droits réservés.</p>
+                    </div>
+                </div>
+                """
+                
+                # Envoi de l'e-mail
+                send_mail(
+                    sujet,
+                    f"Bonjour {etudiant.get_nom_complet()},\n\nVos résultats de {classe.nom} sont disponibles. Veuillez vous connecter ou suivre ce lien sécurisé pour les consulter : {url_consultation}",
+                    settings.DEFAULT_FROM_EMAIL,
+                    [etudiant.email],
+                    html_message=message_html,
+                    fail_silently=True
+                )
+                email_sent += 1
+                
+        messages.success(request, f"✉️ Résultats diffusés avec succès ! {email_sent} e-mail(s) sécurisé(s) envoyé(s) aux étudiants de {classe.nom}.")
+        return redirect('notes:generer_bordereau', salle_id=classe.id)
+        
+    return redirect('notes:liste_bordereaux')
+
+
+def consulter_resultat_individuel(request, token):
+    """Permet à un étudiant d'accéder de manière sécurisée et confidentielle à son propre relevé"""
+    from django.core import signing
+    from apps.etudiants.models import Classe, Etudiant
+    from apps.notes.models import UniteEnseignement, Matiere, Note, TypeEvaluation
+    
+    try:
+        # Décoder le token sécurisé
+        token_data = signing.loads(token, max_age=86400 * 30)  # Validité de 30 jours
+        etudiant_id = token_data['etudiant_id']
+        salle_id = token_data['salle_id']
+    except (signing.SignatureExpired, signing.BadSignature):
+        messages.error(request, "❌ Lien de consultation expiré ou invalide. Veuillez contacter le secrétariat.")
+        return redirect('tableau_bord:tableau_bord')
+
+    etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+    classe = get_object_or_404(Classe, pk=salle_id)
+    filiere = classe.filiere
+    niveau = classe.niveau
+    annee_academique = classe.annee_academique
+
+    # Récupérer les UEs et les matières
+    ues = list(UniteEnseignement.objects.filter(filiere=filiere, niveau=niveau).prefetch_related('matieres'))
+    from apps.notes.models import Cours
+    cours_classe = Cours.objects.filter(filiere=filiere, niveau=niveau, annee_academique=annee_academique.code)
+    matieres_ids = cours_classe.values_list('matiere_id', flat=True)
+    matieres_toutes = list(Matiere.objects.filter(id__in=matieres_ids))
+
+    matieres_avec_ue = []
+    for ue in ues:
+        matieres_avec_ue.extend(ue.matieres.all())
+    
+    matieres_sans_ue = [m for m in matieres_toutes if m not in matieres_avec_ue]
+    if matieres_sans_ue:
+        ue_virtuelle = UniteEnseignement(code='UE_AUTRES', nom='Matières Complémentaires')
+        ue_virtuelle.temp_matieres = matieres_sans_ue
+        ues.append(ue_virtuelle)
+
+    # Récupérer les notes de cet étudiant spécifique
+    evaluations_cours = []
+    for c in cours_classe:
+        evaluations_cours.extend(c.evaluations.all())
+        
+    notes_etudiant = Note.objects.filter(
+        etudiant=etudiant,
+        evaluation__in=evaluations_cours,
+        est_validee=True
+    ).select_related('evaluation', 'evaluation__cours', 'evaluation__cours__matiere', 'evaluation__type_evaluation')
+
+    notes_dict = {}
+    for note in notes_etudiant:
+        mat_code = note.evaluation.cours.matiere.code
+        type_code = note.evaluation.type_evaluation.code
+        if mat_code not in notes_dict:
+            notes_dict[mat_code] = {}
+        notes_dict[mat_code][type_code] = float(note.valeur)
+
+    # Calcul de la grille individuelle
+    releve_ues = []
+    total_points = 0.0
+    total_coefficients = 0.0
+    credits_capitalises = 0
+
+    for ue in ues:
+        matieres_ue = getattr(ue, 'temp_matieres', ue.matieres.all())
+        ue_notes = []
+        ue_total_points = 0.0
+        ue_total_coefficients = 0.0
+        
+        for mat in matieres_ue:
+            coef = float(mat.credit)
+            mat_n = notes_dict.get(mat.code, {})
+            
+            cc_val = mat_n.get('CC')
+            exam_val = mat_n.get('EXAM')
+            ratt_val = mat_n.get('RATT')
+            
+            exam_envisage = exam_val if exam_val is not None else 0.0
+            if ratt_val is not None:
+                exam_envisage = ratt_val
+            
+            cc_envisage = cc_val if cc_val is not None else 0.0
+            
+            if cc_val is None and exam_val is None and ratt_val is None:
+                note_finale = 0.0
+            else:
+                note_finale = (cc_envisage * 0.4) + (exam_envisage * 0.6)
+                
+            note_finale = round(note_finale, 2)
+            
+            ue_notes.append({
+                'matiere': mat,
+                'cc': cc_val,
+                'exam': exam_val,
+                'rattrapage': ratt_val,
+                'note_finale': note_finale,
+                'note_finale_format': f"{note_finale:.1f}".replace('.', ',')
+            })
+            
+            ue_total_points += note_finale * coef
+            ue_total_coefficients += coef
+            
+            if note_finale >= 10.0:
+                credits_capitalises += mat.credit
+
+        # Moyenne UE
+        moyenne_ue = 0.0
+        if ue_total_coefficients > 0:
+            moyenne_ue = round(ue_total_points / ue_total_coefficients, 3)
+            
+        releve_ues.append({
+            'ue': ue,
+            'notes': ue_notes,
+            'moyenne': moyenne_ue,
+            'moyenne_format': f"{moyenne_ue:.3f}".replace('.', ','),
+            'mention': 'V' if moyenne_ue >= 10.0 else 'NV'
+        })
+        
+        total_points += ue_total_points
+        total_coefficients += ue_total_coefficients
+
+    # Moyenne Générale
+    moyenne_generale = 0.0
+    if total_coefficients > 0:
+        moyenne_generale = round(total_points / total_coefficients, 4)
+
+    # Déterminer la décision finale et mention
+    decision = 'Ajourné'
+    mention = 'Insuffisant'
+    if moyenne_generale >= 10.0:
+        decision = 'Admis'
+        if moyenne_generale >= 16.0:
+            mention = 'Très Bien'
+        elif moyenne_generale >= 14.0:
+            mention = 'Bien'
+        elif moyenne_generale >= 12.0:
+            mention = 'Assez Bien'
+        else:
+            mention = 'Passable'
+
+    # Calculer le rang dans la classe pour ce semestre
+    tous_etudiants = classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF'])
+    classe_moyennes = []
+    
+    # Pour calculer le rang de manière équitable
+    for et in tous_etudiants:
+        et_n = Note.objects.filter(etudiant=et, evaluation__in=evaluations_cours, est_validee=True)
+        et_dict = {}
+        for n in et_n:
+            mc = n.evaluation.cours.matiere.code
+            tc = n.evaluation.type_evaluation.code
+            if mc not in et_dict:
+                et_dict[mc] = {}
+            et_dict[mc][tc] = float(n.valeur)
+            
+        tp_sum = 0.0
+        tc_sum = 0.0
+        for u in ues:
+            m_ue = getattr(u, 'temp_matieres', u.matieres.all())
+            for mt in m_ue:
+                c_cf = float(mt.credit)
+                mt_n = et_dict.get(mt.code, {})
+                cc = mt_n.get('CC')
+                ex = mt_n.get('EXAM')
+                rt = mt_n.get('RATT')
+                ex_e = ex if ex is not None else 0.0
+                if rt is not None:
+                    ex_e = rt
+                cc_e = cc if cc is not None else 0.0
+                if cc is None and ex is None and rt is None:
+                    nf = 0.0
+                else:
+                    nf = (cc_e * 0.4) + (ex_e * 0.6)
+                tp_sum += round(nf, 2) * c_cf
+                tc_sum += c_cf
+        moy = tp_sum / tc_sum if tc_sum > 0 else 0.0
+        classe_moyennes.append((et.id, moy))
+        
+    classe_moyennes.sort(key=lambda x: x[1], reverse=True)
+    rang = 1
+    for rank, (et_id, _) in enumerate(classe_moyennes, 1):
+        if et_id == etudiant.id:
+            rang = rank
+            break
+
+    from django.utils import timezone
+    context = {
+        'etudiant': etudiant,
+        'classe': classe,
+        'releve_ues': releve_ues,
+        'moyenne_generale': moyenne_generale,
+        'moyenne_format': f"{moyenne_generale:.4f}".replace('.', ','),
+        'credits_capitalises': credits_capitalises,
+        'total_coefficients': total_coefficients,
+        'decision': decision,
+        'mention': mention,
+        'rang': rang,
+        'effectif': len(tous_etudiants),
+        'date_impression': timezone.now(),
+        'titre': f"Relevé de notes - {etudiant.get_nom_complet()}"
+    }
+    return render(request, 'notes/bordereau/releve_individuel.html', context)
