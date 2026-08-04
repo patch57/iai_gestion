@@ -213,6 +213,11 @@ def detail_recu(request, pk):
     """Détail d'un reçu"""
     recu = get_object_or_404(RecuPaiement, pk=pk)
     
+    # Prévention IDOR : Cloisonnement strict pour les étudiants
+    if request.user.type_utilisateur == 'ETUDIANT' and recu.etudiant.utilisateur != request.user:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'êtes pas autorisé à consulter ce reçu de paiement.")
+        
     context = {
         'recu': recu,
         'titre': f'Détail du reçu'

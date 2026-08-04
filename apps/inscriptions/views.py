@@ -75,6 +75,11 @@ def detail_inscription(request, pk):
         pk=pk
     )
     
+    # Prévention IDOR : Cloisonnement strict pour les étudiants
+    if request.user.type_utilisateur == 'ETUDIANT' and inscription.etudiant.utilisateur != request.user:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'êtes pas autorisé à consulter cette inscription.")
+    
     # Récupérer les reçus de paiement associés
     recus = RecuPaiement.objects.filter(
         etudiant=inscription.etudiant,

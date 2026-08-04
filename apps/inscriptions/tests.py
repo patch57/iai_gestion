@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 
 from apps.etudiants.models import Etudiant, Filiere, AnneeAcademique as AnneeAcademiqueEtudiant
-from apps.inscriptions.models import AnneeAcademique, Bourse
+from apps.inscriptions.models import AnneeAcademique, Bourse, Inscription
 from apps.inscriptions.forms import BourseForm
 
 User = get_user_model()
@@ -120,3 +120,45 @@ class BourseTestCase(TestCase):
         response = self.client.post(reverse('inscriptions:attribuer_bourse'), data)
         self.assertEqual(response.status_code, 302)  # Redirection après création
         self.assertTrue(Bourse.objects.filter(type_bourse='SOCIALE').exists())
+
+    def test_securite_idor_inscription(self):
+        """Vérifie qu'un étudiant ne peut pas consulter l'inscription d'un autre étudiant"""
+        # Création d'un second étudiant et de son inscription
+        user_etudiant_2 = User.objects.create_user(
+            username='autre_etudiant',
+            email='autre.etudiant@iai.com',
+            password='password123',
+            type_utilisateur='ETUDIANT',
+            matricule="GL.CMR.D015.2425A"
+        )
+        etudiant_2 = Etudiant.objects.create(
+            nom="Martin",
+            prenom="Paul",
+            sexe="M",
+            date_naissance="2001-02-02",
+            lieu_naissance="Yaoundé",
+            telephone="678888888",
+            email="autre.etudiant@iai.com",
+            adresse="Yaoundé, Ngoa",
+            matricule="GL.CMR.D015.2425A",
+            filiere=self.filiere,
+            annee_academique=self.annee_etudiant,
+            statut="INSCRIT",
+            utilisateur=user_etudiant_2
+        )
+        inscription_2 = Inscription.objects.create(
+            etudiant=etudiant_2,
+            annee_academique=self.annee,
+            filiere=self.filiere,
+            statut='VALIDEE'
+        )
+        
+        # Connexion en tant que premier étudiant (jean_dupont)
+        self.client.login(username='jean_dupont', password='password123')
+        
+        # Tenter d'accéder au détail de l'inscription du deuxième étudiant
+        response = self.client.get(reverse('inscriptions:detail_inscription', args=[inscription_2.id]))
+        
+        # L'accès doit être interdit (code HTTP 403)
+        self.assertEqual(response.status_code, 403)
+

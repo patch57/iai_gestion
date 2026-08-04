@@ -158,6 +158,11 @@ def detail_etudiant(request, pk):
         pk=pk
     )
     
+    # Prévention IDOR : Cloisonnement strict pour les étudiants
+    if request.user.type_utilisateur == 'ETUDIANT' and etudiant.utilisateur != request.user:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'êtes pas autorisé à consulter le profil d'un autre étudiant.")
+    
     # Notes et résultats
     notes = Note.objects.filter(etudiant=etudiant, est_validee=True).select_related('evaluation__cours__matiere')
     moyenne_generale = notes.aggregate(Avg('valeur'))['valeur__avg']

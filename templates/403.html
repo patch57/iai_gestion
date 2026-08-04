@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Accès Refusé - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 text-center animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 space-y-6">
+        <!-- Icône de cadenas de sécurité animée -->
+        <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+            <div class="absolute inset-0 bg-red-100 rounded-full animate-ping opacity-25"></div>
+            <div class="relative w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg text-white text-3xl">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+        </div>
+
+        <div class="space-y-2">
+            <h1 class="text-3xl font-black text-gray-800 tracking-tight">Accès Interdit</h1>
+            <p class="text-xs bg-red-50 text-red-700 font-bold uppercase tracking-wider py-1 px-3 rounded-full inline-block border border-red-100">
+                Erreur 403 - Permission Refusée
+            </p>
+            <p class="text-gray-500 text-sm pt-2">
+                Désolé, vos privilèges d'accès actuels ne vous permettent pas de visualiser cette page ou cette ressource confidentielle.
+            </p>
+        </div>
+
+        <!-- Informations supplémentaires de sécurité -->
+        <div class="bg-gray-50 rounded-2xl p-4 text-left border border-gray-100">
+            <div class="flex items-start space-x-3 text-xs text-gray-500">
+                <i class="fas fa-info-circle text-gray-400 mt-0.5 text-sm"></i>
+                <div>
+                    <p class="font-semibold text-gray-700">Pourquoi cette restriction ?</p>
+                    <p class="mt-0.5">Le système d'IAI-Gestion applique des règles strictes de cloisonnement des données pour protéger les informations personnelles et financières des étudiants et enseignants.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liens de navigation sécurisés -->
+        <div class="pt-4 flex flex-col sm:flex-row gap-3">
+            <a href="javascript:history.back()" 
+               class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-xl transition text-sm flex items-center justify-center space-x-2">
+                <i class="fas fa-arrow-left"></i>
+                <span>Retour</span>
+            </a>
+            <a href="{% url 'tableau_bord:tableau_bord' %}" 
+               class="flex-1 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-md text-sm flex items-center justify-center space-x-2">
+                <i class="fas fa-home"></i>
+                <span>Tableau de bord</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

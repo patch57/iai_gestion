@@ -74,6 +74,17 @@ def detail_professeur(request, pk):
     """Détail d'un professeur"""
     professeur = get_object_or_404(Professeur, pk=pk)
     
+    # Prévention IDOR & Cloisonnement :
+    # 1. Les étudiants ne peuvent pas accéder aux détails confidentiels des professeurs
+    if request.user.type_utilisateur == 'ETUDIANT':
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'êtes pas autorisé à consulter le profil d'un professeur.")
+        
+    # 2. Un professeur ne peut voir que sa propre fiche de charge horaire et documents
+    if request.user.type_utilisateur == 'PROFESSEUR' and professeur.utilisateur != request.user:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vous n'êtes pas autorisé à consulter le profil de vos collègues.")
+    
     # Cours assignés
     cours = Cours.objects.filter(
         professeur=professeur,
