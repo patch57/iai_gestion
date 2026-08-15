@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} - IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="flex items-center space-x-4">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                {{ professeur.nom|slice:":1" }}{{ professeur.prenom|slice:":1" }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-black text-gray-900">{{ professeur.get_nom_complet }}</h1>
+                <p class="text-sm text-gray-500 font-medium">Département : <strong class="text-indigo-600">{{ professeur.departement.nom|default:"Informatique" }}</strong></p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <div class="text-center">
+                <p class="text-xs text-gray-400 font-semibold uppercase">Note Globale</p>
+                <p class="text-3xl font-black text-indigo-600">{{ moyenne_globale }} <span class="text-sm font-normal text-gray-400">/ 5</span></p>
+            </div>
+            <div class="h-8 w-px bg-gray-200"></div>
+            <div class="text-center">
+                <p class="text-xs text-gray-400 font-semibold uppercase">Satisfaction</p>
+                <p class="text-3xl font-black text-emerald-600">{{ moyenne_pourcentage }}%</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid des Statistiques -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <!-- Gauges par Catégorie -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center">
+                <i class="fas fa-[#00D2FF] fa-chart-bar text-indigo-600 mr-2"></i>
+                Performance par Critère Pédagogique
+            </h2>
+
+            <div class="space-y-6">
+                {% for cat in stats_categories %}
+                <div>
+                    <div class="flex justify-between text-sm font-semibold mb-1">
+                        <span class="text-gray-700">{{ cat.libelle }}</span>
+                        <span class="text-indigo-600 font-bold">{{ cat.moyenne }} / 5 ({{ cat.pourcentage }}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                        <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-3 rounded-full transition-all duration-1000" style="width: {{ cat.pourcentage }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Résumé & Cours attribués -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <i class="fas fa-[#00D2FF] fa-book-open text-purple-600 mr-2"></i>
+                Cours Evalués
+            </h2>
+            <ul class="divide-y divide-gray-100">
+                {% for c in cours_prof %}
+                <li class="py-3 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-bold text-gray-800">{{ c.matiere.nom }}</p>
+                        <p class="text-xs text-gray-400">{{ c.code }} — Filière : {{ c.filiere.code }}</p>
+                    </div>
+                    <span class="px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-lg">
+                        Actif
+                    </span>
+                </li>
+                {% empty %}
+                <li class="py-4 text-sm text-gray-400">Aucun cours assigné.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Remarques & Commentaires Anonymes -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center">
+            <i class="fas fa-[#00D2FF] fa-comments text-amber-500 mr-2"></i>
+            Retours & Suggestions Anonymes des Apprenants
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for c in commentaires %}
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div class="flex items-center justify-between text-xs text-gray-400 mb-2">
+                    <span class="font-bold text-indigo-600">Cours : {{ c.cours__code }}</span>
+                    <span>{{ c.date_creation|date:"d/m/Y" }}</span>
+                </div>
+                <p class="text-sm text-gray-700 italic">
+                    "{{ c.commentaire }}"
+                </p>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-8 text-center text-gray-400 text-sm">
+                Aucun commentaire écrit pour le moment.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -164,27 +164,54 @@
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end space-x-1">
+                                {% if user.type_utilisateur != 'CHEF_SCOLARITE' %}
                                 <a href="{% url 'etudiants:detail_etudiant' etudiant.pk %}" 
                                    class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-xl transition-colors" 
                                    title="Fiche détaillée">
                                     <i class="fas fa-eye"></i>
                                 </a>
+                                {% endif %}
+                                <a href="{% url 'etudiants:exporter_fiche_etudiant_pdf' etudiant.pk %}" 
+                                   class="text-teal-600 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 p-2 rounded-xl transition-colors" 
+                                   title="Télécharger la Fiche de Renseignement (PDF Officiel IAI)">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                                {% with fiche=etudiant.fiches_renseignement.first %}
+                                {% if fiche %}
+                                <a href="{% url 'inscriptions:detail_fiche_renseignement' fiche.pk %}" 
+                                   class="text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 p-2 rounded-xl transition-colors" 
+                                   title="Consulter la Fiche de Renseignement Officielle (IAI)">
+                                    <i class="fas fa-file-invoice"></i>
+                                </a>
+                                {% endif %}
+                                {% endwith %}
+                                {% if user.type_utilisateur != 'CHEF_SCOLARITE' %}
                                 <a href="{% url 'etudiants:modifier_etudiant' etudiant.pk %}" 
                                    class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 p-2 rounded-xl transition-colors" 
                                    title="Modifier les informations">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                {% endif %}
+                                {% if user.type_utilisateur != 'CHEF_SCOLARITE' and etudiant.classe %}
+                                <a href="{% url 'cours:exporter_liste_classe_presence_pdf' etudiant.classe.id %}" target="_blank" 
+                                   class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-xl transition-colors" 
+                                   title="Imprimer Fiche de Présence (PDF)">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                                {% endif %}
                                 <a href="{% url 'etudiants:carte_etudiant' etudiant.pk %}" 
                                    class="text-yellow-600 hover:text-yellow-800 bg-yellow-50 hover:bg-yellow-100 p-2 rounded-xl transition-colors" 
                                    title="Générer la carte d'étudiant">
                                     <i class="fas fa-id-card"></i>
                                 </a>
+                                {% if user.is_superuser or user.type_utilisateur == 'ADMIN' %}
                                 <a href="{% url 'etudiants:supprimer_etudiant' etudiant.pk %}" 
                                    class="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 p-2 rounded-xl transition-colors" 
                                    title="Retirer le dossier"
                                    onclick="return confirm('Êtes-vous sûr de vouloir supprimer définitivement cet étudiant ?')">
                                     <i class="fas fa-trash-alt"></i>
                                 </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

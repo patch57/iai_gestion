@@ -14,7 +14,7 @@ from .forms import SupportPedagogiqueApprenantForm
 @login_required
 def liste_apprenants_categories(request):
     """Consulter et imprimer la liste des apprenants par catégories"""
-    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'ADMIN_SYSTEME']:
+    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE', 'ADMIN_SYSTEME', 'DIRECTEUR', 'CHEF_ETUDES']:
         messages.error(request, "Accès refusé.")
         return redirect('tableau_bord:tableau_bord')
         
@@ -49,7 +49,7 @@ def liste_apprenants_categories(request):
 @login_required
 def saisir_notes_apprenants(request):
     """Saisie des notes d'évaluation des apprenants par formation"""
-    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'ADMIN_SYSTEME']:
+    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE', 'ADMIN_SYSTEME', 'DIRECTEUR', 'CHEF_ETUDES']:
         messages.error(request, "Accès refusé.")
         return redirect('tableau_bord:tableau_bord')
         
@@ -112,7 +112,7 @@ def saisir_notes_apprenants(request):
 @login_required
 def ajouter_support_apprenant(request):
     """Dépôt de supports de cours ciblés pour les apprenants"""
-    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'ADMIN_SYSTEME']:
+    if request.user.type_utilisateur not in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE', 'ADMIN_SYSTEME', 'DIRECTEUR', 'CHEF_ETUDES']:
         messages.error(request, "Accès refusé.")
         return redirect('tableau_bord:tableau_bord')
         
@@ -150,7 +150,6 @@ def liste_supports_apprenant(request):
             modules_noms = [f.nom for f in formations_apprenant]
             types_formations = [f.type_formation for f in formations_apprenant]
             
-            # Filtre : correspond aux modules, type ou tous, et optionnellement au niveau
             supports = supports.filter(
                 (Q(module_formation__in=modules_noms) | Q(module_formation='TOUS')) &
                 (Q(type_formation__in=types_formations) | Q(type_formation='TOUS'))
@@ -160,8 +159,10 @@ def liste_supports_apprenant(request):
         else:
             supports = supports.none()
     elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
-        # Le formateur voit ses propres dépôts ou tous
         supports = supports.filter(formateur=user)
+    elif role == 'CHEF_FORMATION_CONTINUE':
+        # Le Chef de Service voit tous les supports de formation continue
+        supports = supports.all()
         
     context = {
         'supports': supports,

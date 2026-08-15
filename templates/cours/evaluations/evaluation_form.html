@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} - IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'cours:liste_evaluations_etudiant' %}" class="inline-flex items-center text-sm text-gray-500 hover:text-indigo-600 font-medium">
+            <i class="fas fa-[#00D2FF] fa-arrow-left mr-2"></i> Retour aux cours
+        </a>
+    </div>
+
+    <!-- Card En-tête Cours -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <span class="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded-full">
+                    {{ cours.code }}
+                </span>
+                <h1 class="text-2xl font-extrabold text-gray-900 mt-2">{{ cours.matiere.nom }}</h1>
+                <p class="text-sm text-gray-500">Professeur : <strong class="text-gray-800">{{ cours.professeur.get_nom_complet }}</strong></p>
+            </div>
+            <div class="bg-emerald-50 text-emerald-800 px-4 py-3 rounded-xl border border-emerald-100 flex items-center space-x-3">
+                <i class="fas fa-[#00D2FF] fa-user-secret text-2xl text-emerald-600"></i>
+                <div class="text-xs">
+                    <p class="font-bold">Mode 100% Anonyme</p>
+                    <p class="text-emerald-600">Aucune donnée personnelle n'est reliée à vos notes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire d'Évaluation -->
+    <form method="POST" class="space-y-6">
+        {% csrf_token %}
+
+        {% for q in questions %}
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition hover:border-indigo-100">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md mb-2 inline-block">
+                        {{ q.get_categorie_display }}
+                    </span>
+                    <h3 class="text-base font-bold text-gray-800">{{ q.intitule }}</h3>
+                </div>
+            </div>
+
+            <!-- Systeme de notation 5 Etoiles -->
+            <div class="star-rating flex items-center space-x-3 pt-2" data-question="{{ q.id }}">
+                <input type="hidden" name="question_{{ q.id }}" id="input_q_{{ q.id }}" value="5">
+                {% for i in "12345" %}
+                <button type="button" onclick="setRating({{ q.id }}, {{ i }})" id="star_{{ q.id }}_{{ i }}" class="star-btn text-2xl text-amber-400 focus:outline-none transition transform hover:scale-125">
+                    <i class="fas fa-[#00D2FF] fa-star"></i>
+                </button>
+                {% endfor %}
+                <span id="label_q_{{ q.id }}" class="ml-3 text-sm font-semibold text-amber-600">5 / 5 - Excellent</span>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Remarques & Conseils Libres -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <label class="block text-sm font-bold text-gray-800 mb-2">
+                Commentaires libres & Suggestions d'amélioration (Optionnel)
+            </label>
+            <textarea name="commentaire_general" rows="4" placeholder="Exprimez vos remarques ou suggestions de manière constructive et respectueuse..." class="w-full rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-sm p-4 border"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-4 pt-4">
+            <a href="{% url 'cours:liste_evaluations_etudiant' %}" class="px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition">
+                Annuler
+            </a>
+            <button type="submit" class="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-200 transition flex items-center space-x-2">
+                <i class="fas fa-[#00D2FF] fa-paper-plane"></i>
+                <span>Soumettre anonymement</span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+const labels = {
+    1: '1 / 5 - Très insuffisant',
+    2: '2 / 5 - Insuffisant',
+    3: '3 / 5 - Moyen',
+    4: '4 / 5 - Bon',
+    5: '5 / 5 - Excellent'
+};
+
+function setRating(qId, val) {
+    document.getElementById('input_q_' + qId).value = val;
+    document.getElementById('label_q_' + qId).innerText = labels[val];
+    
+    for (let i = 1; i <= 5; i++) {
+        const star = document.getElementById('star_' + qId + '_' + i);
+        if (i <= val) {
+            star.className = 'star-btn text-2xl text-amber-400 focus:outline-none transition transform hover:scale-125';
+        } else {
+            star.className = 'star-btn text-2xl text-gray-300 focus:outline-none transition transform hover:scale-125';
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -38,6 +38,11 @@ urlpatterns = [
     # Statistiques
     path('statistiques/', views.statistiques_financieres, name='statistiques_financieres'),
     
+    # Fiche de Renseignement
+    path('fiche-renseignement/', views.fiche_renseignement_etudiant, name='fiche_renseignement_etudiant'),
+    path('fiche-renseignement/<int:pk>/', views.detail_fiche_renseignement, name='detail_fiche_renseignement'),
+    path('fiche-renseignement/<int:pk>/pdf/', views.telecharger_fiche_pdf, name='telecharger_fiche_pdf'),
+
     # Export
     path('exporter/', views.exporter_inscriptions, name='exporter_inscriptions'),
 ]

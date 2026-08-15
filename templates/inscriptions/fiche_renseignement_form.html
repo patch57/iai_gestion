@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Fiche de Renseignement | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-5xl">
+    <!-- En-tête de la page -->
+    <div class="bg-gradient-to-r from-emerald-800 via-green-700 to-teal-800 rounded-2xl shadow-xl p-6 text-white mb-8">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                    <i class="fas fa-id-card text-3xl text-emerald-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Fiche de Renseignement 2025-2026</h1>
+                    <p class="text-emerald-100 text-sm mt-1">Institut Africain d'Informatique — Représentation du Cameroun</p>
+                </div>
+            </div>
+            {% if fiche %}
+            <div class="flex items-center space-x-3">
+                <a href="{% url 'inscriptions:detail_fiche_renseignement' fiche.pk %}" class="inline-flex items-center px-4 py-2 bg-white text-emerald-800 font-semibold rounded-xl hover:bg-emerald-50 transition shadow">
+                    <i class="fas fa-eye mr-2"></i> Voir ma Fiche
+                </a>
+                <a href="{% url 'inscriptions:telecharger_fiche_pdf' fiche.pk %}" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-500 transition shadow border border-emerald-400">
+                    <i class="fas fa-file-pdf mr-2"></i> Télécharger PDF
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Banner d'information Agent IA -->
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 flex items-start space-x-3 shadow-sm">
+        <div class="p-2 bg-blue-500 text-white rounded-lg mt-0.5">
+            <i class="fas fa-robot text-lg"></i>
+        </div>
+        <div class="text-sm text-blue-900 leading-relaxed">
+            <strong class="font-bold">Contrôle Automatique par l'Agent IA :</strong> 
+            Veuillez remplir soigneusement l'ensemble des champs obligatoires. 
+            <ul class="list-disc list-inside mt-1 space-y-0.5 text-blue-800">
+                <li><strong>Photo d'Identité :</strong> L'Agent IA analysera automatiquement la photo pour s'assurer qu'il s'agit d'un portrait officiel net (visage centré type CNI/Passeport).</li>
+                <li><strong>Reçu de Banque :</strong> L'Agent IA effectuera une analyse OCR de votre reçu. S'il est valide et authentique, vos données et votre statut seront automatiquement mis à jour. Sinon, le Chef de la Comptabilité effectuera la validation.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Formulaire principal -->
+    <form method="post" enctype="multipart/form-data" class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div class="p-6 bg-red-50 border-b border-red-200 text-red-800">
+            <div class="flex items-center space-x-2 font-bold mb-2">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Des erreurs sont survenues dans votre formulaire :</span>
+            </div>
+            <ul class="list-disc list-inside text-sm space-y-1">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <li><strong>{{ field }} :</strong> {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="p-6 md:p-8 space-y-8">
+            <!-- 1. IDENTITÉ ÉTUDIANT -->
+            <div>
+                <div class="flex items-center space-x-3 pb-3 border-b border-gray-200 mb-6">
+                    <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-sm">1</span>
+                    <h2 class="text-lg font-bold text-gray-900">Informations Personnelles de l'Étudiant</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Noms (EN MAJUSCULES) <span class="text-red-500">*</span></label>
+                        {{ form.nom }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Prénoms <span class="text-red-500">*</span></label>
+                        {{ form.prenom }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Date de naissance <span class="text-red-500">*</span></label>
+                        {{ form.date_naissance }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Lieu de naissance <span class="text-red-500">*</span></label>
+                        {{ form.lieu_naissance }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Pays de naissance <span class="text-red-500">*</span></label>
+                        {{ form.pays_naissance }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Situation matrimoniale <span class="text-red-500">*</span></label>
+                        {{ form.situation_matrimoniale }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Nationalité <span class="text-red-500">*</span></label>
+                        {{ form.nationalite }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Région d'origine <span class="text-red-500">*</span></label>
+                        {{ form.region_origine }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Adresse permanente <span class="text-red-500">*</span></label>
+                        {{ form.adresse_permanente }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Votre N° Téléphone <span class="text-red-500">*</span></label>
+                        {{ form.telephone }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Lieu de Résidence <span class="text-red-500">*</span></label>
+                        {{ form.lieu_residence }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Adresse Email <span class="text-red-500">*</span></label>
+                        {{ form.email }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. PERSONNE À CONTACTER -->
+            <div>
+                <div class="flex items-center space-x-3 pb-3 border-b border-gray-200 mb-6">
+                    <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-sm">2</span>
+                    <h2 class="text-lg font-bold text-gray-900">Personnes à contacter (Obligatoire)</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-1">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">NOM et Prénom <span class="text-red-500">*</span></label>
+                        {{ form.personne_contact_nom_prenom }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Téléphone <span class="text-red-500">*</span></label>
+                        {{ form.personne_contact_telephone }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Lieu de Résidence <span class="text-red-500">*</span></label>
+                        {{ form.personne_contact_residence }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. PARCOURS ACADÉMIQUE -->
+            <div>
+                <div class="flex items-center space-x-3 pb-3 border-b border-gray-200 mb-6">
+                    <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-sm">3</span>
+                    <h2 class="text-lg font-bold text-gray-900">Informations Académiques & Inscription</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Filière d'études <span class="text-red-500">*</span></label>
+                        {{ form.filiere }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">BACC (Série / Type) <span class="text-red-500">*</span></label>
+                        {{ form.serie_bacc }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Niveau d'études <span class="text-red-500">*</span></label>
+                        {{ form.niveau }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Date de 1ère rentrée</label>
+                        {{ form.date_premiere_rentree }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Statut étudiant <span class="text-red-500">*</span></label>
+                        {{ form.statut_etudiant_fiche }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Date du concours</label>
+                        {{ form.date_concours }}
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Matricule IAI (si déjà attribué)</label>
+                        {{ form.matricule }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. UPLOADS OBLIGATOIRES (PHOTO + REÇU) -->
+            <div>
+                <div class="flex items-center space-x-3 pb-3 border-b border-gray-200 mb-6">
+                    <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-sm">4</span>
+                    <h2 class="text-lg font-bold text-gray-900">Documents Obligatoires (Vérification IA)</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Photo D'identité -->
+                    <div class="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-6 bg-gray-50/50 text-center transition">
+                        <div class="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-portrait text-2xl"></i>
+                        </div>
+                        <h3 class="font-bold text-gray-900 mb-1">1. Photo d'Identité <span class="text-red-500">*</span></h3>
+                        <p class="text-xs text-gray-500 mb-4">Format CNI ou Passeport (JPG, PNG). Fond clair, visage centré et bien dégagé.</p>
+                        
+                        <div class="space-y-3">
+                            <input type="file" name="photo_identite" id="id_photo_identite" accept="image/*" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 transition cursor-pointer">
+                            <p class="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200 text-left">
+                                <i class="fas fa-shield-alt mr-1"></i> <strong>Contrôle IA :</strong> Si la photo n'est pas un portrait de type identité, la soumission sera rejetée.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Reçu de paiement -->
+                    <div class="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-6 bg-gray-50/50 text-center transition">
+                        <div class="w-16 h-16 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-receipt text-2xl"></i>
+                        </div>
+                        <h3 class="font-bold text-gray-900 mb-1">2. Reçu de Paiement Bancaire <span class="text-red-500">*</span></h3>
+                        <p class="text-xs text-gray-500 mb-4">Paiement 1ère Tranche ou Totalité des droits (PDF ou Image du reçu).</p>
+                        
+                        <div class="space-y-3">
+                            <input type="file" name="recu_paiement_fichier" id="id_recu_paiement_fichier" accept="image/*,application/pdf" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition cursor-pointer">
+                            <p class="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-lg border border-blue-200 text-left">
+                                <i class="fas fa-search-dollar mr-1"></i> <strong>Analyse IA OCR :</strong> Extraction de la référence et du montant. Validation immédiate si conforme.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOUTON DE SOUMISSION -->
+            <div class="pt-6 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="text-xs text-gray-500">
+                    <i class="fas fa-lock text-emerald-600 mr-1"></i> Vos données sont protégées et conformes au règlement officiel IAI-Cameroun.
+                </div>
+                <button type="submit" class="w-full md:w-auto inline-flex items-center justify-center px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold rounded-xl shadow-lg hover:shadow-emerald-500/25 transition transform hover:-translate-y-0.5">
+                    <i class="fas fa-paper-plane mr-2"></i> Soumettre ma Fiche & Vérifier par l'IA
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Appliquer des classes de style aux inputs
+        const inputs = document.querySelectorAll('form input[type="text"], form input[type="email"], form input[type="date"], form select');
+        inputs.forEach(input => {
+            if (!input.classList.contains('uppercase')) {
+                input.className += ' w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 text-sm transition';
+            } else {
+                input.className += ' w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 text-sm transition uppercase';
+            }
+        });
+    });
+</script>
+{% endblock %}

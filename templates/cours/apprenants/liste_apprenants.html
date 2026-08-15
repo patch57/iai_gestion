@@ -1,42 +1,69 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Registre des Apprenants - IAI-Cameroun{% endblock %}
+{% block title %}Registre des Apprenants - IAI-Cameroun Centre de Douala{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp print:m-0 print:p-0">
-    <!-- En-tête (masqué à l'impression si besoin, mais on va le formater proprement pour l'impression) -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 print:mb-4">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp print:m-0 print:p-0 print:max-w-none">
+    
+    <!-- barre d'actions (Masquée à l'impression) -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 print:hidden">
         <div>
-            <div class="hidden print:block text-center mb-4">
-                <h1 class="text-2xl font-bold uppercase tracking-wider text-green-800">IAI-Cameroun Centre de Douala</h1>
-                <p class="text-sm font-semibold uppercase text-gray-500">Institut Africain d'Informatique</p>
-                <div class="border-b-2 border-yellow-500 w-32 mx-auto my-2"></div>
-            </div>
-            <h1 class="text-2xl font-black text-gray-800 print:text-xl print:text-center">
-                <i class="fas fa-address-book text-green-600 mr-2 print:hidden"></i>Registre des Apprenants
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="inline-flex items-center text-xs font-bold text-emerald-700 hover:text-emerald-900 mb-2 transition">
+                <i class="fas fa-arrow-left mr-1.5"></i> Retour au Tableau de Bord
+            </a>
+            <h1 class="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                <i class="fas fa-address-book text-emerald-600"></i> Registre Officiel des Apprenants
             </h1>
-            <p class="text-gray-500 text-sm mt-1 print:hidden">
-                Consultez et filtrez la liste des apprenants des certifications et de la formation continue.
+            <p class="text-xs text-gray-500 font-medium mt-0.5">
+                Certifications & Formation Continue — IAI-Cameroun (Centre de Douala)
             </p>
         </div>
-        
-        <!-- Actions (masqué à l'impression) -->
-        <div class="flex gap-3 print:hidden">
-            <button onclick="window.print()" class="inline-flex items-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
-                <i class="fas fa-print mr-2 text-yellow-400"></i> Imprimer le registre
+
+        <div class="flex flex-wrap gap-2.5">
+            <button onclick="window.print()" class="inline-flex items-center bg-gradient-to-r from-emerald-800 to-green-700 hover:from-emerald-900 hover:to-green-800 text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs shadow-lg transition transform hover:-translate-y-0.5 gap-2">
+                <i class="fas fa-print text-amber-400 text-sm"></i> Imprimer le Registre Officiel
             </button>
         </div>
     </div>
 
-    <!-- Filtres (masqués à l'impression) -->
+    <!-- En-tête Officiel IAI-Cameroun (Uniquement à l'impression) -->
+    <div class="print-only bg-white rounded-3xl border border-gray-100 p-6 md:p-8 shadow-xl mb-8 print:shadow-none print:border-0 print:p-0 print:mb-6">
+        
+        <!-- En-tête Institutionnel IAI -->
+        <div class="text-center space-y-1 pb-3 border-b border-gray-300">
+            <div class="flex justify-center mb-2">
+                <img src="{% static 'images/logo_iai.png' %}" alt="Logo IAI Cameroun" class="h-16 object-contain">
+            </div>
+            <p class="text-xs font-bold text-gray-800 uppercase tracking-wide">Etablissement Inter – Etats d'Enseignement Supérieur</p>
+            <p class="text-xs font-semibold text-gray-700">Représentation du Cameroun</p>
+            <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</h2>
+            <p class="text-[10px] text-gray-600 font-medium">BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57/ 242 72 99 58/ 691 902 120</p>
+            <p class="text-[10px] text-gray-600 font-medium">Site web: www.iaicameroun.com &bull; Courriel: contact@iaicameroun.com</p>
+        </div>
+
+        <!-- Ligne Tricolore Cameroun -->
+        <div class="h-0.5 w-full bg-gradient-to-r from-emerald-600 via-red-600 to-amber-400 my-2 rounded-full"></div>
+
+        <!-- Titre Central du Document -->
+        <div class="text-center pt-2">
+            <h1 class="text-xl font-black uppercase tracking-widest text-black">
+                REGISTRE DES APPRENANTS
+            </h1>
+            <p class="text-xs font-bold uppercase text-gray-800 tracking-wider mt-0.5">
+                Formation Continue & Certifications Professionnelles
+            </p>
+        </div>
+    </div>
+
+    <!-- Barre de Filtres (Masquée à l'impression) -->
     <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8 print:hidden">
-        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <!-- Type formation -->
             <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Type de Formation</label>
-                <select name="type_formation" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                    <option value="">Tous</option>
+                <label class="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Type de Formation</label>
+                <select name="type_formation" class="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/50">
+                    <option value="">Toutes les formations</option>
                     {% for code, label in type_formation_choices %}
                     <option value="{{ code }}" {% if request.GET.type_formation == code %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
@@ -45,9 +72,9 @@
 
             <!-- Module -->
             <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Module de Formation</label>
-                <select name="module" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                    <option value="">Tous</option>
+                <label class="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Module Spécifique</label>
+                <select name="module" class="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/50">
+                    <option value="">Tous les modules</option>
                     {% for code, label in module_choices %}
                     <option value="{{ code }}" {% if request.GET.module == code %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
@@ -56,97 +83,191 @@
 
             <!-- Niveau -->
             <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Stade / Niveau d'étude</label>
-                <input type="text" name="niveau" value="{{ request.GET.niveau|default:'' }}" placeholder="Ex: DQP, Professionnel..." class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                <label class="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Niveau / Stade d'étude</label>
+                <input type="text" name="niveau" value="{{ request.GET.niveau|default:'' }}" placeholder="Ex: DQP, Professionnel..." class="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/50">
             </div>
 
             <!-- Boutons -->
             <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-xl text-sm transition">
-                    Filtrer
+                <button type="submit" class="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold py-2.5 rounded-2xl text-xs shadow-md transition">
+                    <i class="fas fa-filter mr-1"></i> Filtrer
                 </button>
-                <a href="{% url 'cours:liste_apprenants_categories' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
+                <a href="{% url 'cours:liste_apprenants_categories' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold py-2.5 rounded-2xl text-xs transition">
                     Réinitialiser
                 </a>
             </div>
         </form>
     </div>
 
-    <!-- Tableau -->
-    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden print:border-0 print:shadow-none print:rounded-none">
+    <!-- Tableau Stylé du Registre -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden print:border print:border-gray-400 print:shadow-none print:rounded-none">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider print:bg-gray-100 print:text-gray-800">
-                        <th class="p-5 print:p-2">Nom Complet</th>
-                        <th class="p-5 print:p-2">Contact</th>
-                        <th class="p-5 print:p-2">Email</th>
-                        <th class="p-5 print:p-2">Niveau</th>
-                        <th class="p-5 print:p-2">Formation(s) Suivie(s)</th>
-                        <th class="p-5 print:p-2">Solde Financier</th>
+                    <tr class="bg-emerald-950 text-white text-xs font-black uppercase tracking-wider border-b-2 border-amber-500 print:bg-gray-200 print:text-black print:border-b">
+                        <th class="p-4 md:p-5 print:p-2 w-1/4">Nom Complet</th>
+                        <th class="p-4 md:p-5 print:p-2">Contact</th>
+                        <th class="p-4 md:p-5 print:p-2">Email</th>
+                        <th class="p-4 md:p-5 print:p-2">Niveau</th>
+                        <th class="p-4 md:p-5 print:p-2 w-1/4">Formation(s) Suivie(s)</th>
+                        <th class="p-4 md:p-5 print:p-2 text-right">Solde Financier</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 text-sm print:divide-gray-300">
+                <tbody class="divide-y divide-gray-100 text-xs md:text-sm font-medium print:divide-gray-300 print:text-xs">
                     {% for a in apprenants %}
-                    <tr class="hover:bg-gray-50/50 transition">
-                        <td class="p-5 print:p-2 font-bold text-gray-800">
-                            {{ a.nom_complet }}
+                    <tr class="hover:bg-emerald-50/30 transition-all duration-150">
+                        
+                        <!-- Nom complet -->
+                        <td class="p-4 md:p-5 print:p-2 font-extrabold text-gray-900">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-xs flex-shrink-0 print:hidden">
+                                    {{ a.nom_complet|first|upper }}
+                                </div>
+                                <div>
+                                    <span class="block text-gray-900 font-bold leading-tight">{{ a.nom_complet }}</span>
+                                    {% if a.lieu_residence %}
+                                    <span class="text-[10px] text-gray-400 font-medium print:hidden"><i class="fas fa-map-marker-alt text-amber-500 mr-1"></i>{{ a.lieu_residence }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </td>
-                        <td class="p-5 print:p-2 text-gray-600">
-                            {{ a.contact }}
+
+                        <!-- Contact -->
+                        <td class="p-4 md:p-5 print:p-2 font-bold text-gray-700">
+                            <span class="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200/80 px-2.5 py-1 rounded-xl text-xs print:bg-transparent print:border-0 print:p-0">
+                                <i class="fas fa-phone-alt text-emerald-600 print:hidden text-[10px]"></i>
+                                {{ a.contact }}
+                            </span>
                         </td>
-                        <td class="p-5 print:p-2 text-gray-500">
-                            {{ a.email }}
+
+                        <!-- Email -->
+                        <td class="p-4 md:p-5 print:p-2 text-gray-600">
+                            <a href="mailto:{{ a.email }}" class="hover:text-emerald-600 transition underline-offset-2">
+                                {{ a.email }}
+                            </a>
                         </td>
-                        <td class="p-5 print:p-2 text-gray-600">
-                            {{ a.niveau_etude|default:"Non spécifié" }}
+
+                        <!-- Niveau -->
+                        <td class="p-4 md:p-5 print:p-2">
+                            <span class="inline-block px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-blue-50 text-blue-800 border border-blue-100 print:bg-transparent print:border-0 print:text-black print:p-0">
+                                {{ a.niveau_etude|default:"Non spécifié" }}
+                            </span>
                         </td>
-                        <td class="p-5 print:p-2">
-                            <div class="flex flex-wrap gap-1">
+
+                        <!-- Formations suivies -->
+                        <td class="p-4 md:p-5 print:p-2">
+                            <div class="flex flex-wrap gap-1.5">
                                 {% for f in a.formations.all %}
-                                <span class="bg-green-50 text-green-700 px-2 py-0.5 rounded text-[11px] font-bold border border-green-100 print:bg-transparent print:border-0 print:text-black">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-100/80 text-emerald-900 border border-emerald-200 print:bg-transparent print:border-0 print:text-black print:p-0">
+                                    <i class="fas fa-certificate text-amber-600 mr-1 text-[9px] print:hidden"></i>
                                     {{ f.get_nom_display }}
                                 </span>
                                 {% empty %}
-                                <span class="text-xs text-gray-400">Aucune formation</span>
+                                <span class="text-xs text-gray-400 italic">Aucune formation inscrite</span>
                                 {% endfor %}
                             </div>
                         </td>
-                        <td class="p-5 print:p-2 font-semibold">
-                            Reste : <span class="text-red-600">{{ a.reste_a_payer|floatformat:0 }} FCFA</span>
+
+                        <!-- Solde financier -->
+                        <td class="p-4 md:p-5 print:p-2 text-right">
+                            {% if a.reste_a_payer <= 0 and a.montant_paye > 0 %}
+                            <div class="inline-flex flex-col items-end">
+                                <span class="px-3 py-1 rounded-xl text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 print:bg-transparent print:border-0 print:text-black">
+                                    <i class="fas fa-check-circle text-emerald-600 mr-1 print:hidden"></i> Soldé (0 FCFA)
+                                </span>
+                                <span class="text-[10px] text-gray-400 font-bold mt-0.5 print:hidden">Payé: {{ a.montant_paye|floatformat:0 }} FCFA</span>
+                            </div>
+                            {% elif a.montant_paye > 0 %}
+                            <div class="inline-flex flex-col items-end">
+                                <span class="px-3 py-1 rounded-xl text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 print:bg-transparent print:border-0 print:text-black">
+                                    Reste : {{ a.reste_a_payer|floatformat:0 }} FCFA
+                                </span>
+                                <span class="text-[10px] text-emerald-700 font-bold mt-0.5 print:hidden">Avance: {{ a.montant_paye|floatformat:0 }} FCFA</span>
+                            </div>
+                            {% else %}
+                            <div class="inline-flex flex-col items-end">
+                                <span class="px-3 py-1 rounded-xl text-xs font-black bg-rose-100 text-rose-900 border border-rose-300 print:bg-transparent print:border-0 print:text-black">
+                                    Reste : {{ a.reste_a_payer|floatformat:0 }} FCFA
+                                </span>
+                                <span class="text-[10px] text-rose-600 font-bold mt-0.5 print:hidden">Non Payé</span>
+                            </div>
+                            {% endif %}
                         </td>
+
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="p-10 text-center text-gray-400">
-                            Aucun apprenant trouvé.
+                        <td colspan="6" class="p-12 text-center bg-gray-50/50">
+                            <i class="fas fa-folder-open text-gray-300 text-4xl mb-3"></i>
+                            <p class="font-black text-gray-700 text-base">Aucun apprenant enregistré dans ce registre.</p>
+                            <p class="text-xs text-gray-400 mt-1">Modifiez les filtres de recherche ou ajoutez un nouvel apprenant.</p>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <!-- Bas de tableau avec totalisation -->
+        <div class="bg-gray-50 p-4 md:p-5 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center text-xs font-bold text-gray-600 gap-2 print:bg-white print:border-t-2 print:border-black">
+            <span>Total des Apprenants inscrits : <strong class="text-gray-900 text-sm font-black">{{ apprenants|length }}</strong></span>
+            <span class="text-emerald-800">IAI-Cameroun Centre de Douala &bull; Registre Officiel Certifications</span>
+        </div>
     </div>
 </div>
 
+<!-- Styles spécifiques pour l'impression A4 -->
 <style>
+.print-only {
+    display: none !important;
+}
+
 @media print {
-    /* Cacher les barres latérales, hauts, boutons d'action */
-    #sidebar, #navbar, header, footer, .print\:hidden, button, form {
-        display: none !important;
+    .print-only {
+        display: block !important;
     }
-    /* Supprimer les marges externes et centrer */
-    body {
+
+    /* Supprime les en-têtes/pieds de page automatiques du navigateur (URL, Date, Titre) */
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+    
+    html, body {
         background-color: white !important;
         color: black !important;
         margin: 0 !important;
         padding: 0 !important;
+        font-size: 9.5pt;
     }
-    .print\:m-0 {
+
+    /* Espacement de contenu simulant la marge papier sans afficher l'en-tête navigateur */
+    .max-w-7xl {
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 12mm 14mm !important;
         max-width: 100% !important;
         width: 100% !important;
+    }
+
+    /* Masquage de tous les éléments système et boutons */
+    #sidebar, #sidebar-overlay, nav, header, footer, .print\:hidden, button, form {
+        display: none !important;
+    }
+
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 9pt !important;
+    }
+
+    th, td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 6px 8px !important;
+    }
+
+    /* Éviter la coupure des lignes entre pages */
+    tr {
+        page-break-inside: avoid !important;
     }
 }
 </style>

@@ -251,8 +251,34 @@
                         <span>Tableau de bord</span>
                     </a>
                 </li>
+
+                {% if user.type_utilisateur == 'CHEF_FORMATION_CONTINUE' %}
+                <!-- Liens exclusifs Chef de Service Formation Continue & Certifiante -->
+                <li>
+                    <a href="{% url 'cours:liste_apprenants_categories' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-address-book w-5 h-5 mr-3 group-hover:text-green-600 text-amber-500"></i>
+                        <span>Registre Apprenants</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'cours:saisir_notes_apprenants' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-edit w-5 h-5 mr-3 group-hover:text-green-600 text-amber-500"></i>
+                        <span>Saisie des Notes</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'cours:ajouter_support_apprenant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-file-upload w-5 h-5 mr-3 group-hover:text-green-600 text-amber-500"></i>
+                        <span>Charger Support</span>
+                    </a>
+                </li>
+                {% endif %}
                 
-                <!-- Géolocalisation -->
+                <!-- Géolocalisation (Masqué pour la Comptabilité, Anonymat, Formation Continue et Apprenants) -->
+                {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
                 <li>
                     <a href="{% url 'tableau_bord:geolocalisation' %}" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -260,9 +286,10 @@
                         <span>Géolocalisation</span>
                     </a>
                 </li>
+                {% endif %}
                 
-                <!-- Étudiants -->
-                {% if not user.est_etudiant %}
+                <!-- Étudiants (Masqué pour l'Anonymat, Formation Continue et Apprenants) -->
+                {% if not user.est_etudiant and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
                 <li>
                     <a href="/etudiants/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -272,8 +299,8 @@
                 </li>
                 {% endif %}
                 
-                <!-- Professeurs -->
-                {% if not user.est_etudiant %}
+                <!-- Professeurs (Masqué pour la Comptabilité, Anonymat, Formation Continue et Apprenants) -->
+                {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' and not user.est_etudiant %}
                 <li>
                     <a href="/professeurs/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -283,7 +310,8 @@
                 </li>
                 {% endif %}
                 
-                <!-- Cours -->
+                <!-- Cours (Masqué pour la Comptabilité, Anonymat, Formation Continue et Apprenants) -->
+                {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
                 <li>
                     <a href="/cours/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -291,8 +319,17 @@
                         <span>Cours</span>
                     </a>
                 </li>
+                <li>
+                    <a href="{% url 'cours:liste_fiches_presence' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-all group">
+                        <i class="fas fa-clipboard-check w-5 h-5 mr-3 group-hover:text-emerald-600 text-emerald-600"></i>
+                        <span>Présences & Discipline</span>
+                    </a>
+                </li>
+                {% endif %}
                 
-                <!-- Notes & Évaluations -->
+                <!-- Notes & Évaluations (Masqué pour la Comptabilité, Formation Continue et Apprenants) -->
+                {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
                 {% if user.est_etudiant %}
                 <li>
                     <a href="{% url 'notes:mes_notes' %}" 
@@ -323,6 +360,7 @@
                         <span>Notes & Évaluations</span>
                     </a>
                 </li>
+                {% if user.type_utilisateur != 'CHEF_ANONYMAT' %}
                 <li>
                     <a href="{% url 'notes:liste_recours' %}" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -331,19 +369,41 @@
                     </a>
                 </li>
                 {% endif %}
+                {% endif %}
+                {% endif %}
                 
                 <!-- Inscriptions & Paiements -->
-                {% if not user.est_etudiant %}
+                {% if user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_ETUDES' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
                 <li>
+                    {% if user.est_etudiant %}
+                    <a href="{% url 'inscriptions:fiche_renseignement_etudiant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-file-signature w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Inscription & Paiement</span>
+                    </a>
+                    {% else %}
                     <a href="/inscriptions/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
                         <i class="fas fa-file-signature w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
                         <span>Inscriptions & Paiements</span>
                     </a>
+                    {% endif %}
+                </li>
+                {% endif %}
+
+                <!-- Paiements Apprenants (Dédié Chef Comptabilité, Admin Financier, Formation Continue et Admin Système) -->
+                {% if user.type_utilisateur == 'CHEF_COMPTABILITE' or user.type_utilisateur == 'ADMIN_FINANCIER' or user.type_utilisateur == 'CHEF_FORMATION_CONTINUE' or user.type_utilisateur == 'ADMIN_SYSTEME' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'paiements:paiements_apprenants' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-all group">
+                        <i class="fas fa-wallet w-5 h-5 mr-3 group-hover:text-emerald-600 text-emerald-600"></i>
+                        <span>Paiements Apprenants</span>
+                    </a>
                 </li>
                 {% endif %}
                 
-                <!-- Statistiques -->
+                <!-- Statistiques (Masqué pour l'étudiant, Formation Continue et Apprenants) -->
+                {% if not user.est_etudiant and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
                 <li>
                     <a href="/tableau-de-bord/statistiques/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -351,8 +411,9 @@
                         <span>Statistiques</span>
                     </a>
                 </li>
+                {% endif %}
                 
-                <!-- Requêtes -->
+                <!-- Requêtes (Accessible à tous les rôles y compris Apprenants) -->
                 <li>
                     <a href="{% url 'requetes:liste_requetes' %}" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -400,7 +461,8 @@
                     </a>
                 </li>
                 
-                <!-- Tâches -->
+                <!-- Tâches (Masqué pour Apprenants) -->
+                {% if user.type_utilisateur != 'APPRENANT' %}
                 <li>
                     <a href="/tableau-de-bord/taches/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -408,8 +470,9 @@
                         <span>Mes Tâches</span>
                     </a>
                 </li>
+                {% endif %}
                 
-                {% if user.is_staff %}
+                {% if user.is_staff or user.type_utilisateur == 'CHEF_COMPTABILITE' or user.type_utilisateur == 'ADMIN_FINANCIER' %}
                 {% if user.type_utilisateur == 'DIRECTEUR' or user.type_utilisateur == 'ADMIN_SYSTEME' or user.is_superuser %}
                 <li>
                     <a href="{% url 'authentification:liste_personnel' %}" 
@@ -428,6 +491,7 @@
                     </a>
                 </li>
                 {% endif %}
+                {% if user.type_utilisateur == 'ADMIN_SYSTEME' or user.is_superuser %}
                 <li>
                     <a href="/admin/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -435,6 +499,7 @@
                         <span>Administration</span>
                     </a>
                 </li>
+                {% endif %}
                 {% endif %}
             </ul>
         </nav>

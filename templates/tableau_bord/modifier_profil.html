@@ -52,8 +52,35 @@
             </a>
         </div>
 
-        <form method="POST" class="p-6 md:p-8 space-y-8">
+        <form method="POST" enctype="multipart/form-data" class="p-6 md:p-8 space-y-8">
             {% csrf_token %}
+
+            <!-- SECTION PHOTO DE PROFIL -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-2 flex items-center gap-2">
+                    <i class="fas fa-camera text-green-600"></i> Photo de Profil
+                </h3>
+                <div class="flex flex-col sm:flex-row items-center gap-6 bg-gray-50/60 p-4 rounded-2xl border border-gray-100">
+                    <div class="relative group">
+                        <div class="w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center overflow-hidden shadow-md border-2 border-white">
+                            {% if user.photo %}
+                            <img src="{{ user.photo.url }}" alt="Photo actuelle" class="w-full h-full object-cover" id="photo-preview">
+                            {% else %}
+                            <span class="text-3xl font-black text-white" id="photo-placeholder">
+                                {{ user.first_name|first|default:user.username|first|upper }}
+                            </span>
+                            <img src="" alt="Aperçu" class="w-full h-full object-cover hidden" id="photo-preview">
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex-1 space-y-2">
+                        <label class="block text-xs font-bold text-gray-700 uppercase">Choisir une nouvelle photo de profil</label>
+                        <input type="file" name="photo" accept="image/*" onchange="previewImage(this)"
+                            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-green-100 file:text-green-800 hover:file:bg-green-200 cursor-pointer">
+                        <p class="text-[11px] text-gray-400">Formats acceptés : JPG, PNG, WEBP. Taille max conseillée : 5 Mo.</p>
+                    </div>
+                </div>
+            </div>
 
             <!-- SECTION 1: COMPTE PRINCIPAL -->
             <div class="space-y-4">
@@ -181,9 +208,25 @@
             <button type="submit" 
                 class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-extrabold py-4 px-6 rounded-2xl shadow-lg shadow-green-700/20 hover:shadow-green-700/40 transition duration-300 flex items-center justify-center gap-2 group cursor-pointer text-sm tracking-wide">
                 <i class="fas fa-save group-hover:scale-110 transition-transform"></i>
-                <span>Enregistrer mes coordonnées</span>
+                <span>Enregistrer mes coordonnées & photo</span>
             </button>
         </form>
     </div>
 </div>
+
+<script>
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = document.getElementById('photo-preview');
+            var placeholder = document.getElementById('photo-placeholder');
+            img.src = e.target.result;
+            img.classList.remove('hidden');
+            if (placeholder) placeholder.classList.add('hidden');
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
 {% endblock %}

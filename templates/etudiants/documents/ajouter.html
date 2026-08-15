@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Ajouter un Document - {{ etudiant.get_nom_complet }} | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <!-- En-tête -->
+    <div class="bg-gradient-to-r from-emerald-800 via-green-700 to-teal-800 rounded-2xl shadow-xl p-6 text-white mb-8">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                    <i class="fas fa-file-upload text-3xl text-emerald-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold">Ajouter un Document Administratif</h1>
+                    <p class="text-emerald-100 text-sm mt-0.5">Étudiant : <strong class="text-white">{{ etudiant.get_nom_complet }}</strong> ({{ etudiant.matricule }})</p>
+                </div>
+            </div>
+            <a href="{% url 'etudiants:detail_etudiant' etudiant.pk %}" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-white/20">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulaire d'ajout -->
+    <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-xl text-sm">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <!-- Type de document -->
+            <div>
+                <label class="block text-sm font-bold text-gray-800 mb-2">
+                    Type de Document <span class="text-red-500">*</span>
+                </label>
+                {{ form.type_document }}
+                {% if form.type_document.errors %}
+                <p class="text-xs text-red-600 mt-1">{{ form.type_document.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Fichier joint -->
+            <div>
+                <label class="block text-sm font-bold text-gray-800 mb-2">
+                    Sélectionner le Fichier <span class="text-red-500">*</span>
+                </label>
+                <div class="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-6 bg-gray-50/50 text-center transition">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-emerald-600 mb-3"></i>
+                    <p class="text-xs text-gray-500 mb-4">Formats acceptés : PDF, JPG, PNG, WEBP (Max : 10 Mo)</p>
+                    {{ form.fichier }}
+                </div>
+                {% if form.fichier.errors %}
+                <p class="text-xs text-red-600 mt-1">{{ form.fichier.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Description / Note -->
+            <div>
+                <label class="block text-sm font-bold text-gray-800 mb-2">
+                    Description ou Remarques (Optionnel)
+                </label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                <p class="text-xs text-red-600 mt-1">{{ form.description.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Boutons -->
+            <div class="pt-4 border-t border-gray-100 flex items-center justify-end space-x-4">
+                <a href="{% url 'etudiants:detail_etudiant' etudiant.pk %}" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition">
+                    Annuler
+                </a>
+                <button type="submit" class="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold rounded-xl shadow-lg hover:shadow-emerald-500/25 transition">
+                    <i class="fas fa-save mr-2"></i> Enregistrer le Document
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const select = document.querySelector('select[name="type_document"]');
+        if (select) {
+            select.className = 'w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 text-sm transition bg-white';
+        }
+        const textarea = document.querySelector('textarea[name="description"]');
+        if (textarea) {
+            textarea.className = 'w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 text-sm transition';
+        }
+        const fileInput = document.querySelector('input[name="fichier"]');
+        if (fileInput) {
+            fileInput.className = 'block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 transition cursor-pointer';
+        }
+    });
+</script>
+{% endblock %}

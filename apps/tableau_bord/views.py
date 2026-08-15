@@ -47,6 +47,31 @@ def accueil(request):
 
 
 @login_required
+def console_whatsapp(request):
+    """Console d'envoi et de gestion des notifications WhatsApp/SMS 100% gratuites"""
+    from .whatsapp_service import WhatsAppService
+    
+    etudiants = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).select_related('utilisateur', 'filiere')[:50]
+    resultat = None
+
+    if request.method == 'POST':
+        etudiant_id = request.POST.get('etudiant_id')
+        titre = request.POST.get('titre', 'Rappel IAI-Cameroun')
+        message_txt = request.POST.get('message', '')
+
+        etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+        resultat = WhatsAppService.notifier_etudiant(etudiant, titre, message_txt)
+        messages.success(request, f"Lien WhatsApp généré avec succès pour {etudiant.get_nom_complet()} !")
+
+    context = {
+        'etudiants': etudiants,
+        'resultat': resultat,
+        'titre': 'Console WhatsApp & SMS (100% Gratuit)'
+    }
+    return render(request, 'tableau_bord/whatsapp_console.html', context)
+
+
+@login_required
 def tableau_bord(request):
     """Dispatcher principal selon le type d'utilisateur"""
     type_user = request.user.type_utilisateur
@@ -57,6 +82,8 @@ def tableau_bord(request):
         return apprenant_dashboard(request)
     elif type_user in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
         return enseignant_dashboard(request)
+    elif type_user == 'CHEF_FORMATION_CONTINUE':
+        return chef_formation_continue_dashboard(request)
     elif type_user == 'CHEF_SCOLARITE':
         return chef_scolarite_dashboard(request)
     elif type_user == 'CHEF_ETUDES':
@@ -235,16 +262,82 @@ def etudiant_dashboard(request):
     reglement_actif = ReglementInterieur.objects.filter(est_actif=True).first()
     notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
     
+    from apps.cours.presence_service import calculer_total_absences_cumulees
+    total_absences_cumulees = calculer_total_absences_cumulees(etudiant)
+
+    # Extraction dynamique du programme quotidien (Emploi du temps hebdo officiel du Chef des Études)
+    from apps.cours.models import EmploiDuTempsHebdomadaire, CreneauEmploiDuTemps
+    today = timezone.now().date()
+    weekday_num = today.weekday()
+    
+    JOUR_MAP = {
+        0: 'LUNDI',
+        1: 'MARDI',
+        2: 'MERCREDI',
+        3: 'JEUDI',
+        4: 'VENDREDI',
+        5: 'SAMEDI',
+    }
+    JOUR_NOMS = {
+        0: 'Lundi', 1: 'Mardi', 2: 'Mercredi', 3: 'Jeudi', 4: 'Vendredi', 5: 'Samedi', 6: 'Dimanche'
+    }
+    
+    jour_code_actuel = JOUR_MAP.get(weekday_num, None)
+    nom_jour_actuel = JOUR_NOMS.get(weekday_num, 'Aujourd\'hui')
+    
+    emploi_hebdo = None
+    if etudiant.filiere:
+        emploi_hebdo = EmploiDuTempsHebdomadaire.objects.filter(
+            filiere=etudiant.filiere,
+            statut='VALIDE',
+            date_debut_semaine__lte=today,
+            date_fin_semaine__gte=today
+        ).first()
+        
+        if not emploi_hebdo:
+            emploi_hebdo = EmploiDuTempsHebdomadaire.objects.filter(
+                filiere=etudiant.filiere,
+                statut='VALIDE'
+            ).order_by('-date_creation').first()
+
+    creneaux_du_jour = []
+    if emploi_hebdo and jour_code_actuel:
+        creneaux_du_jour = CreneauEmploiDuTemps.objects.filter(
+            emploi_du_temps=emploi_hebdo,
+            jour=jour_code_actuel
+        ).exclude(type_evenement='PAUSE').order_by('plage')
+
+    # Échéances des tranches pour l'année académique active
+    annee_code = etudiant.annee_academique.code if etudiant.annee_academique else "2024-2025"
+    tranches_echeances = TranchePaiement.objects.filter(annee_academique=annee_code, est_actif=True).order_by('numero')
+
+    # Historique des règlements de pénalités
+    from .models import PenalitePaiement
+    from apps.paiements.models import TransactionPaiement
+    penalites_reglees = PenalitePaiement.objects.filter(etudiant=etudiant, est_regle=True).order_by('-date_paiement')
+    transactions_penalites = TransactionPaiement.objects.filter(
+        etudiant=etudiant,
+        type_paiement='PENALITE',
+        statut='SUCCESS'
+    ).order_by('-date_creation')
+
     context = {
         'etudiant': etudiant,
         'penalites_info': penalites_info,
+        'tranches_echeances': tranches_echeances,
+        'penalites_reglees': penalites_reglees,
+        'transactions_penalites': transactions_penalites,
         'recus': recus,
         'montant_paye': montant_paye,
         'total_du': total_du,
         'reste_payer': reste_payer,
         'emploi': emploi,
+        'emploi_hebdo': emploi_hebdo,
+        'creneaux_du_jour': creneaux_du_jour,
+        'nom_jour_actuel': nom_jour_actuel,
         'ressources': ressources,
         'absences': absences,
+        'total_absences_cumulees': total_absences_cumulees,
         'notes': notes,
         'reglement_actif': reglement_actif,
         'notes_info': notes_info,
@@ -267,7 +360,36 @@ def apprenant_dashboard(request):
         )
         
     if request.method == 'POST':
-        # Inscription formation
+        # 1. Paiement des frais par l'apprenant dans son dashboard
+        montant_paiement = request.POST.get('montant_paiement')
+        mode_paiement = request.POST.get('mode_paiement', 'MTN Mobile Money')
+        telephone_paiement = request.POST.get('telephone_paiement', '').strip()
+        if montant_paiement:
+            try:
+                montant_val = float(montant_paiement)
+                if montant_val > 0:
+                    # Normaliser le numéro de téléphone au format camerounais (+237 6XXXXXXXX)
+                    num_clean = "".join(filter(str.isdigit, telephone_paiement))
+                    if len(num_clean) == 9:
+                        num_formatted = f"+237 {num_clean[:3]} {num_clean[3:5]} {num_clean[5:7]} {num_clean[7:]}"
+                    elif len(num_clean) == 12 and num_clean.startswith('237'):
+                        num_formatted = f"+237 {num_clean[3:6]} {num_clean[6:8]} {num_clean[8:10]} {num_clean[10:]}"
+                    else:
+                        num_formatted = telephone_paiement or apprenant.contact
+
+                    apprenant.enregistrer_paiement_formation(montant_val, mode_paiement=f"{mode_paiement} ({num_formatted})")
+                    messages.success(
+                        request,
+                        f"📲 Notification USSD envoyée au {num_formatted} ! "
+                        f"Le versement de {montant_val:,.0f} FCFA via {mode_paiement} a été validé. Vos données financières et votre solde ont été instantanément actualisés."
+                    )
+                else:
+                    messages.error(request, "Veuillez saisir un montant supérieur à 0 FCFA.")
+            except (ValueError, TypeError):
+                messages.error(request, "Montant de paiement invalide.")
+            return redirect('tableau_bord:tableau_bord')
+
+        # 2. Inscription à une nouvelle formation
         formation_id = request.POST.get('formation_id')
         if formation_id:
             formation = get_object_or_404(Formation, id=formation_id)
@@ -351,11 +473,16 @@ def enseignant_dashboard(request):
     
     from .models import NoteInformation
     notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
+
+    # Extraire le programme quotidien dynamique de l'enseignant (remplacé chaque jour à minuit)
+    from apps.cours.presence_service import obtenir_programme_quotidien_enseignant
+    programme_quotidien = obtenir_programme_quotidien_enseignant(request.user)
     
     context = {
         'professeur': professeur,
         'cours_enseignes': cours_enseignes,
         'emplois': emplois,
+        'programme_quotidien': programme_quotidien,
         'total_apprenants': total_apprenants,
         'apprenants_continue': apprenants_continue,
         'apprenants_certif': apprenants_certif,
@@ -364,6 +491,37 @@ def enseignant_dashboard(request):
         'titre': 'Tableau de Bord - Formateur & Chef de Service'
     }
     return render(request, 'tableau_bord/enseignant_dashboard.html', context)
+
+
+@login_required
+def chef_formation_continue_dashboard(request):
+    """
+    Tableau de bord exclusif du Chef de Service - Formation Continue & Certifiante.
+    Réservé au pilotage des apprenants, registres, notes, supports et requêtes d'apprenants, sans aucune vue d'enseignant.
+    """
+    from apps.etudiants.models import Apprenant
+    from apps.requetes.models import Requete
+    from .models import NoteInformation
+
+    total_apprenants = Apprenant.objects.count()
+    apprenants_continue = Apprenant.objects.filter(formations__type_formation='CONTINUE').distinct().count()
+    apprenants_certif = Apprenant.objects.filter(formations__type_formation='CERTIFICATION').distinct().count()
+
+    requetes_apprenants = Requete.objects.filter(
+        auteur__type_utilisateur='APPRENANT'
+    ).exclude(statut='TRAITE').select_related('auteur')
+
+    notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
+
+    context = {
+        'total_apprenants': total_apprenants,
+        'apprenants_continue': apprenants_continue,
+        'apprenants_certif': apprenants_certif,
+        'requetes_apprenants': requetes_apprenants,
+        'notes_info': notes_info,
+        'titre': 'Espace Chef de Service - Formation Continue & Certifiante'
+    }
+    return render(request, 'tableau_bord/chef_formation_continue_dashboard.html', context)
 
 
 @login_required
@@ -491,7 +649,13 @@ def chef_etudes_dashboard(request):
     from apps.tableau_bord.models import NoteInformation
     
     filieres = Filiere.objects.all()
-    niveaux = Niveau.objects.all()
+    raw_niveaux = Niveau.objects.filter(numero__in=[1, 2]).order_by('numero')
+    seen_nums = set()
+    niveaux = []
+    for n in raw_niveaux:
+        if n.numero not in seen_nums:
+            seen_nums.add(n.numero)
+            niveaux.append(n)
     salles = Salle.objects.all()
     emplois = EmploiDuTemps.objects.select_related('filiere', 'niveau', 'salle').all()
     pvs = ProcesVerbalNotes.objects.filter(est_transmis=True).select_related('fiche_anonymat__matiere', 'fiche_anonymat__salle', 'fiche_anonymat__type_evaluation')
@@ -535,6 +699,7 @@ def chef_anonymat_dashboard(request):
 @login_required
 def chef_comptabilite_dashboard(request):
     from apps.inscriptions.utils import get_current_academic_year_code
+    from apps.etudiants.models import Formation
     recus_attente = RecuPaiement.objects.filter(statut__in=['EN_ATTENTE', 'IA_VERIFIE'])
     annee_active = AnneeAcademique.objects.filter(est_active=True).first()
     annee_str = annee_active.code if annee_active else get_current_academic_year_code()
@@ -554,9 +719,29 @@ def chef_comptabilite_dashboard(request):
                 recu.save()
                 messages.success(request, f"Reçu de {recu.etudiant.get_nom_complet()} validé.")
             elif action == 'rejeter':
+                motif = request.POST.get('motif_rejet', '').strip()
+                if not motif:
+                    messages.error(request, "❌ Motif de rejet obligatoire ! Veuillez indiquer la raison du rejet pour l'étudiant.")
+                    return redirect('tableau_bord:tableau_bord')
+                
                 recu.statut = 'REJETE'
+                recu.commentaires = f"MOTIF DE REJET : {motif}"
+                recu.date_verification = timezone.now()
+                recu.verifie_par = request.user
                 recu.save()
-                messages.warning(request, f"Reçu de {recu.etudiant.get_nom_complet()} rejeté.")
+                
+                # Notifier l'étudiant
+                if recu.etudiant and recu.etudiant.utilisateur:
+                    from apps.tableau_bord.models import Notification
+                    Notification.objects.create(
+                        utilisateur=recu.etudiant.utilisateur,
+                        type='DANGER',
+                        titre=f"Reçu de paiement rejeté ({recu.tranche.get_numero_display() if recu.tranche else 'Scolarité'})",
+                        message=f"Votre reçu a été rejeté par la Comptabilité. Motif : {motif}. Veuillez téléverser un nouveau reçu valide.",
+                        lien='/inscriptions/'
+                    )
+                
+                messages.warning(request, f"⚠️ Reçu de {recu.etudiant.get_nom_complet()} rejeté (Motif : {motif}).")
 
         elif tranche_id and request.POST.get('date_limite'):
             d_limite = request.POST.get('date_limite')
@@ -593,15 +778,66 @@ def chef_comptabilite_dashboard(request):
                 defaults={'tarif': tarif_val, 'est_active': True}
             )
             messages.success(request, f"✅ Tarif de la formation '{formation.get_nom_display()}' mis à jour à {tarif_val} FCFA.")
+
+        elif request.POST.get('apprenant_id') and request.POST.get('montant_avance'):
+            apprenant_id = request.POST.get('apprenant_id')
+            montant_avance = request.POST.get('montant_avance')
+            try:
+                from decimal import Decimal
+                from apps.etudiants.models import Apprenant
+                montant_val = Decimal(str(montant_avance))
+                if montant_val > 0:
+                    apprenant_obj = get_object_or_404(Apprenant, id=apprenant_id)
+                    apprenant_obj.montant_paye += montant_val
+                    apprenant_obj.recalculer_solde()
+
+                    # 1. Notification In-App dans le Dashboard de l'Apprenant
+                    from apps.tableau_bord.models import Notification
+                    Notification.objects.create(
+                        utilisateur=apprenant_obj.utilisateur,
+                        type='SUCCESS',
+                        titre=f"Avance de paiement validée ({montant_val:,.0f} FCFA)",
+                        message=f"La Comptabilité a validé votre versement d'une avance de {montant_val:,.0f} FCFA sur vos frais de formation.\nTotal versé : {apprenant_obj.montant_paye:,.0f} FCFA | Reste à payer : {apprenant_obj.reste_a_payer:,.0f} FCFA.",
+                        lien='/tableau-de-bord/'
+                    )
+
+                    # 2. Notification WhatsApp à l'Apprenant
+                    try:
+                        from apps.tableau_bord.whatsapp_service import WhatsAppService
+                        tel = apprenant_obj.contact or (apprenant_obj.utilisateur.telephone if hasattr(apprenant_obj.utilisateur, 'telephone') else '')
+                        if tel:
+                            msg_wa = (
+                                f"*IAI-CAMEROUN (Douala)* 🎓\n"
+                                f"*Confirmation d'Avance de Paiement*\n\n"
+                                f"Bonjour *{apprenant_obj.nom_complet}*,\n\n"
+                                f"La Comptabilité a validé votre versement d'une avance de *{montant_val:,.0f} FCFA* sur vos frais de formation.\n\n"
+                                f"• Total versé : *{apprenant_obj.montant_paye:,.0f} FCFA*\n"
+                                f"• Reste à payer : *{apprenant_obj.reste_a_payer:,.0f} FCFA*\n\n"
+                                f"_Votre tableau de bord a été automatiquement actualisé._"
+                            )
+                            WhatsAppService.envoyer_message(tel, msg_wa)
+                    except Exception:
+                        pass
+
+                    messages.success(request, f"✅ Avance de {montant_val:,.0f} FCFA validée pour {apprenant_obj.nom_complet}. Solde mis à jour et notifications transmises !")
+                else:
+                    messages.error(request, "Veuillez saisir un montant supérieur à 0 FCFA.")
+            except (ValueError, TypeError):
+                messages.error(request, "Montant d'avance invalide.")
             
         return redirect('tableau_bord:tableau_bord')
         
     tranches_niveau2 = TranchePaiement.objects.filter(annee_academique=annee_str).order_by('numero')
+    formations_all = Formation.objects.all().order_by('nom')
+    from apps.etudiants.models import Apprenant
+    apprenants_all = Apprenant.objects.all().order_by('nom_complet')
 
     context = {
         'recus_attente': recus_attente,
         'tranches_niveau2': tranches_niveau2,
         'annee_code': annee_str,
+        'formations_all': formations_all,
+        'apprenants_all': apprenants_all,
         'titre': "Espace Chef de la Comptabilité"
     }
     return render(request, 'tableau_bord/chef_comptabilite_dashboard.html', context)
@@ -1077,28 +1313,53 @@ def exporter_statistiques(request):
 
 @login_required
 def notifications(request):
-    """Page des notifications"""
-    notifications_list = Notification.objects.filter(
-        utilisateur=request.user
-    ).order_by('-date_creation')
+    """Page des notifications avec filtres fonctionnels"""
+    from django.db.models import Q
+    filtre = request.GET.get('filtre', 'toutes').lower()
+    archive = request.GET.get('archive', '').lower() == 'true'
+    
+    queryset = Notification.objects.filter(utilisateur=request.user)
+    
+    # Application des filtres métier
+    if filtre == 'non_lues':
+        queryset = queryset.filter(est_lue=False)
+    elif filtre == 'lues' or archive:
+        queryset = queryset.filter(est_lue=True)
+    elif filtre == 'systeme':
+        queryset = queryset.filter(
+            Q(type='INFO') | Q(titre__icontains='Système') | Q(titre__icontains='Anonymat')
+        )
+    elif filtre == 'paiement':
+        queryset = queryset.filter(
+            Q(titre__icontains='Paiement') | Q(titre__icontains='Reçu') | Q(titre__icontains='Retard') | Q(type='WARNING')
+        )
+    elif filtre == 'inscription':
+        queryset = queryset.filter(
+            Q(titre__icontains='Inscription') | Q(titre__icontains='Dossier') | Q(titre__icontains='Scolarité') | Q(type='SUCCESS')
+        )
+
+    queryset = queryset.order_by('-date_creation')
     
     if request.method == 'POST' and request.POST.get('action') == 'marquer_toutes':
-        notifications_list.filter(est_lue=False).update(est_lue=True, date_lecture=timezone.now())
+        Notification.objects.filter(utilisateur=request.user, est_lue=False).update(est_lue=True, date_lecture=timezone.now())
         messages.success(request, 'Toutes les notifications ont été marquées comme lues.')
         return redirect('tableau_bord:notifications')
     
-    paginator = Paginator(notifications_list, 20)
+    paginator = Paginator(queryset, 20)
     page = request.GET.get('page', 1)
     notifications_page = paginator.get_page(page)
     
     context = {
         'notifications': notifications_page,
-        'non_lues_count': notifications_list.filter(est_lue=False).count(),
+        'non_lues_count': Notification.objects.filter(utilisateur=request.user, est_lue=False).count(),
+        'filtre_actif': filtre,
+        'archive_active': archive,
         'titre': 'Notifications',
         'primary_color': '#10B981',
         'secondary_color': '#F59E0B',
     }
     return render(request, 'tableau_bord/notifications.html', context)
+
 
 
 @login_required
@@ -1299,7 +1560,29 @@ def profil(request):
             user.telephone = request.POST.get('telephone', user.telephone)
         if hasattr(user, 'adresse'):
             user.adresse = request.POST.get('adresse', user.adresse)
+        if request.FILES.get('photo'):
+            user.photo = request.FILES.get('photo')
         user.save()
+        
+        # Synchroniser le profil Apprenant s'il existe
+        if user.type_utilisateur == 'APPRENANT':
+            apprenant = getattr(user, 'profil_apprenant', None)
+            if apprenant:
+                if user.last_name or user.first_name:
+                    apprenant.nom_complet = f"{user.last_name} {user.first_name}".strip()
+                if user.email:
+                    apprenant.email = user.email
+                if user.telephone:
+                    apprenant.contact = user.telephone
+                if user.adresse:
+                    apprenant.lieu_residence = user.adresse
+                apprenant.save()
+        elif user.type_utilisateur == 'ETUDIANT':
+            etudiant = getattr(user, 'profil_etudiant', None)
+            if etudiant and request.FILES.get('photo'):
+                etudiant.photo = request.FILES.get('photo')
+                etudiant.save()
+
         messages.success(request, 'Votre profil a été mis à jour avec succès.')
         return redirect('tableau_bord:profil')
     
@@ -1374,6 +1657,8 @@ def modifier_profil(request):
                     user.email = email
                     user.telephone = telephone
                     user.adresse = adresse
+                    if request.FILES.get('photo'):
+                        user.photo = request.FILES.get('photo')
                     user.save()
                     
                     # Mettre à jour le profil étudiant
@@ -1389,6 +1674,8 @@ def modifier_profil(request):
                     etudiant.nom_tuteur = nom_tuteur
                     etudiant.telephone_tuteur = telephone_tuteur
                     etudiant.email_tuteur = email_tuteur if email_tuteur else None
+                    if request.FILES.get('photo'):
+                        etudiant.photo = request.FILES.get('photo')
                     etudiant.save()
                     
                     messages.success(request, '✅ Votre profil a été mis à jour avec succès.')
@@ -1400,7 +1687,7 @@ def modifier_profil(request):
                 except Exception as e:
                     errors.append(f"Erreur lors de la sauvegarde : {str(e)}")
         else:
-            # Pour le personnel (non étudiant)
+            # Pour le personnel et les apprenants
             if not errors:
                 try:
                     user.first_name = first_name
@@ -1408,7 +1695,23 @@ def modifier_profil(request):
                     user.email = email
                     user.telephone = telephone
                     user.adresse = adresse
+                    if request.FILES.get('photo'):
+                        user.photo = request.FILES.get('photo')
                     user.save()
+                    
+                    if user.type_utilisateur == 'APPRENANT':
+                        apprenant = getattr(user, 'profil_apprenant', None)
+                        if apprenant:
+                            if last_name or first_name:
+                                apprenant.nom_complet = f"{last_name} {first_name}".strip()
+                            if email:
+                                apprenant.email = email
+                            if telephone:
+                                apprenant.contact = telephone
+                            if adresse:
+                                apprenant.lieu_residence = adresse
+                            apprenant.save()
+
                     messages.success(request, '✅ Votre profil a été mis à jour avec succès.')
                     return redirect('tableau_bord:profil')
                 except Exception as e:
@@ -1973,19 +2276,29 @@ def export_pdf_paiements_classe(request, salle_id):
 
     elements = []
     
-    # Entête officiel
-    header_left_text = "<b>RÉPUBLIQUE DU CAMEROUN</b><br/><font size=6 color='#666666'>Paix - Travail - Patrie</font><br/><b>INSTITUT AFRICAIN D'INFORMATIQUE</b><br/><font size=6.5 color='#064E3B'>CENTRE DE DOUALA (PK10)</font>"
-    header_right_text = "<b>DIRECTION FINANCIÈRE & COMPTABILITÉ</b><br/><font size=6 color='#666666'>Année Académique : " + annee_code + "</font><br/><font size=6 color='#666666'>Édité le : " + timezone.now().strftime('%d/%m/%Y à %H:%M') + "</font>"
-    
-    header_table = Table(
-        [[Paragraph(header_left_text, header_style), Paragraph(header_right_text, header_right_style)]],
-        colWidths=[9.5*cm, 8.5*cm]
-    )
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-    ]))
-    elements.append(header_table)
-    elements.append(Spacer(1, 0.2*cm))
+    # Entête officiel centré avec logo
+    import os
+    from django.conf import settings
+    from reportlab.platypus import Image as RLImage
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.png')
+
+    h_c_bold = ParagraphStyle('HCBold2', fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, textColor=colors.HexColor('#1E293B'), alignment=1)
+    h_c_sub = ParagraphStyle('HCSub2', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#475569'), alignment=1)
+    h_c_title = ParagraphStyle('HCTitle2', fontName='Helvetica-Bold', fontSize=9, leading=11, textColor=colors.HexColor('#064E3B'), alignment=1)
+    h_c_contacts = ParagraphStyle('HCContacts2', fontName='Helvetica', fontSize=7, leading=9, textColor=colors.HexColor('#334155'), alignment=1)
+
+    if os.path.exists(logo_path):
+        logo_img = RLImage(logo_path, width=2.0*cm, height=2.0*cm)
+        logo_img.hAlign = 'CENTER'
+        elements.append(logo_img)
+        elements.append(Spacer(1, 0.2*cm))
+
+    elements.append(Paragraph("<b>ETABLISSEMENT INTER – ETATS D'ENSEIGNEMENT SUPÉRIEUR</b>", h_c_bold))
+    elements.append(Paragraph("Représentation du Cameroun", h_c_sub))
+    elements.append(Paragraph("<b>CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</b>", h_c_title))
+    elements.append(Paragraph("BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57/ 242 72 99 58/ 691 902 120", h_c_contacts))
+    elements.append(Paragraph("Site web: www.iaicameroun.com &bull; Courriel: contact@iaicameroun.com", h_c_contacts))
+    elements.append(Spacer(1, 0.4*cm))
     elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#064E3B'), spaceAfter=8))
     
     # Titre du document
@@ -2230,3 +2543,41 @@ def lancer_transition_annee(request):
             messages.error(request, f"Une erreur s'est produite lors de la transition : {str(e)}")
             
     return redirect('tableau_bord:tableau_bord')
+
+
+@login_required
+def journal_audit_view(request):
+    """Consultation et filtrage du Journal d'Audit Système"""
+    from .models import JournalAudit
+    from apps.authentification.decorators import role_required
+    
+    # Seuls les admins, directeurs ou chargés de sécurité peuvent accéder
+    if request.user.type_utilisateur not in ['ADMIN_SYSTEME', 'DIRECTEUR', 'CHEF_ETUDES', 'CHEF_COMPTABILITE'] and not request.user.is_superuser:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Accès restreint au Journal d'Audit.")
+        
+    queryset = JournalAudit.objects.all().select_related('utilisateur')
+    
+    categorie = request.GET.get('categorie', '')
+    if categorie:
+        queryset = queryset.filter(categorie=categorie)
+        
+    recherche = request.GET.get('q', '')
+    if recherche:
+        queryset = queryset.filter(
+            Q(action__icontains=recherche) |
+            Q(details__icontains=recherche) |
+            Q(utilisateur__username__icontains=recherche) |
+            Q(adresse_ip__icontains=recherche)
+        )
+        
+    paginator = Paginator(queryset, 25)
+    page = request.GET.get('page')
+    logs = paginator.get_page(page)
+    
+    context = {
+        'logs': logs,
+        'categories': JournalAudit.CATEGORIE_CHOICES,
+        'titre': "Journal d'Audit Système"
+    }
+    return render(request, 'tableau_bord/journal_audit.html', context)

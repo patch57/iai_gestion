@@ -76,47 +76,123 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Colonne Gauche: Finances et Reçus -->
         <div class="lg:col-span-1 space-y-8">
+            <!-- Échéances & Suivi des Tranches -->
             <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-                <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white">
-                    <h3 class="font-bold text-lg"><i class="fas fa-wallet mr-2"></i>Suivi des Tranches</h3>
+                <div class="bg-gradient-to-r from-emerald-800 to-green-700 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-wallet mr-2"></i>Échéances & Suivi des Tranches</h3>
+                    <span class="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase">Scolarité</span>
                 </div>
-                <div class="p-6 space-y-4">
-                    <!-- Tranche 1: Pré-inscription -->
-                    <div class="flex justify-between items-center p-3 rounded-2xl border {% if etudiant.recu_preinscription_valide %}border-green-200 bg-green-50/50{% else %}border-gray-200{% endif %}">
+                <div class="p-6 space-y-3">
+                    {% if tranches_echeances %}
+                    {% for tranche in tranches_echeances %}
+                    <div class="p-3.5 rounded-2xl border flex items-center justify-between transition border-gray-200 hover:border-emerald-300 bg-gray-50/50">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <p class="font-bold text-gray-800 text-sm">{{ tranche.get_numero_display }}</p>
+                                <span class="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">{{ tranche.montant|floatformat:0 }} FCFA</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <i class="fas fa-calendar-alt text-amber-500"></i> Échéance : <strong>{{ tranche.date_limite|date:"d/m/Y" }}</strong>
+                            </p>
+                        </div>
+                        <div>
+                            {% if tranche.numero == 1 and etudiant.recu_preinscription_valide %}
+                            <span class="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm"><i class="fas fa-check-circle"></i> Validé</span>
+                            {% else %}
+                            <span class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-amber-200"><i class="fas fa-clock"></i> À régulariser</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <!-- Fallback statique si aucune tranche configurée -->
+                    <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
                         <div>
                             <p class="font-bold text-gray-800">Pré-inscription</p>
-                            <p class="text-xs text-gray-500">71 000 FCFA</p>
+                            <p class="text-xs text-gray-500">71 000 FCFA | Échéance fixée</p>
                         </div>
-                        {% if etudiant.recu_preinscription_valide %}
-                        <span class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-check mr-1"></i>Validé</span>
+                        <span class="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-check"></i> Validé</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Pénalités Dues & Paiement Mobile Money -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-rose-800 to-red-700 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-exclamation-triangle mr-2"></i>Pénalités de Retard Dues</h3>
+                    <span class="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase">Paiement MM</span>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-rose-600 font-bold uppercase tracking-wider block">Total Pénalités Dues</span>
+                            <span class="text-2xl font-black text-rose-700">{{ penalites_info.total|floatformat:0 }} FCFA</span>
+                        </div>
+                        {% if penalites_info.total > 0 %}
+                        <a href="{% url 'inscriptions:liste_bourses' %}" class="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1.5">
+                            <i class="fas fa-mobile-alt"></i> Payer via Mobile Money
+                        </a>
                         {% else %}
-                        <span class="bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-clock mr-1"></i>En attente</span>
+                        <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1"><i class="fas fa-check-double"></i> Aucune Pénalité</span>
                         {% endif %}
                     </div>
-                    
-                    <!-- Tranches supplémentaires -->
-                    
-                    <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
-                        <div>
-                            <p class="font-bold text-gray-800">1ère Tranche</p>
-                            <p class="text-xs text-gray-500">175 000 FCFA</p>
+
+                    {% if penalites_info.details %}
+                    <div class="space-y-2">
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Détail des retards cumulés :</p>
+                        {% for detail in penalites_info.details %}
+                        <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-gray-800">{{ detail.tranche }}</span>
+                                <span class="text-gray-500 block">Date limite : {{ detail.date_limite|date:"d/m/Y" }} ({{ detail.semaines_retard }} sem. de retard)</span>
+                            </div>
+                            <span class="font-black text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100">+ {{ detail.montant|floatformat:0 }} FCFA</span>
                         </div>
-                        <span class="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">Non réglé</span>
+                        {% endfor %}
                     </div>
-                    <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
-                        <div>
-                            <p class="font-bold text-gray-800">2ème Tranche</p>
-                            <p class="text-xs text-gray-500">115 000 FCFA</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Historique des Paiements de Pénalités -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-gray-800 to-gray-700 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-history mr-2"></i>Historique des Pénalités Payées</h3>
+                    <span class="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase">Reçus MM</span>
+                </div>
+                <div class="p-6">
+                    {% if penalites_reglees or transactions_penalites %}
+                    <div class="space-y-3">
+                        {% for p in penalites_reglees %}
+                        <div class="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-emerald-900">Pénalité — {{ p.get_tranche_display }}</span>
+                                <span class="text-gray-500 block">Réglé le : {{ p.date_paiement|default:p.date_calcul|date:"d/m/Y" }}</span>
+                            </div>
+                            <span class="font-black text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm">
+                                <i class="fas fa-check-circle text-emerald-500 mr-1"></i> {{ p.montant_total|floatformat:0 }} FCFA
+                            </span>
                         </div>
-                        <span class="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">Non réglé</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 rounded-2xl border border-gray-200">
-                        <div>
-                            <p class="font-bold text-gray-800">3ème Tranche</p>
-                            <p class="text-xs text-gray-500">100 000 FCFA</p>
+                        {% endfor %}
+
+                        {% for t in transactions_penalites %}
+                        <div class="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-emerald-900">Transaction Mobile Money</span>
+                                <span class="text-gray-500 block">Réf : {{ t.transaction_id }} | {{ t.date_creation|date:"d/m/Y H:i" }}</span>
+                            </div>
+                            <span class="font-black text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm">
+                                <i class="fas fa-check-circle text-emerald-500 mr-1"></i> {{ t.montant|floatformat:0 }} FCFA
+                            </span>
                         </div>
-                        <span class="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">Non réglé</span>
+                        {% endfor %}
                     </div>
+                    {% else %}
+                    <p class="text-xs text-gray-500 text-center py-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <i class="fas fa-info-circle mr-1 text-gray-400"></i> Aucun historique de règlement de pénalité trouvé.
+                    </p>
+                    {% endif %}
                 </div>
             </div>
 
@@ -149,43 +225,145 @@
 
         <!-- Colonne Droite: Cours, Emploi du Temps, Notes, Absences -->
         <div class="lg:col-span-2 space-y-8">
-            <!-- Emploi du temps & Règlement -->
+            <!-- Consultation & Téléchargement Emploi du Temps PDF & Règlement -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Emploi du temps -->
-                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between">
+                <!-- Emploi du Temps PDF -->
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between hover:shadow-xl transition duration-200">
                     <div>
-                        <h3 class="font-bold text-lg text-gray-800 mb-2"><i class="fas fa-calendar-alt text-yellow-500 mr-2"></i>Mon Emploi du Temps</h3>
-                        <p class="text-sm text-gray-500">Consultez et téléchargez votre planning hebdomadaire de cours.</p>
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-lg text-gray-800"><i class="fas fa-calendar-alt text-amber-500 mr-2"></i>Mon Emploi du Temps</h3>
+                            <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">Officiel</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2 leading-relaxed">Consultez la grille hebdomadaire complète ou téléchargez le fichier PDF officiel validé par la Direction.</p>
                     </div>
-                    <div class="mt-6">
-                        {% if emploi and emploi.fichier_pdf %}
-                        <a href="{{ emploi.fichier_pdf.url }}" target="_blank" class="flex items-center justify-center bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200">
-                            <i class="fas fa-download mr-2"></i>Télécharger le PDF
+                    <div class="mt-5 space-y-2">
+                        {% if emploi_hebdo %}
+                        <!-- 1. VOIR L'EMPLOI DU TEMPS EN LIGNE (Sur écran) -->
+                        <a href="{% url 'cours:imprimer_emploi_du_temps_officiel' emploi_hebdo.pk %}" target="_blank" class="w-full flex items-center justify-center bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white font-extrabold py-2.5 px-4 rounded-xl shadow transition duration-200 text-xs gap-2">
+                            <i class="fas fa-eye"></i> Voir l'Emploi du Temps
+                        </a>
+                        {% elif emploi and emploi.fichier_pdf %}
+                        <a href="{{ emploi.fichier_pdf.url }}" target="_blank" class="w-full flex items-center justify-center bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white font-extrabold py-2.5 px-4 rounded-xl shadow transition duration-200 text-xs gap-2">
+                            <i class="fas fa-eye"></i> Voir l'Emploi du Temps (PDF)
                         </a>
                         {% else %}
-                        <p class="text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">Aucun emploi du temps disponible pour le moment.</p>
+                        <a href="{% url 'cours:liste_cours' %}" class="w-full flex items-center justify-center bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white font-extrabold py-2.5 px-4 rounded-xl shadow transition duration-200 text-xs gap-2">
+                            <i class="fas fa-eye"></i> Voir l'Emploi du Temps
+                        </a>
+                        {% endif %}
+
+                        <!-- 2. TÉLÉCHARGER LE PDF (Optionnel) -->
+                        {% if emploi and emploi.fichier_pdf %}
+                        <a href="{{ emploi.fichier_pdf.url }}" download class="w-full flex items-center justify-center bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-300 py-2.5 px-4 rounded-xl transition duration-200 text-xs gap-2">
+                            <i class="fas fa-download"></i> Télécharger le PDF (Optionnel)
+                        </a>
+                        {% elif emploi_hebdo %}
+                        <a href="{% url 'cours:imprimer_emploi_du_temps_officiel' emploi_hebdo.pk %}" target="_blank" class="w-full flex items-center justify-center bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-300 py-2.5 px-4 rounded-xl transition duration-200 text-xs gap-2">
+                            <i class="fas fa-file-pdf"></i> Télécharger le PDF (Optionnel)
+                        </a>
                         {% endif %}
                     </div>
                 </div>
 
                 <!-- Règlement Intérieur -->
-                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between">
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between hover:shadow-xl transition duration-200">
                     <div>
-                        <h3 class="font-bold text-lg text-gray-800 mb-2"><i class="fas fa-book text-green-600 mr-2"></i>Règlement Intérieur</h3>
-                        <p class="text-sm text-gray-500">Prenez connaissance des règles de vie et de discipline de l'établissement.</p>
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-lg text-gray-800"><i class="fas fa-book text-emerald-600 mr-2"></i>Règlement Intérieur</h3>
+                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">Discipline</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2 leading-relaxed">Prenez connaissance du règlement intérieur et des règles académiques de l'IAI-Cameroun (Centre de Douala).</p>
                     </div>
-                    <div class="mt-6">
+                    <div class="mt-5">
                         {% if reglement_actif %}
-                        <a href="{{ reglement_actif.fichier.url }}" target="_blank" class="flex items-center justify-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200">
-                            <i class="fas fa-eye mr-2"></i>Consulter le Règlement
+                        <a href="{{ reglement_actif.fichier.url }}" target="_blank" class="w-full flex items-center justify-center bg-gradient-to-r from-emerald-800 to-green-700 hover:from-emerald-900 hover:to-green-800 text-white font-extrabold py-2.5 px-4 rounded-xl shadow transition duration-200 text-xs gap-2">
+                            <i class="fas fa-book-open"></i> Consulter le Règlement
                         </a>
                         {% else %}
-                        <button disabled class="w-full flex items-center justify-center bg-gray-100 text-gray-400 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
-                            <i class="fas fa-ban mr-2"></i>Indisponible
+                        <button disabled class="w-full flex items-center justify-center bg-gray-100 text-gray-400 font-bold py-2.5 px-4 rounded-xl cursor-not-allowed text-xs">
+                            <i class="fas fa-ban"></i> Indisponible
                         </button>
                         {% endif %}
                     </div>
                 </div>
+            </div>
+
+            <!-- Programme Quotidien (Extrait de l'Emploi du Temps Hebdomadaire Officiel) -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 space-y-6">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                    <div>
+                        <h3 class="font-black text-xl text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-calendar-day text-emerald-600"></i>
+                            Programme Quotidien — <span class="text-emerald-700 font-extrabold">{{ nom_jour_actuel }}</span>
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Extrait en direct de l'emploi du temps hebdomadaire officiel | Renouvellement automatique à minuit
+                        </p>
+                    </div>
+                    {% if emploi_hebdo %}
+                    <a href="{% url 'cours:imprimer_emploi_du_temps_officiel' emploi_hebdo.pk %}" target="_blank" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition shadow-sm border border-emerald-200">
+                        <i class="fas fa-print"></i> Planning Semaine Complet
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if creneaux_du_jour %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% for creneau in creneaux_du_jour %}
+                    <div class="bg-gradient-to-br from-white to-gray-50/50 rounded-2xl border border-gray-200/80 p-5 space-y-4 shadow-sm hover:shadow-md transition duration-200">
+                        <!-- Badges (Type & Salle) -->
+                        <div class="flex items-center justify-between">
+                            <span class="bg-emerald-100 text-emerald-800 text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                                {{ creneau.get_type_evenement_display|default:"Cours Magistral" }}
+                            </span>
+                            <span class="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1 rounded-full border border-gray-200">
+                                <i class="fas fa-door-open mr-1 text-gray-500"></i>{{ creneau.salle_nom|default:"Salle non fixée" }}
+                            </span>
+                        </div>
+
+                        <!-- Intitulé & Filière -->
+                        <div>
+                            <h4 class="text-lg font-black text-gray-900 leading-snug">{{ creneau.intitule }}</h4>
+                            <p class="text-xs font-bold text-gray-500 mt-1">
+                                {{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }}) | Semestre {{ etudiant.niveau.numero|default:1 }}
+                            </p>
+                        </div>
+
+                        <!-- Détails (Enseignant, Jour, Horaire) -->
+                        <div class="bg-white rounded-xl p-3.5 space-y-2 text-xs border border-gray-100 shadow-inner">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 font-semibold">Enseignant :</span>
+                                <span class="font-bold text-gray-800">{{ creneau.enseignant_nom|default:"Non renseigné" }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 font-semibold">Jour :</span>
+                                <span class="font-bold text-emerald-700">{{ nom_jour_actuel }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 font-semibold">Horaire :</span>
+                                <span class="font-black text-gray-900 bg-emerald-50 px-2.5 py-0.5 rounded text-xs border border-emerald-100">{{ creneau.get_plage_display }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Bouton d'action -->
+                        <a href="{% url 'cours:liste_cours' %}" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold py-2.5 px-4 rounded-xl shadow-md transition duration-200 text-xs flex items-center justify-center gap-2">
+                            <i class="fas fa-info-circle"></i> Détails du Cours
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <!-- Zone vide si jour férié / repos / dimanche -->
+                <div class="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-8 text-center space-y-3">
+                    <div class="w-14 h-14 mx-auto bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-2xl shadow-inner">
+                        <i class="fas fa-calendar-times"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 text-base">Aucun cours au programme aujourd'hui ({{ nom_jour_actuel }})</h4>
+                    <p class="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                        Aujourd'hui est un jour sans cours (Férié, Repos ou Dimanche). Le programme de la journée suivante sera automatiquement chargé ici dès minuit.
+                    </p>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Téléchargement des cours (Supports pédagogiques) -->
@@ -221,7 +399,17 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <!-- Absences et retards -->
                 <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
-                    <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-clock text-yellow-500 mr-2"></i>Absences & Retards</h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-lg text-gray-800"><i class="fas fa-clock text-yellow-500 mr-2"></i>Absences & Discipline</h3>
+                        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-black rounded-full border border-yellow-200">
+                            {{ total_absences_cumulees|default:0 }} h cumulée(s)
+                        </span>
+                    </div>
+                    {% if total_absences_cumulees > 30 %}
+                    <div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-bold">
+                        ⚠️ Seuil d'exclusion atteint (> 30 heures d'absences non justifiées). Veuillez contacter la scolarité.
+                    </div>
+                    {% endif %}
                     {% if absences %}
                     <div class="space-y-3">
                         {% for absence in absences %}
@@ -235,7 +423,7 @@
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="text-gray-500 text-center py-6 text-sm">Félicitations, vous n'avez aucun retard ni absence enregistré.</p>
+                    <p class="text-gray-500 text-center py-6 text-sm">Absences hebdomadaires cumulées : <strong>{{ total_absences_cumulees|default:0 }} heure(s)</strong>.</p>
                     {% endif %}
                 </div>
 

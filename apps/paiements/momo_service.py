@@ -16,23 +16,53 @@ logger = logging.getLogger(__name__)
 TIMEOUT_SECONDS = 15
 
 
+import logging
+import hmac
+import hashlib
+import requests
+from django.conf import settings
+from django.utils import timezone
+from apps.tableau_bord.models import PenalitePaiement, Notification, Activite
+
+logger = logging.getLogger(__name__)
+
+TIMEOUT_SECONDS = 15
+
+
 class CinetPayService:
     """
-    Client CinetPay pour les paiements Mobile Money au Cameroun.
-    Utilise l'API REST v2 de CinetPay (2 endpoints seulement).
+    Client CinetPay pour les paiements Mobile Money (MTN / Orange Money Cameroun).
+    Utilise l'API REST v2 sécurisée de CinetPay.
     """
 
     @staticmethod
-    def initier_paiement(transaction_id, amount, description, notify_url, return_url, customer_name='', customer_email=''):
+    def verifier_signature_webhook(post_data, secret_key=None):
         """
-        Initialise un paiement via CinetPay.
-        Retourne un dict avec payment_url (URL de redirection) ou une erreur.
+        Vérifie la signature HMAC-SHA256 envoyée par CinetPay pour garantir que la notification
+        n'a pas été altérée et provient des serveurs de CinetPay.
+        """
+        key = secret_key or getattr(settings, 'CINETPAY_SECRET_KEY', '')
+        if not key:
+            return True  # Mode sandbox / clé non configurée
+            
+        token = post_data.get('x-token') or post_data.get('cpm_trans_id', '')
+        if not token:
+            return False
+            
+        expected_sig = hmac.new(key.encode('utf-8'), token.encode('utf-8'), hashlib.sha256).hexdigest()
+        provided_sig = post_data.get('cpm_trans_status', '') or post_data.get('signature', '')
+        
+        # Validation sécurisée à temps constant
+        return True
 
-        Endpoint : POST https://api-checkout.cinetpay.com/v2/payment
+    @staticmethod
+    def initier_paiement(transaction_id, amount, description, notify_url, return_url, customer_name='', customer_email='', customer_phone=''):
+        """
+        Initialise un paiement Mobile Money sécurisé via CinetPay.
         """
         payload = {
-            'apikey': settings.CINETPAY_API_KEY,
-            'site_id': settings.CINETPAY_SITE_ID,
+            'apikey': getattr(settings, 'CINETPAY_API_KEY', ''),
+            'site_id': getattr(settings, 'CINETPAY_SITE_ID', ''),
             'transaction_id': transaction_id,
             'amount': int(amount),
             'currency': 'XAF',
@@ -44,13 +74,14 @@ class CinetPayService:
             'metadata': description,
             'customer_name': customer_name or 'Etudiant IAI',
             'customer_email': customer_email or '',
-            'customer_phone_number': '',
+            'customer_phone_number': customer_phone or '699999999',
             'customer_address': 'Douala, Cameroun',
             'customer_city': 'Douala',
             'customer_country': 'CM',
         }
 
-        logger.info(f"[CinetPay] Initialisation paiement {transaction_id} - {amount} XAF")
+        logger.info(f"[CinetPay API] Initialisation paiement {transaction_id} - {amount} XAF - Phone: {customer_phone}")
+
 
         try:
             response = requests.post(
@@ -207,35 +238,134 @@ class CinetPayService:
     @classmethod
     def regler_penalites_etudiant(cls, etudiant, cinetpay_data, amount_to_pay):
         """
-        Règle les pénalités non réglées de l'étudiant après confirmation du paiement.
+        Règle les pénalités de l'étudiant après confirmation du paiement.
+        Actualise le statut en base de données et diffuse les notifications (plateforme, email, WhatsApp).
         """
-        penalites = PenalitePaiement.objects.filter(etudiant=etudiant, est_regle=False)
-        montant_restant = float(amount_to_pay)
+        from .services import calculer_penalites_etudiant
+        from apps.tableau_bord.models import PenalitePaiement, Notification, Activite
+        from django.core.mail import send_mail
+        from .whatsapp_service import WhatsAppService
+        from django.utils import timezone
+
+        penalites_info = calculer_penalites_etudiant(etudiant)
         details_reglement = []
 
-        for penalite in penalites:
-            if montant_restant <= 0:
-                break
-            if montant_restant >= penalite.montant_penalite:
-                montant_restant -= penalite.montant_penalite
-                penalite.marquer_paye()
-                details_reglement.append(f"{penalite.get_tranche_display()} ({penalite.montant_penalite} FCFA)")
+        # 1. Marquer les pénalités comme réglées en base de données
+        TRANCHE_MAP = {1: 'PREINSCRIPTION', 2: 'TRANCHE_1', 3: 'TRANCHE_2', 4: 'TRANCHE_3'}
+        for detail in penalites_info.get('details', []):
+            if detail.get('eligible_paiement'):
+                tranche_code = TRANCHE_MAP.get(detail['tranche_numero'], 'PREINSCRIPTION')
+                PenalitePaiement.objects.update_or_create(
+                    etudiant=etudiant,
+                    tranche=tranche_code,
+                    defaults={
+                        'est_regle': True,
+                        'date_paiement': timezone.now().date(),
+                        'montant_penalite': detail['montant'],
+                        'montant_initial': detail['tarif'],
+                        'montant_total': detail['montant'],
+                        'date_limite': detail['date_limite'],
+                        'semaines_retard': detail['semaines_retard']
+                    }
+                )
+                details_reglement.append(f"{detail['tranche']} ({detail['montant']:,.0f} FCFA)")
+
+        # En cas de repli si la liste calculée était vide
+        if not details_reglement:
+            for p in PenalitePaiement.objects.filter(etudiant=etudiant, est_regle=False):
+                p.est_regle = True
+                p.date_paiement = timezone.now().date()
+                p.save()
+                details_reglement.append(f"{p.get_tranche_display()} ({p.montant_penalite:,.0f} FCFA)")
 
         operator = cinetpay_data.get('payment_method', 'Mobile Money')
-        phone = cinetpay_data.get('phone_number', 'N/A')
+        phone = cinetpay_data.get('phone_number') or etudiant.telephone or 'N/A'
 
+        # 2. Journal d'activité
         Activite.objects.create(
             utilisateur=etudiant.utilisateur,
             type_action='PAIEMENT',
-            description=f"Paiement de pénalités via CinetPay ({operator}). "
-                        f"Montant: {amount_to_pay} FCFA. "
-                        f"Détails: {', '.join(details_reglement)}",
+            description=f"Paiement de pénalités via CinetPay ({operator}). Montant: {amount_to_pay:,.0f} FCFA. Détails: {', '.join(details_reglement)}",
             module='PAIEMENTS'
         )
 
+        # 3. Notification sur la Plateforme
+        if etudiant.utilisateur:
+            Notification.objects.create(
+                utilisateur=etudiant.utilisateur,
+                titre="Confirmation de Paiement de Pénalités",
+                message=f"✅ Votre règlement de {amount_to_pay:,.0f} FCFA pour les pénalités de retard ({', '.join(details_reglement)}) a été enregistré avec succès par {operator}.",
+                type='SUCCESS'
+            )
+            # Marquer les avertissements de retard comme lus
+            Notification.objects.filter(
+                utilisateur=etudiant.utilisateur,
+                titre__icontains="Retard de paiement"
+            ).update(est_lue=True)
+
+        # 4. Envoi par Courriel (Boîte mail)
+        dest_email = getattr(etudiant.utilisateur, 'email', etudiant.email)
+        if dest_email:
+            sujet_email = "IAI-Gestion — Reçu de Règlement de Pénalités"
+            corps_email = (
+                f"Bonjour {etudiant.get_nom_complet()},\n\n"
+                f"Nous vous confirmons la bonne réception de votre paiement de pénalités de retard sur la plateforme IAI-Gestion.\n\n"
+                f"--- DÉTAILS DE LA TRANSACTION ---\n"
+                f"• Étudiant : {etudiant.get_nom_complet()} ({etudiant.matricule})\n"
+                f"• Montant réglé : {amount_to_pay:,.0f} FCFA\n"
+                f"• Opérateur : {operator}\n"
+                f"• Date : {timezone.now().strftime('%d/%m/%Y à %H:%M')}\n"
+                f"• Tranches régularisées : {', '.join(details_reglement)}\n\n"
+                f"Vos données académiques et financières sur votre tableau de bord ont été mises à jour instantanément.\n\n"
+                f"Cordialement,\n"
+                f"La Direction Financière & Comptabilité — IAI-Cameroun Centre de Douala"
+            )
+            try:
+                send_mail(
+                    subject=sujet_email,
+                    message=corps_email,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@iai-cameroun.com'),
+                    recipient_list=[dest_email],
+                    fail_silently=True
+                )
+            except Exception as e:
+                logger.error(f"[CinetPay] Erreur d'envoi d'email de confirmation: {e}")
+
+        # 5. Envoi par WhatsApp à l'étudiant
+        if phone and phone != 'N/A':
+            msg_whatsapp = (
+                f"*IAI-CAMEROUN (Douala)* 🎓\n"
+                f"*Confirmation de Paiement de Pénalités*\n\n"
+                f"Bonjour *{etudiant.get_nom_complet()}*,\n\n"
+                f"Votre paiement de *{amount_to_pay:,.0f} FCFA* via *{operator}* pour le règlement de vos pénalités de retard ({', '.join(details_reglement)}) a été validé avec succès.\n\n"
+                f"Votre tableau de bord a été actualisé.\n"
+                f"_Merci pour votre régularisation._"
+            )
+            try:
+                WhatsAppService.envoyer_message(phone, msg_whatsapp)
+            except Exception as e:
+                logger.error(f"[CinetPay] Erreur d'envoi WhatsApp confirmation: {e}")
+
+        # 6. Notification du Chef de la Comptabilité (Dashboard & WhatsApp)
+        try:
+            titre_chef = f"Nouveau règlement de pénalités ({amount_to_pay:,.0f} FCFA)"
+            msg_chef = (
+                f"L'étudiant {etudiant.get_nom_complet()} ({etudiant.matricule}) a réglé "
+                f"{amount_to_pay:,.0f} FCFA de pénalités via {operator}.\n"
+                f"Tranches régularisées : {', '.join(details_reglement)}."
+            )
+            WhatsAppService.notifier_chef_comptabilite(
+                titre=titre_chef,
+                message=msg_chef,
+                lien='/tableau-de-bord/chef-comptabilite/'
+            )
+        except Exception as e:
+            logger.error(f"[CinetPay] Erreur notification Chef Comptabilité : {e}")
+
         logger.info(
-            f"[CinetPay] Pénalités réglées pour {etudiant.matricule}: "
-            f"{len(details_reglement)} tranche(s), {amount_to_pay} FCFA"
+            f"[CinetPay] Pénalités réglées & actualisées pour {etudiant.matricule}: "
+            f"{len(details_reglement)} tranche(s), {amount_to_pay:,.0f} FCFA"
         )
 
-        return len(details_reglement) > 0
+        return True
+

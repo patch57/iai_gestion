@@ -23,6 +23,8 @@ urlpatterns = [
     path('notifications/<int:pk>/lue/', views.marquer_notification_lue, name='marquer_notification_lue'),
     path('notifications/marquer-toutes-lues/', views.marquer_toutes_notifications_lues, name='marquer_toutes_lues'),
     path('notifications/supprimer/<int:pk>/', views.supprimer_notification, name='supprimer_notification'),
+    path('console-whatsapp/', views.console_whatsapp, name='console_whatsapp'),
+    path('journal-audit/', views.journal_audit_view, name='journal_audit'),
     
     # Tâches et rappels
     path('taches/', views.taches, name='taches'),

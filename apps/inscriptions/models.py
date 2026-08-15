@@ -390,3 +390,68 @@ class Bourse(models.Model):
 
     def __str__(self):
         return f"Bourse {self.get_type_bourse_display()} - {self.etudiant.get_nom_complet()} ({self.annee_academique})"
+
+
+class FicheRenseignement(models.Model):
+    """
+    Modèle de suivi pour l'archivage et la validation de la Fiche de Renseignement officielle IAI
+    """
+    STATUT_CHOICES = [
+        ('VALIDE', 'Validée (Auto IA / Scolarité)'),
+        ('EN_ATTENTE_VERIFICATION', 'En Attente de Vérification (Comptabilité)'),
+        ('REJETEE', 'Rejetée'),
+    ]
+
+    etudiant = models.ForeignKey(
+        'etudiants.Etudiant',
+        on_delete=models.CASCADE,
+        related_name='fiches_renseignement',
+        verbose_name="Étudiant"
+    )
+    annee_academique = models.ForeignKey(
+        AnneeAcademique,
+        on_delete=models.PROTECT,
+        related_name='fiches_renseignement',
+        verbose_name="Année académique"
+    )
+    inscription = models.ForeignKey(
+        Inscription,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fiches_renseignement',
+        verbose_name="Inscription associée"
+    )
+    recu_paiement = models.ForeignKey(
+        'paiements.RecuPaiement',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fiches_renseignement',
+        verbose_name="Reçu de paiement associé"
+    )
+
+    # Statuts IA
+    photo_validee_ia = models.BooleanField(default=False, verbose_name="Photo validée par IA")
+    recu_valide_ia = models.BooleanField(default=False, verbose_name="Reçu validé par IA")
+    statut_validation = models.CharField(
+        max_length=30,
+        choices=STATUT_CHOICES,
+        default='EN_ATTENTE_VERIFICATION',
+        verbose_name="Statut de validation"
+    )
+    details_ia_photo = models.JSONField(default=dict, blank=True, verbose_name="Détails IA Photo")
+    details_ia_recu = models.JSONField(default=dict, blank=True, verbose_name="Détails IA Reçu")
+    message_ia = models.TextField(blank=True, default='', verbose_name="Message de l'Agent IA")
+
+    date_soumission = models.DateTimeField(auto_now_add=True, verbose_name="Date de soumission")
+    date_mise_a_jour = models.DateTimeField(auto_now=True, verbose_name="Date de mise à jour")
+
+    class Meta:
+        app_label = 'inscriptions'
+        verbose_name = "Fiche de Renseignement"
+        verbose_name_plural = "Fiches de Renseignement"
+        ordering = ['-date_soumission']
+
+    def __str__(self):
+        return f"Fiche Renseignement - {self.etudiant.get_nom_complet()} ({self.annee_academique.code})"

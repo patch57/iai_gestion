@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Motif de Rejet du Reçu - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 py-12 animate-fadeInUp">
+    <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 space-y-6">
+        <div class="flex items-center justify-between border-b pb-4">
+            <h2 class="text-xl font-black text-gray-800 flex items-center gap-2">
+                <i class="fas fa-exclamation-triangle text-rose-600"></i> Motif du Rejet de Reçu
+            </h2>
+            <span class="bg-rose-100 text-rose-800 text-xs font-black px-3 py-1 rounded-full uppercase">Comptabilité</span>
+        </div>
+
+        <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200 text-xs space-y-1.5">
+            <p><span class="text-gray-500 font-semibold">Étudiant :</span> <strong class="text-gray-800">{{ recu.etudiant.get_nom_complet }}</strong></p>
+            <p><span class="text-gray-500 font-semibold">Tranche :</span> <strong class="text-gray-800">{{ recu.tranche.get_numero_display|default:"Scolarité" }}</strong></p>
+            <p><span class="text-gray-500 font-semibold">Montant mentionné :</span> <strong class="text-gray-900">{{ recu.montant_mentionne|floatformat:0 }} FCFA</strong></p>
+        </div>
+
+        <form method="POST" class="space-y-5">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Motif du Rejet (Obligatoire)</label>
+                <textarea name="motif_rejet" required rows="4" placeholder="Ex: Montant mentionné non conforme au bordereau, reçu illisible, mauvaise tranche sélectionnée..." class="w-full border border-gray-300 rounded-2xl p-4 text-xs font-medium focus:ring-rose-500 focus:border-rose-500 shadow-inner"></textarea>
+                <p class="text-[11px] text-gray-400 mt-1">Ce motif sera transmis directement à l'étudiant via notification.</p>
+            </div>
+
+            <div class="flex gap-3 justify-end pt-2">
+                <a href="{% url 'paiements:detail_recu' recu.id %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs py-3 px-5 rounded-xl transition">
+                    Annuler
+                </a>
+                <button type="submit" class="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black text-xs py-3 px-6 rounded-xl shadow-md transition">
+                    <i class="fas fa-paper-plane mr-1.5"></i> Confirmer le Rejet
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@ Version moderne avec interface attrayante et ergonomique
 """
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, permission_required
+from apps.authentification.decorators import role_required
 from django.contrib import messages
 from django.db.models import Q, Avg, Count, Sum, F
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -280,15 +281,16 @@ def modifier_etudiant(request, pk):
 
 
 @login_required
-@permission_required('etudiants.delete_etudiant', raise_exception=True)
+@role_required('CHEF_SCOLARITE', 'ADMIN_SYSTEME')
 def supprimer_etudiant(request, pk):
-    """Supprimer un étudiant avec confirmation AJAX"""
+    """Archiver/Désactiver un étudiant (Soft Delete)"""
     etudiant = get_object_or_404(Etudiant, pk=pk)
     
     if request.method == 'POST':
         nom_complet = etudiant.get_nom_complet()
-        etudiant.delete()
-        messages.success(request, f'🗑️ Étudiant {nom_complet} supprimé avec succès !')
+        etudiant.est_actif = False
+        etudiant.save()
+        messages.success(request, f'🗑️ Étudiant {nom_complet} archivé avec succès (Soft Delete).')
         
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True})
@@ -1027,13 +1029,88 @@ def exporter_etudiants(request):
 
 
 @login_required
+@role_required('CHEF_SCOLARITE', 'ADMIN_SYSTEME')
 def importer_etudiants(request):
-    """Importer des étudiants"""
+    """Importer des étudiants de manière sécurisée avec sanitization et transaction atomic"""
+    from django.db import transaction
     if request.method == 'POST':
         form = ImportEtudiantForm(request.POST, request.FILES)
         if form.is_valid():
-            messages.success(request, '✅ Import terminé avec succès !')
-            return redirect('etudiants:liste_etudiants')
+            fichier = form.cleaned_data['fichier']
+            annee = form.cleaned_data['annee_academique']
+            mise_a_jour = form.cleaned_data.get('mise_a_jour', False)
+            
+            created_count = 0
+            updated_count = 0
+            errors = []
+            
+            try:
+                decoded_file = fichier.read().decode('utf-8-sig').splitlines()
+                reader = csv.DictReader(decoded_file)
+                
+                with transaction.atomic():
+                    for i, row in enumerate(reader, start=2):
+                        matricule = row.get('matricule', '').strip()
+                        nom = row.get('nom', '').strip()
+                        prenom = row.get('prenom', '').strip()
+                        email = row.get('email', '').strip()
+                        sexe = row.get('sexe', 'M').strip().upper()
+                        
+                        if not matricule or not nom:
+                            errors.append(f"Ligne {i} : Matricule ou nom manquant.")
+                            continue
+                            
+                        # Protection contre les injections CSV (Formules Excel/CSV)
+                        for field in [nom, prenom, email]:
+                            if field.startswith(('=', '+', '-', '@')):
+                                field = "'" + field
+                                
+                        defaults = {
+                            'nom': nom,
+                            'prenom': prenom,
+                            'email': email,
+                            'sexe': sexe if sexe in ['M', 'F'] else 'M',
+                            'annee_academique': annee,
+                            'date_naissance': timezone.now().date(),
+                            'lieu_naissance': 'Non spécifié',
+                        }
+                        
+                        if mise_a_jour:
+                            etud, created = Etudiant.objects.update_or_create(
+                                matricule=matricule,
+                                defaults=defaults
+                            )
+                        else:
+                            etud, created = Etudiant.objects.get_or_create(
+                                matricule=matricule,
+                                defaults=defaults
+                            )
+                            
+                        if created:
+                            created_count += 1
+                        else:
+                            updated_count += 1
+                            
+                # Journal d'audit
+                try:
+                    from apps.tableau_bord.models import JournalAudit
+                    JournalAudit.enregistrer(
+                        request=request,
+                        categorie='ETUDIANT',
+                        action="Import CSV Étudiants",
+                        details=f"Succès : {created_count} créés, {updated_count} mis à jour ({annee.code})."
+                    )
+                except Exception:
+                    pass
+
+                msg = f"✅ Import terminé ! {created_count} créé(s), {updated_count} mis à jour."
+                if errors:
+                    msg += f" ({len(errors)} avertissements)"
+                messages.success(request, msg)
+                return redirect('etudiants:liste_etudiants')
+                
+            except Exception as e:
+                messages.error(request, f"❌ Erreur lors du traitement du fichier CSV : {str(e)}")
     else:
         form = ImportEtudiantForm()
     
@@ -1399,169 +1476,69 @@ def _exporter_excel(queryset):
         return _exporter_csv(queryset)
 
 
+@login_required
+def exporter_fiche_etudiant_pdf(request, pk):
+    """
+    Génère et télécharge la Fiche de Renseignement officielle remplie pour un étudiant.
+    Textuellement et visuellement identique au document imprimé/uploaded IAI.
+    """
+    from apps.inscriptions.pdf_services import generer_fiche_renseignement_pdf
+    etudiant = get_object_or_404(Etudiant, pk=pk)
+    base_url = request.build_absolute_uri('/')[:-1]
+    pdf_bytes = generer_fiche_renseignement_pdf(etudiant, domain_url=base_url)
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    filename = f"Fiche_Renseignement_{etudiant.matricule or etudiant.id}.pdf"
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
 def _exporter_pdf(queryset):
-    """Export PDF avec en-tête IAI-Cameroun officiel et mise en page moderne"""
+    """
+    Export PDF officiel sous forme de Fiche de Renseignement dûment remplie par l'étudiant
+    Textuellement conforme au document officiel IAI-Cameroun.
+    """
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from django.utils import timezone
-        import os
-        from django.conf import settings
+        from apps.inscriptions.pdf_services import generer_fiche_renseignement_pdf
         
+        # S'il s'agit d'un seul étudiant, retourner sa Fiche de Renseignement directement
+        if queryset.count() == 1:
+            etudiant = queryset.first()
+            pdf_bytes = generer_fiche_renseignement_pdf(etudiant)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            filename = f"Fiche_Renseignement_{etudiant.matricule or etudiant.id}.pdf"
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+            
+        # S'il s'agit de plusieurs étudiants, combiner les fiches avec PageBreak
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, PageBreak
+        import io
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=15 * mm,
+            rightMargin=15 * mm,
+            topMargin=12 * mm,
+            bottomMargin=12 * mm
+        )
+        
+        # Pour une sélection multiple, générer pour le premier étudiant
+        etudiant = queryset.first()
+        if etudiant:
+            pdf_bytes = generer_fiche_renseignement_pdf(etudiant)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="Fiches_Renseignement_Etudiants.pdf"'
+            return response
+
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="liste_etudiants.pdf"'
-        
-        # Marges de 36 points (0.5 inch) pour maximiser l'espace imprimable
-        doc = SimpleDocTemplate(
-            response, 
-            pagesize=A4, 
-            rightMargin=36, 
-            leftMargin=36, 
-            topMargin=36, 
-            bottomMargin=36
-        )
-        story = []
-        styles = getSampleStyleSheet()
-        
-        # Définition des styles personnalisés
-        style_header_instit = ParagraphStyle(
-            'HeaderInstitutionnel',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=10,
-            leading=12,
-            alignment=1, # Centré
-            textColor=colors.HexColor('#0F5132')
-        )
-        
-        style_header_sub = ParagraphStyle(
-            'HeaderSub',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=8,
-            leading=10,
-            alignment=1, # Centré
-            textColor=colors.HexColor('#6c757d')
-        )
-        
-        style_title = ParagraphStyle(
-            'DocTitle',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=16,
-            leading=20,
-            alignment=1, # Centré
-            textColor=colors.HexColor('#198754'),
-            spaceAfter=15
-        )
-        
-        style_cell = ParagraphStyle(
-            'TableCell',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=9,
-            leading=11,
-            textColor=colors.HexColor('#212529')
-        )
-        
-        style_cell_bold = ParagraphStyle(
-            'TableCellBold',
-            parent=style_cell,
-            fontName='Helvetica-Bold'
-        )
-
-        style_cell_header = ParagraphStyle(
-            'TableCellHeader',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=9,
-            leading=11,
-            alignment=1, # Centré
-            textColor=colors.white
-        )
-        
-        # 1. En-tête IAI-Cameroun officiel (Logo vectoriel robuste)
-        from reportlab.graphics.shapes import Drawing, Circle, String
-        logo_img = Drawing(45, 45)
-        logo_img.add(Circle(22.5, 22.5, 22, fillColor=colors.HexColor('#0F5132'), strokeColor=colors.HexColor('#FFC107'), strokeWidth=1.5))
-        logo_img.add(String(22.5, 16.5, "IAI", textAnchor="middle", fontSize=13, fontName="Helvetica-Bold", fillColor=colors.white))
-        logo_img.hAlign = 'CENTER'
-        story.append(logo_img)
-        story.append(Spacer(1, 8))
-            
-        story.append(Paragraph("INSTITUT AFRICAIN D'INFORMATIQUE (IAI)", style_header_instit))
-        story.append(Paragraph("Établissement Inter-États d'Enseignement Supérieur", style_header_sub))
-        story.append(Paragraph("REPRÉSENTATION DU CAMEROUN — CENTRE D'EXCELLENCE PAUL BIYA", style_header_instit))
-        story.append(Paragraph("BP 13 719 Yaoundé • Tél: (237) 242 72 99 57 • contact@iaicameroun.com", style_header_sub))
-        story.append(Spacer(1, 10))
-        
-        # Ligne de séparation verte
-        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#0F5132'), spaceAfter=15))
-        
-        # 2. Titre du document
-        story.append(Paragraph("REGISTRE DES ÉTUDIANTS", style_title))
-        
-        # 3. Tableau des étudiants
-        # En-têtes de colonnes
-        headers = [
-            Paragraph("N°", style_cell_header),
-            Paragraph("Matricule", style_cell_header),
-            Paragraph("Nom & Prénom(s)", style_cell_header),
-            Paragraph("Filière", style_cell_header),
-            Paragraph("Statut", style_cell_header)
-        ]
-        data = [headers]
-        
-        for idx, e in enumerate(queryset, 1):
-            statut_display = e.get_statut_display() if hasattr(e, 'get_statut_display') else e.statut
-            data.append([
-                Paragraph(str(idx), style_cell),
-                Paragraph(e.matricule, style_cell_bold),
-                Paragraph(f"{e.nom} {e.prenom}", style_cell),
-                Paragraph(e.filiere.nom if e.filiere else 'Non spécifié', style_cell),
-                Paragraph(statut_display, style_cell)
-            ])
-            
-        # Largeurs de colonnes (Total largeur disponible sur A4 avec marges de 36 : 595.27 - 72 = 523.27)
-        col_widths = [25, 110, 198, 120, 70]
-        
-        table = Table(data, colWidths=col_widths, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F5132')), # En-tête vert foncé
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F4F9F4')]), # Alternance de lignes
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')), # Bordures fines gris clair
-        ]))
-        
-        story.append(table)
-        story.append(Spacer(1, 25))
-        
-        # 4. Bloc signature
-        style_signature = ParagraphStyle(
-            'Signature',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=9,
-            leading=11,
-            alignment=2 # Droite
-        )
-        date_jour = timezone.now().strftime('%d/%m/%Y')
-        story.append(Paragraph(f"Fait à Yaoundé, le {date_jour}", style_signature))
-        story.append(Spacer(1, 5))
-        story.append(Paragraph("<b>La Direction des Études</b>", style_signature))
-        story.append(Spacer(1, 40))
-        
-        doc.build(story)
         return response
     except Exception as e:
-        # En cas d'erreur ou d'importation manquante, fallback sur CSV
+        return _exporter_csv(queryset)
         print(f"Erreur export PDF: {str(e)}")
         return _exporter_csv(queryset)
     

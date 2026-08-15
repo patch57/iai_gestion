@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Suivi Financier des Apprenants | IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-8">
+
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 p-6 rounded-2xl text-white shadow-xl">
+        <div class="space-y-1">
+            <h1 class="text-2xl md:text-3xl font-extrabold flex items-center gap-3">
+                <i class="fas fa-coins text-amber-300"></i>
+                Suivi Financier des Apprenants
+            </h1>
+            <p class="text-emerald-100 text-sm">
+                Consultez l'état de recouvrement des frais pour les Formations Continues et Certifiantes
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'paiements:liste_recus' %}" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold backdrop-blur-sm transition-all flex items-center gap-2">
+                <i class="fas fa-receipt"></i> Reçus Filières
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-user-graduate"></i>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 font-semibold uppercase">Total Apprenants</p>
+                <p class="text-2xl font-bold text-gray-900">{{ apprenants_continue|length|add:apprenants_certif|length }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-book-reader"></i>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 font-semibold uppercase">Formation Continue</p>
+                <p class="text-2xl font-bold text-gray-900">{{ apprenants_continue|length }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-certificate"></i>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 font-semibold uppercase">Recouvré Total</p>
+                <p class="text-2xl font-bold text-emerald-600">{{ total_recouvre|floatformat:0 }} FCFA</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-hand-holding-usd"></i>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 font-semibold uppercase">Reste à Recouvrer</p>
+                <p class="text-2xl font-bold text-rose-600">{{ total_reste|floatformat:0 }} FCFA</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <form method="GET" class="flex flex-col md:flex-row gap-3">
+            <div class="relative flex-1">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input type="text" name="q" value="{{ q }}" placeholder="Rechercher par nom, email ou téléphone..." 
+                       class="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all">
+            </div>
+            <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2">
+                <i class="fas fa-filter"></i> Filtrer
+            </button>
+            {% if q %}
+            <a href="{% url 'paiements:paiements_apprenants' %}" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-all flex items-center justify-center">
+                Effacer
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- SECTION 1 : APPRENANTS DE LA FORMATION CONTINUE -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden space-y-4 p-6">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <i class="fas fa-university"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">1. Apprenants en Formation Continue</h2>
+                    <p class="text-xs text-gray-500">Formations diplomantes et modules continus</p>
+                </div>
+            </div>
+            <span class="px-3 py-1 bg-emerald-50 text-emerald-700 font-semibold text-xs rounded-full border border-emerald-200">
+                {{ apprenants_continue|length }} apprenant(s)
+            </span>
+        </div>
+
+        {% if apprenants_continue %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <tr>
+                        <th class="px-4 py-3 rounded-l-lg">Apprenant</th>
+                        <th class="px-4 py-3">Formation(s)</th>
+                        <th class="px-4 py-3">Tarif Total</th>
+                        <th class="px-4 py-3">Montant Versé</th>
+                        <th class="px-4 py-3">Reste à Payer</th>
+                        <th class="px-4 py-3">Progression</th>
+                        <th class="px-4 py-3 rounded-r-lg text-center">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in apprenants_continue %}
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                        <td class="px-4 py-4">
+                            <div class="font-bold text-gray-900">{{ item.apprenant.nom_complet }}</div>
+                            <div class="text-xs text-gray-400 font-mono">{{ item.apprenant.email }} • {{ item.apprenant.contact }}</div>
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="flex flex-wrap gap-1">
+                                {% for f in item.formations_list %}
+                                <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs border border-gray-200">
+                                    {{ f.get_nom_display }}
+                                </span>
+                                {% empty %}
+                                <span class="text-xs text-gray-400 italic">Aucune formation</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 font-semibold text-gray-900">{{ item.total|floatformat:0 }} FCFA</td>
+                        <td class="px-4 py-4 font-bold text-emerald-600">{{ item.paye|floatformat:0 }} FCFA</td>
+                        <td class="px-4 py-4 font-bold text-rose-600">{{ item.reste|floatformat:0 }} FCFA</td>
+                        <td class="px-4 py-4 w-36">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: {{ item.pourcentage }}%"></div>
+                                </div>
+                                <span class="text-xs font-semibold text-gray-600">{{ item.pourcentage }}%</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="px-3 py-1 text-xs font-bold rounded-full border {{ item.statut_color }}">
+                                {{ item.statut_label }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-500 text-sm">
+            <i class="fas fa-info-circle text-2xl text-gray-400 mb-2"></i>
+            <p>Aucun apprenant trouvé en Formation Continue.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- SECTION 2 : APPRENANTS DE LA FORMATION CERTIFIANTE -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden space-y-4 p-6">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                    <i class="fas fa-award"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">2. Apprenants en Formation Certifiante</h2>
+                    <p class="text-xs text-gray-500">Certifications professionnelles rapides (DQP / Attestations)</p>
+                </div>
+            </div>
+            <span class="px-3 py-1 bg-amber-50 text-amber-700 font-semibold text-xs rounded-full border border-amber-200">
+                {{ apprenants_certif|length }} apprenant(s)
+            </span>
+        </div>
+
+        {% if apprenants_certif %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <tr>
+                        <th class="px-4 py-3 rounded-l-lg">Apprenant</th>
+                        <th class="px-4 py-3">Formation(s)</th>
+                        <th class="px-4 py-3">Tarif Total</th>
+                        <th class="px-4 py-3">Montant Versé</th>
+                        <th class="px-4 py-3">Reste à Payer</th>
+                        <th class="px-4 py-3">Progression</th>
+                        <th class="px-4 py-3 rounded-r-lg text-center">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in apprenants_certif %}
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                        <td class="px-4 py-4">
+                            <div class="font-bold text-gray-900">{{ item.apprenant.nom_complet }}</div>
+                            <div class="text-xs text-gray-400 font-mono">{{ item.apprenant.email }} • {{ item.apprenant.contact }}</div>
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="flex flex-wrap gap-1">
+                                {% for f in item.formations_list %}
+                                <span class="px-2 py-0.5 bg-amber-50 text-amber-800 rounded text-xs border border-amber-200">
+                                    {{ f.get_nom_display }}
+                                </span>
+                                {% empty %}
+                                <span class="text-xs text-gray-400 italic">Aucune formation</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 font-semibold text-gray-900">{{ item.total|floatformat:0 }} FCFA</td>
+                        <td class="px-4 py-4 font-bold text-emerald-600">{{ item.paye|floatformat:0 }} FCFA</td>
+                        <td class="px-4 py-4 font-bold text-rose-600">{{ item.reste|floatformat:0 }} FCFA</td>
+                        <td class="px-4 py-4 w-36">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-amber-500 h-2 rounded-full" style="width: {{ item.pourcentage }}%"></div>
+                                </div>
+                                <span class="text-xs font-semibold text-gray-600">{{ item.pourcentage }}%</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <span class="px-3 py-1 text-xs font-bold rounded-full border {{ item.statut_color }}">
+                                {{ item.statut_label }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-500 text-sm">
+            <i class="fas fa-info-circle text-2xl text-gray-400 mb-2"></i>
+            <p>Aucun apprenant trouvé en Formation Certifiante.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

@@ -94,6 +94,7 @@ class Professeur(models.Model):
     diplomes = models.TextField(help_text="Liste des diplômes obtenus")
     annee_experience = models.PositiveIntegerField(default=0)
     statut = models.CharField(max_length=10, choices=STATUT_CHOICES, default='ACTIF')
+    est_actif = models.BooleanField(default=True, verbose_name="Compte actif (Soft Delete)")
     
     # Informations contractuelles
     date_embauche = models.DateField()

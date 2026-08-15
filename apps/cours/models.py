@@ -408,3 +408,156 @@ class CreneauEmploiDuTemps(models.Model):
         verbose_name = "Créneau d'Emploi du Temps"
         verbose_name_plural = "Créneaux d'Emploi du Temps"
         unique_together = ['emploi_du_temps', 'jour', 'plage']
+
+    def __str__(self):
+        return f"{self.jour} - {self.plage} : {self.intitule}"
+
+
+class FichePresenceHebdomadaire(models.Model):
+    """Fiche de présence hebdomadaire par classe/salle, filière et niveau"""
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('PUBLIE', 'Publié (Absences Cumulées)'),
+    ]
+    
+    classe = models.ForeignKey('etudiants.Classe', on_delete=models.CASCADE, related_name='fiches_presence')
+    filiere = models.ForeignKey('etudiants.Filiere', on_delete=models.CASCADE, related_name='fiches_presence', null=True, blank=True)
+    niveau = models.ForeignKey('etudiants.Niveau', on_delete=models.CASCADE, related_name='fiches_presence', null=True, blank=True)
+    annee_academique = models.CharField(max_length=9, default='2025-2026')
+    
+    semaine_du = models.DateField()
+    semaine_au = models.DateField()
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    
+    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='fiches_presence_creees')
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_publication = models.DateTimeField(null=True, blank=True)
+    fichier_scan = models.FileField(upload_to='presences/scans/', blank=True, null=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Fiche de Présence Hebdomadaire"
+        verbose_name_plural = "Fiches de Présence Hebdomadaires"
+        ordering = ['-semaine_du', 'classe']
+
+    def __str__(self):
+        return f"Liste Présence {self.classe.nom} (Semaine du {self.semaine_du} au {self.semaine_au})"
+
+
+class LignePresenceHebdomadaire(models.Model):
+    """Ligne de présence individuelle d'un étudiant pour une semaine"""
+    fiche = models.ForeignKey(FichePresenceHebdomadaire, on_delete=models.CASCADE, related_name='lignes')
+    etudiant = models.ForeignKey('etudiants.Etudiant', on_delete=models.CASCADE, related_name='lignes_presence_hebdo')
+    
+    # Nombre d'absences comptabilisées ('A')
+    nombre_absences = models.PositiveIntegerField(default=0)
+    heures_justifiees = models.PositiveIntegerField(default=0)
+    details_jours_json = models.TextField(default='{}', help_text="Stockage JSON des créneaux par jour")
+    est_cumulee = models.BooleanField(default=False)
+    
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Ligne de Présence Hebdomadaire"
+        verbose_name_plural = "Lignes de Présence Hebdomadaires"
+        unique_together = ['fiche', 'etudiant']
+
+    def __str__(self):
+        return f"{self.etudiant.get_nom_complet()} - {self.nombre_absences} absence(s)"
+
+
+# ==========================================
+# MODULE D'ÉVALUATION DES ENSEIGNANTS ANONYME
+# ==========================================
+
+class CampagneEvaluation(models.Model):
+    """Campagne d'évaluation semestrielle des cours par les apprenants"""
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('OUVERTE', 'Ouverte aux étudiants'),
+        ('CLOTUREE', 'Clôturée'),
+    ]
+
+    titre = models.CharField(max_length=200, help_text="Ex: Évaluation Pédagogique - Semestre 1 (2025-2026)")
+    annee_academique = models.CharField(max_length=9, default='2025-2026')
+    semestre = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(2)])
+    date_debut = models.DateField()
+    date_fin = models.DateField()
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    description = models.TextField(blank=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Campagne d'Évaluation"
+        verbose_name_plural = "Campagnes d'Évaluation"
+        ordering = ['-date_debut']
+
+    def __str__(self):
+        return f"{self.titre} ({self.get_statut_display()})"
+
+
+class QuestionEvaluation(models.Model):
+    """Question d'évaluation (pédagogie, ponctualité, supports, etc.)"""
+    CATEGORIE_CHOICES = [
+        ('PEDAGOGIE', 'Qualité Pédagogique & Maîtrise du cours'),
+        ('PONCTUALITE', 'Ponctualité & Assiduité'),
+        ('SUPPORTS', 'Clarté des supports & TP/TD'),
+        ('INTERACTIVITE', 'Interactivité & Écoute des étudiants'),
+        ('EVALUATION', 'Évaluation & Respect du programme'),
+        ('GLOBAL', 'Appréciation globale'),
+    ]
+
+    intitule = models.CharField(max_length=255)
+    categorie = models.CharField(max_length=20, choices=CATEGORIE_CHOICES, default='PEDAGOGIE')
+    ordre = models.PositiveIntegerField(default=1)
+    est_active = models.BooleanField(default=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Question d'Évaluation"
+        verbose_name_plural = "Questions d'Évaluation"
+        ordering = ['categorie', 'ordre']
+
+    def __str__(self):
+        return f"[{self.get_categorie_display()}] {self.intitule}"
+
+
+class ParticipationEvaluation(models.Model):
+    """
+    Enregistre la participation d'un étudiant à l'évaluation d'un cours pour éviter le vote multiple.
+    CONSERVÉ SEPARÉMENT DES RÉPONSES POUR GARANTIR UN ANONYMAT ABSOLU.
+    """
+    campagne = models.ForeignKey(CampagneEvaluation, on_delete=models.CASCADE, related_name='participations')
+    cours = models.ForeignKey(Cours, on_delete=models.CASCADE, related_name='participations_evaluation')
+    etudiant = models.ForeignKey('etudiants.Etudiant', on_delete=models.CASCADE, related_name='participations_evaluation')
+    date_soumission = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Participation Évaluation"
+        verbose_name_plural = "Participations Évaluations"
+        unique_together = ['campagne', 'cours', 'etudiant']
+
+    def __str__(self):
+        return f"Participation de {self.etudiant.get_nom_complet()} au cours {self.cours.code}"
+
+
+class ReponseEvaluation(models.Model):
+    """
+    Stocke anonymement les notes attribuées (1 à 5 étoiles) et commentaires libres par cours.
+    AUCUNE RÉFÉRENCE À L'ÉTUDIANT N'EST CONSERVÉE DANS CE MODÈLE.
+    """
+    campagne = models.ForeignKey(CampagneEvaluation, on_delete=models.CASCADE, related_name='reponses')
+    cours = models.ForeignKey(Cours, on_delete=models.CASCADE, related_name='reponses_evaluation')
+    question = models.ForeignKey(QuestionEvaluation, on_delete=models.CASCADE, related_name='reponses')
+    note = models.PositiveIntegerField(default=5, validators=[MinValueValidator(1), MaxValueValidator(5)])
+    commentaire = models.TextField(blank=True, help_text="Commentaire ou remarque anonyme")
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Réponse d'Évaluation (Anonyme)"
+        verbose_name_plural = "Réponses d'Évaluation (Anonymes)"
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"Évaluation anonyme {self.cours.code} - Note: {self.note}/5"

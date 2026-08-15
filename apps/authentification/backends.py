@@ -28,13 +28,15 @@ class MatriculeAuthBackend(ModelBackend):
         
         # Rechercher l'utilisateur
         try:
-            user = User.objects.get(
-                Q(matricule=username.upper()) |
-                Q(email=username.lower()) |
-                Q(username=username)
-            )
-        except User.DoesNotExist:
-            # Essayer le backend par défaut
+            user = User.objects.filter(
+                Q(matricule__iexact=username) |
+                Q(email__iexact=username) |
+                Q(username__iexact=username) |
+                Q(profil_professeur__matricule__iexact=username)
+            ).first()
+            if not user:
+                return super().authenticate(request, username, password, **kwargs)
+        except Exception:
             return super().authenticate(request, username, password, **kwargs)
         
         # Vérifier le mot de passe et l'état du compte

@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Fiche de Renseignement - {{ etudiant.get_nom_complet }} | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+    <!-- Action Bar / Navigation -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-lg border border-emerald-100 no-print">
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'etudiants:liste_etudiants' %}" class="inline-flex items-center text-gray-600 hover:text-emerald-700 font-bold text-sm transition">
+                <i class="fas fa-arrow-left mr-2"></i> Retour au Registre
+            </a>
+            <span class="text-gray-300">|</span>
+            {% if fiche and fiche.statut_validation == 'VALIDE' %}
+                <span class="px-3.5 py-1.5 bg-emerald-100 text-emerald-800 font-extrabold text-xs rounded-xl inline-flex items-center border border-emerald-200">
+                    <i class="fas fa-check-circle mr-1.5 text-emerald-600"></i> Fiche Validée (IA & Scolarité)
+                </span>
+            {% else %}
+                <span class="px-3.5 py-1.5 bg-amber-100 text-amber-900 font-extrabold text-xs rounded-xl inline-flex items-center border border-amber-200">
+                    <i class="fas fa-shield-alt mr-1.5 text-amber-600"></i> Authentifiée par l'Agent IA
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <button onclick="window.print()" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition flex items-center shadow-sm">
+                <i class="fas fa-print mr-2 text-gray-600"></i> Imprimer
+            </button>
+            <a href="{% url 'etudiants:exporter_fiche_etudiant_pdf' etudiant.pk %}" class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-xs rounded-xl shadow-lg hover:shadow-emerald-500/25 transition flex items-center">
+                <i class="fas fa-file-pdf mr-2 text-base"></i> Télécharger PDF Officiel
+            </a>
+        </div>
+    </div>
+
+    <!-- DOCUMENT OFFICIEL FICHE DE RENSEIGNEMENT (DESIGN IMPRIMABLE & ÉLÉGANT) -->
+    <div class="bg-white p-8 md:p-14 rounded-3xl shadow-2xl border border-gray-200 text-gray-900 font-sans print:shadow-none print:p-0 print:border-none relative overflow-hidden">
+        
+        <!-- Ruban supérieur vert décoratif -->
+        <div class="h-3 bg-gradient-to-r from-emerald-700 via-teal-600 to-emerald-800 -mx-8 -mt-8 md:-mx-14 md:-mt-14 mb-8 print:hidden"></div>
+
+        <!-- EN-TÊTE ET PHOTO -->
+        <div class="flex justify-between items-start border-b-2 border-emerald-800/20 pb-6 mb-6">
+            <!-- En-tête Texte IAI-Cameroun -->
+            <div class="text-center flex-1 pr-6">
+                {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo IAI" class="h-16 mx-auto mb-2 drop-shadow">
+                {% endif %}
+                <h2 class="text-base font-black uppercase tracking-wider text-emerald-950">Institut Africain d'Informatique</h2>
+                <p class="text-xs font-semibold text-gray-700 mt-0.5">Établissement Inter – États d'Enseignement Supérieur</p>
+                <p class="text-xs font-medium text-gray-600">Représentation du Cameroun</p>
+                <h3 class="text-xs font-extrabold text-emerald-800 mt-1 uppercase tracking-wide">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</h3>
+                <p class="text-[11px] text-gray-500 mt-1">BP 13719 Yaoundé (Cameroun) &nbsp;&bull;&nbsp; Tél. 22 72 99 58 / 22 72 99 57</p>
+                <p class="text-[11px] text-gray-500">Site web : www.iaicameroun.com &nbsp;&bull;&nbsp; E-mail : iaicameroun@yahoo.fr</p>
+            </div>
+
+            <!-- Cadre Photo Type CNI/Passeport -->
+            <div class="w-36 h-44 border-2 border-emerald-700/80 rounded-2xl overflow-hidden flex flex-col items-center justify-center bg-gray-50 shadow-md flex-shrink-0 relative group">
+                {% if etudiant.photo %}
+                    <img src="{{ etudiant.photo.url }}" alt="Photo {{ etudiant.nom }}" class="w-full h-full object-cover">
+                {% else %}
+                    <div class="text-center p-3">
+                        <i class="fas fa-user-tie text-4xl text-emerald-400 mb-2"></i>
+                        <span class="block text-[11px] font-extrabold text-gray-600 uppercase">PHOTO</span>
+                        <span class="text-[9px] text-gray-400">d'Identité</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- GRAND TITRE DU DOCUMENT -->
+        <div class="text-center my-6">
+            <div class="inline-block bg-emerald-50 border-2 border-emerald-600/30 px-8 py-2.5 rounded-2xl shadow-sm">
+                <h1 class="text-lg md:text-2xl font-black uppercase tracking-widest text-emerald-950">
+                    FICHE DE RENSEIGNEMENT {{ fiche.annee_academique.code|default:"2025-2026" }}
+                </h1>
+            </div>
+        </div>
+
+        <!-- GRILLE DES DONNÉES STRUCTURÉES (16 Lignes Textuelles Conformes) -->
+        <div class="divide-y divide-gray-100 text-sm leading-relaxed my-8 bg-gray-50/50 rounded-2xl p-4 md:p-6 border border-gray-200/80">
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Noms (MAJUSCULE) :</span>
+                <span class="font-black text-gray-900 uppercase tracking-wide text-base">{{ etudiant.nom }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Prénoms :</span>
+                <span class="font-bold text-gray-800">{{ etudiant.prenom }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Date et lieu de naissance :</span>
+                <span class="font-semibold text-gray-800">
+                    {{ etudiant.date_naissance|date:"d/m/Y" }} à {{ etudiant.lieu_naissance }} &nbsp;&nbsp;&bull;&nbsp;&nbsp; <strong class="text-emerald-900">Pays :</strong> {{ etudiant.pays_naissance|default:"Cameroun" }}
+                </span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Situation matrimoniale :</span>
+                <span class="font-semibold text-gray-800">{{ etudiant.situation_matrimoniale|default:"Célibataire" }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Nationalité :</span>
+                <span class="font-semibold text-gray-800">{{ etudiant.get_nationalite_display|default:etudiant.nationalite }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Région d'origine :</span>
+                <span class="font-semibold text-gray-800">{{ etudiant.region_origine|default:"..." }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Adresse permanente :</span>
+                <span class="font-semibold text-gray-800">
+                    {{ etudiant.adresse }} &nbsp;&nbsp;&bull;&nbsp;&nbsp; <strong class="text-emerald-900">Votre N° Téléphone :</strong> {{ etudiant.telephone }}
+                </span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Lieu de Résidence :</span>
+                <span class="font-semibold text-gray-800">{{ etudiant.lieu_residence|default:etudiant.adresse }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Email :</span>
+                <span class="font-bold text-sky-700">{{ etudiant.email }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Personnes à contacter Obligatoire :</span>
+                <span class="font-extrabold text-gray-900">{{ etudiant.personne_contact_nom_prenom|default:etudiant.nom_tuteur }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Téléphone / Résidence Contact :</span>
+                <span class="font-semibold text-gray-800">
+                    {{ etudiant.personne_contact_telephone|default:etudiant.telephone_tuteur }} &nbsp;&nbsp;&bull;&nbsp;&nbsp; <strong class="text-emerald-900">Lieu de Résidence :</strong> {{ etudiant.personne_contact_residence|default:"..." }}
+                </span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Filière d'études :</span>
+                <span class="font-bold text-gray-900">
+                    {{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }}) &nbsp;&nbsp;&bull;&nbsp;&nbsp; <strong class="text-emerald-900">BACC :</strong> {{ etudiant.serie_bacc|default:"..." }}
+                </span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Niveau :</span>
+                <span class="font-semibold text-gray-800">
+                    Niveau {{ etudiant.niveau.numero|default:"1" }} &nbsp;&nbsp;&bull;&nbsp;&nbsp; <strong class="text-emerald-900">Date de première rentrée :</strong> {{ etudiant.date_premiere_rentree|date:"d/m/Y"|default:"..." }}
+                </span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Statut étudiant :</span>
+                <span class="font-semibold text-gray-800">{{ etudiant.statut_etudiant_fiche|default:"Nouvelle admission" }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Date du concours :</span>
+                <span class="font-semibold text-gray-800">{{ etudiant.date_concours|date:"d/m/Y"|default:"..." }}</span>
+            </div>
+
+            <div class="py-2.5 flex flex-col sm:flex-row items-baseline">
+                <span class="w-72 font-extrabold text-emerald-900 text-xs uppercase tracking-wider">Matricule IAI :</span>
+                <span class="font-mono font-black text-emerald-700 bg-emerald-100/70 px-3 py-1 rounded-xl text-sm border border-emerald-200">
+                    {{ etudiant.matricule }}
+                </span>
+            </div>
+        <!-- ZONES DE SIGNATURE & TAMPONS DE LA SCOLARITÉ -->
+        <div class="grid grid-cols-3 gap-4 mt-8 pt-4 border-2 border-emerald-900/40 text-center rounded-2xl overflow-hidden bg-white">
+            <div class="p-4 border-r border-emerald-900/30 h-36 flex flex-col justify-between">
+                <span class="font-black text-xs uppercase tracking-wider text-emerald-950">L'Étudiant(e)</span>
+                <span class="text-[10px] text-gray-400 italic">Signature de l'étudiant</span>
+            </div>
+            <div class="p-4 border-r border-emerald-900/30 h-36 flex flex-col justify-between bg-emerald-50/40">
+                <span class="font-black text-xs uppercase tracking-wider text-emerald-950">Scolarité</span>
+                <div class="my-auto">
+                    <span class="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">SCOLARITÉ IAI</span>
+                </div>
+                <span class="text-[10px] text-emerald-800 font-semibold">Cachet & Signature</span>
+            </div>
+            <div class="p-4 h-36 flex flex-col justify-between">
+                <span class="font-black text-xs uppercase tracking-wider text-emerald-950">Le Représentant Résident</span>
+                <span class="text-[10px] text-gray-400 italic">Visé de la Direction</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

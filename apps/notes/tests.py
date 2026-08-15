@@ -574,4 +574,12 @@ class BordereauxTestCase(TestCase):
         self.assertEqual(response.context['etudiant'], self.etudiant)
         self.assertEqual(response.context['classe'], self.salle)
 
+    def test_generer_et_archiver_bulletin_pdf(self):
+        from apps.notes.utils_pdf import generer_et_archiver_bulletin_pdf
+        bulletin = generer_et_archiver_bulletin_pdf(self.etudiant, self.salle, user_valideur=self.chef_etudes)
+        self.assertTrue(bulletin.est_valide)
+        self.assertTrue(bulletin.est_publie)
+        self.assertIsNotNone(bulletin.pdf_file)
+        self.assertEqual(bulletin.effectif, 1)
+
 

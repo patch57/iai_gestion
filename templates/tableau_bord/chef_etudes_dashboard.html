@@ -51,9 +51,11 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner le Niveau</label>
                         <select name="niveau_id" id="select-niveau" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
-                            <option value="">-- Optionnel (Tous les niveaux) --</option>
+                            <option value="">-- Optionnel (Niveau 1 & 2) --</option>
                             {% for niveau in niveaux %}
+                            {% if niveau.numero <= 2 %}
                             <option value="{{ niveau.id }}" data-numero="{{ niveau.numero }}">Niveau {{ niveau.numero }}</option>
+                            {% endif %}
                             {% endfor %}
                         </select>
                     </div>

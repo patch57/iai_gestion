@@ -58,23 +58,28 @@ class PenalitesServicesTestCase(TestCase):
 
         
     def test_calcul_penalites_retard(self):
-        """Vérifie que la pénalité calculée correspond à 2 semaines de retard (2 * 1500 = 3000 FCFA)"""
+        """Vérifie que la pénalité n'est éligible au paiement en ligne QUE si le reçu est validé."""
+        # Reçu non validé -> total global = 3000, total éligible = 0
         penalites = calculer_penalites_etudiant(self.etudiant)
-        self.assertEqual(penalites['total'], 3000)
-        self.assertEqual(len(penalites['details']), 1)
-        self.assertEqual(penalites['details'][0]['semaines_retard'], 2)
-        self.assertEqual(penalites['details'][0]['montant'], 3000)
+        self.assertEqual(penalites['total_global'], 3000)
+        self.assertEqual(penalites['total'], 0)
+        self.assertFalse(penalites['details'][0]['eligible_paiement'])
+        
+        # Validation du reçu -> éligibilité au paiement activée
+        self.etudiant.recu_preinscription_valide = True
+        self.etudiant.save()
+        
+        penalites_valides = calculer_penalites_etudiant(self.etudiant)
+        self.assertEqual(penalites_valides['total'], 3000)
+        self.assertTrue(penalites_valides['details'][0]['eligible_paiement'])
 
     def test_envoyer_rappels_paiements_command(self):
         """Vérifie que la commande Django calcule bien les pénalités et envoie un courriel d'avertissement"""
-        # Exécuter la commande
         call_command('envoyer_rappels_paiements')
-        
-        # Vérifier que le courriel est envoyé dans la boîte d'envoi factice
         self.assertEqual(len(mail.outbox), 1)
         email = mail.outbox[0]
-        
         self.assertIn("Pré-inscription", email.body)
+
 
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -300,9 +305,10 @@ class ProfilObligatoireTeleversementTestCase(TestCase):
         self.assertIn('profil/modifier/?compte_incomplet=1', response.url)
 
     def test_televersement_autorise_si_profil_complet(self):
-        """Un étudiant avec un profil complet doit pouvoir accéder au téléversement"""
+        """Un étudiant avec un profil complet (y compris photo) doit pouvoir accéder au téléversement"""
         self.etudiant.nom_tuteur = 'Tuteur Test'
         self.etudiant.telephone_tuteur = '699999999'
+        self.etudiant.photo = 'photos/test_photo.jpg'
         self.etudiant.save()
         
         self.client.login(username='romuald@test.com', password='password123')

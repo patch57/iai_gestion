@@ -33,8 +33,8 @@ def liste_requetes(request):
         queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, nature='ANONYMAT'))
     elif role == 'CHEF_COMPTABILITE':
         queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, nature='COMPTABILITE'))
-    elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR']:
-        # L'enseignant gère uniquement ce qui lui est assigné ou ce qui concerne les apprenants non assignés
+    elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE']:
+        # L'enseignant / Chef FC gère ce qui lui est assigné ou ce qui concerne les apprenants
         queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, auteur__type_utilisateur='APPRENANT'))
     elif role == 'ADMIN_SYSTEME':
         # Le Directeur voit tout, mais on peut filtrer
@@ -134,7 +134,7 @@ def detail_requete(request, pk):
                 est_autorise = True
             elif role == 'CHEF_COMPTABILITE' and requete.nature == 'COMPTABILITE':
                 est_autorise = True
-            elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR'] and requete.auteur.type_utilisateur == 'APPRENANT':
+            elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE'] and requete.auteur.type_utilisateur == 'APPRENANT':
                 est_autorise = True
         
         if not est_autorise:
@@ -152,7 +152,7 @@ def detail_requete(request, pk):
             (role == 'CHEF_ETUDES' and requete.nature == 'ETUDES') or
             (role == 'CHEF_ANONYMAT' and requete.nature == 'ANONYMAT') or
             (role == 'CHEF_COMPTABILITE' and requete.nature == 'COMPTABILITE') or
-            (role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR'] and requete.auteur.type_utilisateur == 'APPRENANT')
+            (role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE'] and requete.auteur.type_utilisateur == 'APPRENANT')
         )
         if nature_correspondante:
             form_reponse = ReponsePersonnelForm(instance=requete)

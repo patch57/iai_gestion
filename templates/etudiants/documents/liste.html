@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Documents de l'Étudiant - {{ etudiant.get_nom_complet }} | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+    <div class="bg-gradient-to-r from-emerald-800 via-green-700 to-teal-800 rounded-2xl shadow-xl p-6 text-white mb-8">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-extrabold">Gestion des Documents</h1>
+                <p class="text-emerald-100 text-sm mt-0.5">Étudiant : <strong class="text-white">{{ etudiant.get_nom_complet }}</strong> ({{ etudiant.matricule }})</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <a href="{% url 'etudiants:ajouter_document' etudiant.pk %}" class="px-4 py-2.5 bg-white text-emerald-800 font-bold rounded-xl text-xs hover:bg-emerald-50 transition shadow">
+                    <i class="fas fa-plus mr-1.5"></i> Ajouter un Document
+                </a>
+                <a href="{% url 'etudiants:detail_etudiant' etudiant.pk %}" class="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition border border-white/20">
+                    <i class="fas fa-arrow-left mr-1.5"></i> Profil Étudiant
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des documents -->
+    <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="font-bold text-gray-800 text-lg">Documents Déposés ({{ documents|length }})</h2>
+        </div>
+
+        <div class="divide-y divide-gray-100">
+            {% for doc in documents %}
+            <div class="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition">
+                <div class="flex items-center space-x-4">
+                    <div class="p-3 bg-emerald-50 text-emerald-700 rounded-xl text-xl">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 text-sm">{{ doc.get_type_document_display|default:doc.type_document }}</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Déposé le {{ doc.date_creation|date:"d/m/Y H:i"|default:"-" }}</p>
+                        {% if doc.description %}
+                        <p class="text-xs text-gray-600 italic mt-1">{{ doc.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    {% if doc.fichier %}
+                    <a href="{{ doc.fichier.url }}" target="_blank" class="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold rounded-xl text-xs transition">
+                        <i class="fas fa-eye mr-1.5"></i> Consulter
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-12 text-center text-gray-400">
+                <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
+                <p class="text-sm font-semibold">Aucun document n'a été déposé pour cet étudiant.</p>
+                <a href="{% url 'etudiants:ajouter_document' etudiant.pk %}" class="inline-flex items-center gap-1.5 mt-4 text-emerald-600 hover:text-emerald-800 text-xs font-bold">
+                    <i class="fas fa-plus"></i> Ajouter un premier document
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

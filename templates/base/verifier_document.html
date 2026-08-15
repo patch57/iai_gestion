@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Authentification de Document - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-slate-900 text-white flex items-center justify-center">
+    <div class="max-w-xl w-full space-y-8 bg-slate-800/90 backdrop-blur-md p-8 rounded-2xl border border-slate-700 shadow-2xl">
+        
+        <!-- Header -->
+        <div class="text-center">
+            <div class="inline-flex p-3 rounded-full bg-blue-500/10 text-blue-400 mb-3 border border-blue-500/20">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-extrabold tracking-tight">Système de Vérification d'Authenticité</h2>
+            <p class="text-xs text-slate-400 mt-1">Institut Africain d'Informatique — Centre de Douala</p>
+        </div>
+
+        {% if est_valide %}
+            <!-- Document Valide -->
+            <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-6 text-center space-y-4">
+                <div class="inline-flex p-3 rounded-full bg-emerald-500/20 text-emerald-400">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-semibold rounded-full border border-emerald-500/30">DOCUMENT AUTHENTIQUE ET CERTIFIÉ</span>
+                    <h3 class="text-lg font-bold text-emerald-400 mt-2">Ce document a été vérifié avec succès.</h3>
+                </div>
+
+                <div class="text-left bg-slate-900/60 p-4 rounded-lg border border-slate-700/50 space-y-2 text-sm">
+                    <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                        <span class="text-slate-400">Type de Document :</span>
+                        <span class="font-semibold text-white uppercase">{{ doc_type }}</span>
+                    </div>
+                    {% if doc_type == 'carte' %}
+                        <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                            <span class="text-slate-400">Titulaire :</span>
+                            <span class="font-semibold text-white">{{ objet.get_nom_complet }}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                            <span class="text-slate-400">Matricule :</span>
+                            <span class="font-semibold text-blue-400">{{ objet.matricule|default:"En cours" }}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                            <span class="text-slate-400">Filière / Niveau :</span>
+                            <span class="font-semibold text-white">{{ objet.filiere.code|default:"-" }} (Niveau {{ objet.niveau.numero|default:"-" }})</span>
+                        </div>
+                    {% elif doc_type == 'recu' %}
+                        <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                            <span class="text-slate-400">Étudiant :</span>
+                            <span class="font-semibold text-white">{{ objet.etudiant.get_nom_complet }}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                            <span class="text-slate-400">Tranche :</span>
+                            <span class="font-semibold text-white">Tranche {{ objet.tranche.numero }}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                            <span class="text-slate-400">Montant Certifié :</span>
+                            <span class="font-bold text-emerald-400">{{ objet.montant_mentionne|floatformat:0 }} FCFA</span>
+                        </div>
+                    {% endif %}
+                    <div class="flex justify-between pt-1">
+                        <span class="text-slate-400">Empreinte SHA256 :</span>
+                        <span class="font-mono text-xs text-slate-300">{{ hash_doc }}</span>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- Document Non Valide -->
+            <div class="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-center space-y-4">
+                <div class="inline-flex p-3 rounded-full bg-rose-500/20 text-rose-400">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="px-3 py-1 bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-full border border-rose-500/30">ATTENTION - DOCUMENT NON RECONNU</span>
+                    <h3 class="text-lg font-bold text-rose-400 mt-2">Authentification Impossible</h3>
+                    <p class="text-xs text-slate-400 mt-1">L'empreinte numérique fournie ne correspond à aucun document certifié actif dans nos registres.</p>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="text-center pt-4">
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="inline-flex items-center text-xs text-blue-400 hover:text-blue-300">
+                ← Retour au tableau de bord
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -382,7 +382,7 @@ class ImportEtudiantForm(forms.Form):
     """Formulaire pour importer des étudiants depuis un fichier Excel/CSV"""
     fichier = forms.FileField(
         label='Fichier Excel/CSV',
-        help_text='Format: matricule, nom, prénom, email, filière, ...'
+        help_text='Format: matricule, nom, prenom, email, filiere, classe... Max 5MB.'
     )
     annee_academique = forms.ModelChoiceField(
         queryset=AnneeAcademique.objects.filter(est_active=True),
@@ -393,6 +393,16 @@ class ImportEtudiantForm(forms.Form):
         label='Mettre à jour les étudiants existants',
         help_text='Si coché, met à jour les informations des étudiants déjà existants'
     )
+    
+    def clean_fichier(self):
+        fichier = self.cleaned_data.get('fichier')
+        if fichier:
+            ext = fichier.name.split('.')[-1].lower()
+            if ext not in ['csv', 'xlsx', 'xls']:
+                raise forms.ValidationError("❌ Format de fichier non supporté. Veuillez envoyer un fichier CSV ou Excel (.xlsx, .csv).")
+            if fichier.size > 5 * 1024 * 1024:
+                raise forms.ValidationError("❌ Le fichier dépasse la taille maximale autorisée (5 MB).")
+        return fichier
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

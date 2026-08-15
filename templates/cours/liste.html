@@ -1,130 +1,109 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Planning des Cours - IAI-Cameroun{% endblock %}
+{% block title %}Programme Quotidien & Cours - IAI-Cameroun{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp space-y-8">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-calendar-alt text-green-600 mr-2"></i>Emploi du Temps & Cours</h1>
-            <p class="text-gray-500 text-sm mt-1">Espace Académique & Pédagogique</p>
+            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-calendar-day text-emerald-600 mr-2"></i>Programme Quotidien & Cours</h1>
+            <p class="text-gray-500 text-sm mt-1">Extrait en direct de l’emploi du temps hebdomadaire officiel | Bascule automatique à minuit</p>
         </div>
+        {% if emploi_hebdo %}
+        <a href="{% url 'cours:imprimer_emploi_du_temps_officiel' emploi_hebdo.pk %}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition shadow-md">
+            <i class="fas fa-print"></i> Consulter / Imprimer la Semaine Complète
+        </a>
+        {% endif %}
     </div>
 
     <!-- Filters Panel -->
-    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
-        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <!-- Search -->
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Recherche</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
-                        <i class="fas fa-search"></i>
-                    </span>
-                    <input type="text" name="q" value="{{ recherche|default:'' }}" placeholder="Matière, Enseignant..."
-                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 text-sm">
-                </div>
-            </div>
-
-            <!-- Filiere Filter -->
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Filière</label>
-                <select name="filiere" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                    <option value="">Toutes</option>
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+        <form method="GET" class="flex flex-col md:flex-row gap-4 items-end justify-between">
+            <div class="flex-1 w-full">
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Sélectionner la Filière</label>
+                <select name="filiere" class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-semibold text-gray-700">
                     {% for f in filieres %}
-                    <option value="{{ f.id }}" {% if request.GET.filiere == f.id|stringformat:"i" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                    <option value="{{ f.id }}" {% if filiere_selectionnee.id == f.id %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Type Filter -->
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Type</label>
-                <select name="type_cours" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                    <option value="">Tous</option>
-                    {% for code, label in types_cours %}
-                    <option value="{{ code }}" {% if request.GET.type_cours == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Action buttons -->
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-xl text-sm transition">
-                    Filtrer
-                </button>
-                <a href="{% url 'cours:liste_cours' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
-                    Réinitialiser
-                </a>
-            </div>
+            <button type="submit" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition">
+                Afficher le Programme
+            </button>
         </form>
     </div>
 
-    <!-- Course Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {% for c in cours %}
-        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between card-hover relative overflow-hidden">
-            <!-- Green strip for CM, yellow for TP -->
-            <div class="absolute top-0 left-0 right-0 h-1.5 {% if c.type_cours == 'CM' %}bg-green-600{% else %}bg-yellow-500{% endif %}"></div>
-            
-            <div>
-                <div class="flex justify-between items-start mb-4">
-                    <span class="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full 
-                        {% if c.type_cours == 'CM' %}bg-green-50 text-green-700 border border-green-200
-                        {% else %}bg-yellow-50 text-yellow-800 border border-yellow-200{% endif %}">
-                        {{ c.get_type_cours_display }}
-                    </span>
-                    <span class="text-xs font-bold text-gray-400"><i class="fas fa-door-open mr-1"></i>{{ c.salle.nom|default:"Salle non fixée" }}</span>
-                </div>
-                
-                <h3 class="text-lg font-black text-gray-800 leading-tight mb-2">{{ c.matiere.nom }}</h3>
-                <p class="text-xs text-gray-500 font-semibold mb-4">{{ c.filiere.nom }} ({{ c.filiere.code }}) | Semestre {{ c.semestre }}</p>
-                
-                <div class="space-y-2 pt-4 border-t border-gray-100 text-xs text-gray-600">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-chalkboard-teacher text-green-600"></i>
-                        <span>Enseignant : <strong class="text-gray-800">{{ c.professeur.get_nom_complet|default:"Non assigné" }}</strong></span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-calendar-day text-green-600"></i>
-                        <span>Jour : <strong class="text-gray-800">{{ c.get_jour_display }}</strong></span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-clock text-green-600"></i>
-                        <span>Horaire : <strong class="text-gray-800">{{ c.heure_debut|time:"H:i" }} - {{ c.heure_fin|time:"H:i" }}</strong></span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-6 pt-4 border-t border-gray-100">
-                <a href="{% url 'cours:detail_cours' c.id %}" class="flex items-center justify-center w-full bg-green-50 hover:bg-green-100 text-green-700 font-bold py-2.5 rounded-xl text-sm transition">
-                    Détails du Cours <i class="fas fa-arrow-right ml-2 text-xs"></i>
-                </a>
-            </div>
+    <!-- Programme Quotidien du Jour -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 space-y-6">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+            <h2 class="font-black text-xl text-gray-800 flex items-center gap-2">
+                <i class="fas fa-clock text-emerald-600"></i>
+                Programme Quotidien — <span class="text-emerald-700 font-extrabold">{{ nom_jour_actuel }}</span>
+            </h2>
+            <span class="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full uppercase">
+                {{ filiere_selectionnee.code|default:"GL" }}
+            </span>
         </div>
-        {% empty %}
-        <div class="col-span-full bg-white rounded-3xl shadow-xl border border-gray-100 p-12 text-center text-gray-400">
-            <i class="fas fa-calendar-times text-5xl mb-4 block"></i>
-            Aucun cours planifié pour le moment.
-        </div>
-        {% endfor %}
-    </div>
 
-    <!-- Pagination -->
-    {% if cours.has_other_pages %}
-    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 px-6 py-4 mt-8 flex items-center justify-between">
-        <span class="text-xs font-semibold text-gray-500">Page {{ cours.number }} sur {{ cours.paginator.num_pages }}</span>
-        <div class="flex gap-2">
-            {% if cours.has_previous %}
-            <a href="?page={{ cours.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.filiere %}&filiere={{ request.GET.filiere }}{% endif %}{% if request.GET.type_cours %}&type_cours={{ request.GET.type_cours }}{% endif %}" class="bg-white hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs transition">Précédent</a>
-            {% endif %}
-            {% if cours.has_next %}
-            <a href="?page={{ cours.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.filiere %}&filiere={{ request.GET.filiere }}{% endif %}{% if request.GET.type_cours %}&type_cours={{ request.GET.type_cours }}{% endif %}" class="bg-white hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs transition">Suivant</a>
-            {% endif %}
+        {% if creneaux_du_jour %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for creneau in creneaux_du_jour %}
+            <div class="bg-gradient-to-br from-white to-gray-50/50 rounded-2xl border border-gray-200/80 p-5 space-y-4 shadow-sm hover:shadow-md transition duration-200">
+                <!-- Badges -->
+                <div class="flex items-center justify-between">
+                    <span class="bg-emerald-100 text-emerald-800 text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                        {{ creneau.get_type_evenement_display|default:"Cours Magistral" }}
+                    </span>
+                    <span class="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1 rounded-full border border-gray-200">
+                        <i class="fas fa-door-open mr-1 text-gray-500"></i>{{ creneau.salle_nom|default:"Salle non fixée" }}
+                    </span>
+                </div>
+
+                <!-- Intitulé & Filière -->
+                <div>
+                    <h3 class="text-lg font-black text-gray-900 leading-snug">{{ creneau.intitule }}</h3>
+                    <p class="text-xs font-bold text-gray-500 mt-1">
+                        {{ filiere_selectionnee.nom }} ({{ filiere_selectionnee.code }}) | Semestre {{ etudiant.niveau.numero|default:1 }}
+                    </p>
+                </div>
+
+                <!-- Détails (Enseignant, Jour, Horaire) -->
+                <div class="bg-white rounded-xl p-3.5 space-y-2 text-xs border border-gray-100 shadow-inner">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400 font-semibold">Enseignant :</span>
+                        <span class="font-bold text-gray-800">{{ creneau.enseignant_nom|default:"Non renseigné" }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400 font-semibold">Jour :</span>
+                        <span class="font-bold text-emerald-700">{{ nom_jour_actuel }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400 font-semibold">Horaire :</span>
+                        <span class="font-black text-gray-900 bg-emerald-50 px-2.5 py-0.5 rounded text-xs border border-emerald-100">{{ creneau.get_plage_display }}</span>
+                    </div>
+                </div>
+
+                <!-- Bouton d'action -->
+                <button type="button" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold py-2.5 px-4 rounded-xl shadow-md transition duration-200 text-xs flex items-center justify-center gap-2">
+                    <i class="fas fa-info-circle"></i> Détails du Cours
+                </button>
+            </div>
+            {% endfor %}
         </div>
+        {% else %}
+        <!-- Zone vide si jour férié / repos / dimanche -->
+        <div class="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-10 text-center space-y-3">
+            <div class="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-3xl shadow-inner">
+                <i class="fas fa-calendar-times"></i>
+            </div>
+            <h3 class="font-bold text-gray-800 text-lg">Aucun cours au programme aujourd'hui ({{ nom_jour_actuel }})</h3>
+            <p class="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                Aujourd'hui est un jour sans cours (Férié, Repos ou Dimanche). Le programme de la journée suivante sera automatiquement chargé ici dès minuit.
+            </p>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 {% endblock %}

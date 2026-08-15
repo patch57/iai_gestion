@@ -229,3 +229,52 @@ class BourseForm(forms.ModelForm):
                 Submit('submit', 'Enregistrer la bourse', css_class='btn btn-primary'),
             )
         )
+
+
+class FicheRenseignementEtudiantForm(forms.Form):
+    """
+    Formulaire complet pour la Fiche de Renseignement officielle IAI-Cameroun
+    Rempli par l'étudiant avec uploads obligatoires de photo et de reçu.
+    """
+    SITUATION_MATRIMONIALE_CHOICES = [
+        ('Célibataire', 'Célibataire'),
+        ('Marié(e)', 'Marié(e)'),
+        ('Autre', 'Autre'),
+    ]
+
+    STATUT_ETUDIANT_CHOICES = [
+        ('Nouvelle admission', 'Nouvelle admission'),
+        ('Redoublant', 'Redoublant'),
+    ]
+
+    # Identité
+    nom = forms.CharField(max_length=100, label="Noms (EN MAJUSCULES)", widget=forms.TextInput(attrs={'placeholder': 'EX: PATCHONG NJITACK', 'class': 'uppercase'}))
+    prenom = forms.CharField(max_length=100, label="Prénoms", widget=forms.TextInput(attrs={'placeholder': 'Ex: Romuald'}))
+    date_naissance = forms.DateField(label="Date de naissance", widget=forms.DateInput(attrs={'type': 'date'}))
+    lieu_naissance = forms.CharField(max_length=100, label="Lieu de naissance", widget=forms.TextInput(attrs={'placeholder': 'Ex: Bafoussam'}))
+    pays_naissance = forms.CharField(max_length=100, initial='Cameroun', label="Pays de naissance")
+    situation_matrimoniale = forms.ChoiceField(choices=SITUATION_MATRIMONIALE_CHOICES, label="Situation matrimoniale")
+    nationalite = forms.CharField(max_length=100, initial='Camerounaise', label="Nationalité")
+    region_origine = forms.CharField(max_length=100, label="Région d'origine", widget=forms.TextInput(attrs={'placeholder': 'Ex: Ouest'}))
+    adresse_permanente = forms.CharField(max_length=200, label="Adresse permanente", widget=forms.TextInput(attrs={'placeholder': 'Ex: EKOUNOU'}))
+    telephone = forms.CharField(max_length=30, label="Votre N° Téléphone", widget=forms.TextInput(attrs={'placeholder': 'Ex: 652482992'}))
+    lieu_residence = forms.CharField(max_length=100, label="Lieu de résidence", widget=forms.TextInput(attrs={'placeholder': 'Ex: EKOUNOU'}))
+    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={'placeholder': 'rnjitack@gmail.com'}))
+
+    # Personne à contacter
+    personne_contact_nom_prenom = forms.CharField(max_length=150, label="Personne à contacter (NOM et Prénom)", widget=forms.TextInput(attrs={'placeholder': 'Ex: METIEGAM SOLANGE'}))
+    personne_contact_telephone = forms.CharField(max_length=30, label="Téléphone (personne à contacter)", widget=forms.TextInput(attrs={'placeholder': 'Ex: 699540134'}))
+    personne_contact_residence = forms.CharField(max_length=100, label="Lieu de résidence (personne à contacter)", widget=forms.TextInput(attrs={'placeholder': 'Ex: EKOUNOU'}))
+
+    # Parcours Académique
+    filiere = forms.ModelChoiceField(queryset=Filiere.objects.filter(est_active=True), label="Filière")
+    serie_bacc = forms.CharField(max_length=50, label="BACC (Série / Diplôme d'entrée)", widget=forms.TextInput(attrs={'placeholder': 'Ex: C, D, TI, A'}))
+    niveau = forms.CharField(max_length=20, label="Niveau", widget=forms.TextInput(attrs={'placeholder': 'Ex: 1, 2, III'}))
+    date_premiere_rentree = forms.DateField(required=False, label="Date de première rentrée académique", widget=forms.DateInput(attrs={'type': 'date'}))
+    statut_etudiant_fiche = forms.ChoiceField(choices=STATUT_ETUDIANT_CHOICES, label="Statut étudiant")
+    date_concours = forms.DateField(required=False, label="Date du concours", widget=forms.DateInput(attrs={'type': 'date'}))
+    matricule = forms.CharField(max_length=50, required=False, label="Matricule", widget=forms.TextInput(attrs={'placeholder': 'Ex: GL_CMR_5043_2324A'}))
+
+    # Uploads Obligatoires
+    photo_identite = forms.ImageField(required=True, label="Photo d'identité (type Passeport/CNI)", help_text="Détection par Agent IA: visage centré, fond clair neutre.")
+    recu_paiement_fichier = forms.FileField(required=True, label="Reçu de paiement bancaire (1ère tranche ou Totalité)", help_text="Document PDF ou Image lisible de votre versement bancaire.")

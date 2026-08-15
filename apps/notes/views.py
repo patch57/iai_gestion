@@ -4,6 +4,7 @@ IAI-Cameroun - Centre de Douala
 """
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, permission_required
+from apps.authentification.decorators import role_required
 from django.contrib import messages
 from django.db.models import Q, Avg, Count, Sum, Min, Max, StdDev
 from django.core.paginator import Paginator
@@ -347,12 +348,9 @@ def saisie_notes_anonymes(request, evaluation_id):
 
 
 @login_required
+@role_required('CHEF_ANONYMAT', 'CHEF_ETUDES', 'ADMIN_PEDAGOGIQUE', 'ADMIN_SYSTEME')
 def reveler_identites(request, evaluation_id):
-    """Révéler les identités après correction (réservé aux admins)"""
-    if not request.user.is_staff:
-        messages.error(request, "❌ Seuls les administrateurs peuvent révéler les identités.")
-        return redirect('notes:detail_evaluation', pk=evaluation_id)
-    
+    """Révéler les identités après correction (réservé aux rôles autorisés)"""
     evaluation = get_object_or_404(Evaluation, pk=evaluation_id)
     
     if request.method == 'POST':
@@ -1962,3 +1960,63 @@ def consulter_resultat_individuel(request, token):
         'titre': f"Relevé de notes - {etudiant.get_nom_complet()}"
     }
     return render(request, 'notes/bordereau/releve_individuel.html', context)
+
+
+@login_required
+def publier_bulletins_salle(request, salle_id):
+    """Génère, archive et publie les bulletins officiels PDF pour toute la salle"""
+    role = getattr(request.user, 'type_utilisateur', None)
+    if role not in ('CHEF_ETUDES', 'ADMIN_SYSTEME') and not request.user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef des Études.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.etudiants.models import Classe
+    from apps.notes.utils_pdf import generer_et_archiver_bulletin_pdf
+    
+    classe = get_object_or_404(Classe, pk=salle_id)
+    etudiants = classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF'])
+
+    if request.method == 'POST':
+        publies = 0
+        for etudiant in etudiants:
+            generer_et_archiver_bulletin_pdf(etudiant, classe, user_valideur=request.user)
+            publies += 1
+            
+        messages.success(
+            request, 
+            f"✅ {publies} bulletin(s) officiel(s) généré(s), archivé(s) en PDF et publié(s) sur le dashboard des étudiants de {classe.nom} !"
+        )
+        return redirect('notes:generer_bordereau', salle_id=classe.id)
+
+    return redirect('notes:liste_bordereaux')
+
+
+@login_required
+def voir_bulletin_officiel(request, bulletin_id):
+    """Affiche et permet de télécharger le bulletin officiel PDF d'un étudiant"""
+    bulletin = get_object_or_404(Bulletin, pk=bulletin_id)
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+
+    # Vérification des droits d'accès
+    est_proprietaire = hasattr(user, 'etudiant_profile') and user.etudiant_profile.id == bulletin.etudiant.id
+    est_admin_ou_chef = role in ('CHEF_ETUDES', 'ADMIN_SYSTEME', 'CHEF_SCOLARITE') or user.is_superuser
+
+    if not est_proprietaire and not est_admin_ou_chef:
+        messages.error(request, "❌ Accès refusé à ce bulletin officiel.")
+        return redirect('tableau_bord:tableau_bord')
+
+    if est_proprietaire and not bulletin.est_publie:
+        messages.warning(request, "⚠️ Votre bulletin officiel n'a pas encore été publié par le Chef des Études.")
+        return redirect('notes:mes_notes')
+
+    from apps.etudiants.models import Classe
+    classe = Classe.objects.filter(filiere=bulletin.etudiant.filiere, niveau=bulletin.etudiant.niveau).first()
+    if not classe:
+        classe = Classe(nom=f"{bulletin.etudiant.filiere.code} - L{bulletin.etudiant.niveau.numero}", filiere=bulletin.etudiant.filiere, niveau=bulletin.etudiant.niveau)
+
+    from apps.notes.utils_pdf import structurer_donnees_bulletin
+    context = structurer_donnees_bulletin(bulletin.etudiant, classe)
+    context['bulletin'] = bulletin
+
+    return render(request, 'notes/bulletin_officiel_pdf.html', context)

@@ -8,6 +8,9 @@ from . import views
 app_name = 'paiements'
 
 urlpatterns = [
+    # Suivi financier des apprenants (Formation Continue & Certifiante)
+    path('apprenants/', views.paiements_apprenants, name='paiements_apprenants'),
+    
     # Gestion des reçus
     path('', views.liste_recus, name='liste_recus'),
     path('televerser/<int:etudiant_id>/', views.televerser_recu, name='televerser_recu'),
@@ -45,6 +48,11 @@ urlpatterns = [
     # API
     path('api/recus-attente/', views.api_recus_attente, name='api_recus_attente'),
     
+    # Exportation PDF et Vérification QR Code
+    path('exporter/carte-pdf/<int:etudiant_id>/', views.exporter_carte_etudiant_pdf, name='exporter_carte_etudiant_pdf'),
+    path('exporter/recu-pdf/<int:recu_id>/', views.exporter_recu_pdf, name='exporter_recu_pdf'),
+    path('verifier-document/', views.verifier_document, name='verifier_document'),
+
     # Paiement mobile money (CinetPay)
     path('payer-penalites/', views.payer_penalites, name='payer_penalites'),
     path('api/momo/initier/', views.initier_paiement_momo, name='initier_paiement_momo'),
@@ -55,4 +63,4 @@ urlpatterns = [
     path('configurer-cinetpay/simuler/', views.simuler_webhook_ipn, name='simuler_webhook_ipn'),
     path('tester-smtp/', views.tester_smtp, name='tester_smtp'),
     path('tester-ocr/', views.tester_ocr, name='tester_ocr'),
-]
+]

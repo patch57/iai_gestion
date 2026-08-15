@@ -618,3 +618,58 @@ class NoteInformation(models.Model):
 
     def __str__(self):
         return self.titre
+
+
+class JournalAudit(models.Model):
+    """Journal d'audit pour la traçabilité des actions sensibles (notes, paiements, délibérations, sécurité)"""
+    CATEGORIE_CHOICES = [
+        ('NOTES', 'Saisie/Modification de Notes'),
+        ('PAIEMENT', 'Validation/Rejet de Paiement'),
+        ('ANONYMAT', 'Gestion de l\'Anonymat'),
+        ('DELIBERATION', 'Délibération du Jury'),
+        ('ETUDIANT', 'Gestion des Étudiants'),
+        ('SECURITE', 'Accès et Rôles'),
+    ]
+
+    utilisateur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='logs_audit'
+    )
+    categorie = models.CharField(max_length=20, choices=CATEGORIE_CHOICES, default='NOTES')
+    action = models.CharField(max_length=255)
+    details = models.TextField(blank=True, null=True)
+    adresse_ip = models.GenericIPAddressField(blank=True, null=True)
+    date_action = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'tableau_bord'
+        verbose_name = "Journal d'Audit"
+        verbose_name_plural = "Journaux d'Audit"
+        ordering = ['-date_action']
+
+    def __str__(self):
+        user_str = self.utilisateur.username if self.utilisateur else "Système"
+        return f"[{self.date_action.strftime('%d/%m/%Y %H:%M')}] {user_str} - {self.action}"
+
+    @classmethod
+    def enregistrer(cls, request, categorie, action, details=None):
+        """Helper pour enregistrer facilement une entrée d'audit depuis une vue"""
+        user = request.user if request and request.user.is_authenticated else None
+        ip = None
+        if request:
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(',')[0].strip()
+            else:
+                ip = request.META.get('REMOTE_ADDR')
+
+        return cls.objects.create(
+            utilisateur=user,
+            categorie=categorie,
+            action=action,
+            details=details,
+            adresse_ip=ip
+        )

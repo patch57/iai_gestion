@@ -380,9 +380,21 @@ class Bulletin(models.Model):
     )
     mention = models.CharField(max_length=20, blank=True)
     
-    # Classement
+    # Classement et Statistiques de classe
     rang = models.PositiveIntegerField(null=True, blank=True)
     effectif = models.PositiveIntegerField(null=True, blank=True)
+    moyenne_classe_min = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    moyenne_classe_max = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    moyenne_classe_generale = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    retards = models.PositiveIntegerField(default=0)
+    absences = models.PositiveIntegerField(default=0)
+    discipline = models.CharField(max_length=50, default='-')
+
+    # Publication et Archivage PDF
+    pdf_file = models.FileField(upload_to='bulletins/%Y/', null=True, blank=True)
+    est_publie = models.BooleanField(default=False)
+    date_publication = models.DateTimeField(null=True, blank=True)
+    numero_bulletin = models.CharField(max_length=100, blank=True)
     
     # Métadonnées
     est_valide = models.BooleanField(default=False)

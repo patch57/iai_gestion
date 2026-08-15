@@ -12,6 +12,7 @@ urlpatterns = [
     path('', views.liste_etudiants, name='liste_etudiants'),
     path('ajouter/', views.ajouter_etudiant, name='ajouter_etudiant'),
     path('<int:pk>/', views.detail_etudiant, name='detail_etudiant'),
+    path('<int:pk>/fiche-pdf/', views.exporter_fiche_etudiant_pdf, name='exporter_fiche_etudiant_pdf'),
     path('<int:pk>/modifier/', views.modifier_etudiant, name='modifier_etudiant'),
     path('<int:pk>/supprimer/', views.supprimer_etudiant, name='supprimer_etudiant'),
     path('<int:pk>/carte/', views.carte_etudiant, name='carte_etudiant'),

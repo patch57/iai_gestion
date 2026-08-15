@@ -4,6 +4,7 @@ IAI-Cameroun - Centre de Douala
 """
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, permission_required
+from apps.authentification.decorators import role_required
 from django.contrib import messages
 from django.db.models import Q, Sum
 from django.core.paginator import Paginator
@@ -17,7 +18,7 @@ from apps.cours.models import Cours, SeanceCours
 @login_required
 def liste_professeurs(request):
     """Liste des professeurs avec recherche et filtrage"""
-    queryset = Professeur.objects.all().select_related('departement')
+    queryset = Professeur.objects.filter(est_actif=True).select_related('departement')
     
     # Recherche
     recherche = request.GET.get('q', '')
@@ -157,15 +158,29 @@ def modifier_professeur(request, pk):
 
 
 @login_required
-@permission_required('professeurs.delete_professeur', raise_exception=True)
+@role_required('ADMIN_PEDAGOGIQUE', 'CHEF_ETUDES', 'ADMIN_SYSTEME')
 def supprimer_professeur(request, pk):
-    """Supprimer un professeur"""
+    """Archiver/Désactiver un professeur (Soft Delete)"""
     professeur = get_object_or_404(Professeur, pk=pk)
     
     if request.method == 'POST':
         nom_complet = str(professeur)
-        professeur.delete()
-        messages.success(request, f'Le professeur {nom_complet} a été supprimé avec succès.')
+        professeur.est_actif = False
+        professeur.statut = 'SUSPENDU'
+        professeur.save()
+        
+        try:
+            from apps.tableau_bord.models import JournalAudit
+            JournalAudit.enregistrer(
+                request=request,
+                categorie='SECURITE',
+                action=f"Soft Delete Professeur #{professeur.id}",
+                details=f"Professeur {nom_complet} désactivé/archivé."
+            )
+        except Exception:
+            pass
+
+        messages.success(request, f'🗑️ Le professeur {nom_complet} a été archivé avec succès (Soft Delete).')
         return redirect('liste_professeurs')
     
     context = {

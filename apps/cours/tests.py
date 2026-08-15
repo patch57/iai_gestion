@@ -215,3 +215,136 @@ class EmploiDuTempsOfficielTestCase(TestCase):
         self.client.logout()
 
 
+class PresenceHebdomadaireTestCase(TestCase):
+    def setUp(self):
+        self.scolarite = User.objects.create_user(
+            username='scolarite_test', email='scolarite@test.com',
+            password='password123', type_utilisateur='CHEF_SCOLARITE'
+        )
+        self.filiere = Filiere.objects.create(code='GL', nom='Génie Logiciel', duree_ans=3)
+        from apps.etudiants.models import Niveau, Classe, Etudiant, AnneeAcademique
+        self.niveau = Niveau.objects.create(filiere=self.filiere, numero=1, code='GL1-pres')
+        self.annee = AnneeAcademique.objects.create(code='2025-2026', date_debut='2025-09-01', date_fin='2026-08-31', est_active=True)
+        self.classe = Classe.objects.create(nom='GL1A', filiere=self.filiere, niveau=self.niveau, annee_academique=self.annee)
+
+        self.etud1 = Etudiant.objects.create(
+            matricule='GL.CMR.D001.2526A', nom='ALIMA NDAM', prenom='FARIDA',
+            email='alima@test.com', telephone='670000010', adresse='Douala',
+            date_naissance='2000-01-01', lieu_naissance='Douala', sexe='F',
+            filiere=self.filiere, classe=self.classe, statut='INSCRIT'
+        )
+        self.etud2 = Etudiant.objects.create(
+            matricule='GL.CMR.D003.2526A', nom='BABINNE DIGWE', prenom='ELIAS',
+            email='babinne@test.com', telephone='670000011', adresse='Douala',
+            date_naissance='2000-01-01', lieu_naissance='Douala', sexe='M',
+            filiere=self.filiere, classe=self.classe, statut='INSCRIT'
+        )
+
+    def test_matching_etudiant_presence(self):
+        from apps.cours.presence_service import matcher_etudiant_presence
+        etudiants = [self.etud1, self.etud2]
+        
+        match, score = matcher_etudiant_presence('GL.CMR.D003.2526A', etudiants)
+        self.assertEqual(match, self.etud2)
+        self.assertGreaterEqual(score, 0.9)
+
+        match_name, score_name = matcher_etudiant_presence('ALIMA NDAM FARIDA', etudiants)
+        self.assertEqual(match_name, self.etud1)
+
+    def test_cumul_absences_publication(self):
+        from apps.cours.models import FichePresenceHebdomadaire, LignePresenceHebdomadaire
+        from apps.cours.presence_service import calculer_total_absences_cumulees
+
+        fiche = FichePresenceHebdomadaire.objects.create(
+            classe=self.classe, filiere=self.filiere, niveau=self.niveau,
+            semaine_du='2026-05-25', semaine_au='2026-05-29', cree_par=self.scolarite
+        )
+        LignePresenceHebdomadaire.objects.create(fiche=fiche, etudiant=self.etud2, nombre_absences=6)
+
+        # Après publication : 6
+        fiche.statut = 'PUBLIE'
+        fiche.save()
+        self.assertEqual(calculer_total_absences_cumulees(self.etud2), 6)
+
+    def test_notes_annuelles_discipline_rule(self):
+        from apps.cours.models import FichePresenceHebdomadaire, LignePresenceHebdomadaire
+        from apps.cours.presence_service import calculer_notes_annuelles_discipline
+
+        fiche = FichePresenceHebdomadaire.objects.create(
+            classe=self.classe, filiere=self.filiere, niveau=self.niveau,
+            semaine_du='2026-05-25', semaine_au='2026-05-29', cree_par=self.scolarite,
+            statut='PUBLIE'
+        )
+        # Etudiant 1 : 35 absences non justifiées -> Exclu(e)
+        LignePresenceHebdomadaire.objects.create(fiche=fiche, etudiant=self.etud1, nombre_absences=35, heures_justifiees=0)
+        # Etudiant 2 : 35 absences dont 10 justifiées -> HNJ = 25 -> Décision vide
+        LignePresenceHebdomadaire.objects.create(fiche=fiche, etudiant=self.etud2, nombre_absences=35, heures_justifiees=10)
+
+        data = calculer_notes_annuelles_discipline(self.classe.id)
+        r1 = next(item for item in data['results'] if item['etudiant'] == self.etud1)
+        r2 = next(item for item in data['results'] if item['etudiant'] == self.etud2)
+
+        self.assertEqual(r1['ha'], 35)
+        self.assertEqual(r1['hnj'], 35)
+        self.assertEqual(r1['decision'], 'Exclu(e)')
+
+        self.assertEqual(r2['ha'], 35)
+        self.assertEqual(r2['hj'], 10)
+        self.assertEqual(r2['hnj'], 25)
+        self.assertEqual(r2['decision'], '')
+
+    def test_exporter_liste_classe_presence_pdf_view(self):
+        self.client.login(username='scolarite_test', password='password123')
+        url = reverse('cours:exporter_liste_classe_presence_pdf', args=[self.classe.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('LISTE DE PRESENCE', response.content.decode('utf-8'))
+        self.assertIn(self.classe.nom, response.content.decode('utf-8'))
+        self.client.logout()
+
+    def test_programme_quotidien_enseignant(self):
+        from apps.professeurs.models import Professeur, Departement
+        from apps.cours.models import EmploiDuTempsHebdomadaire, CreneauEmploiDuTemps
+        from apps.cours.presence_service import obtenir_programme_quotidien_enseignant
+        import datetime
+
+        user_prof = User.objects.create_user(
+            username='prof_nnanga', email='nnanga@test.com',
+            password='password123', type_utilisateur='PROFESSEUR',
+            first_name='Dieudonné', last_name='NNANGA'
+        )
+        dept = Departement.objects.create(code='INFO', nom='Informatique')
+        prof = Professeur.objects.create(
+            utilisateur=user_prof, matricule='PR100', nom='NNANGA', prenom='Dieudonné',
+            email='nnanga@test.com', telephone='690000000', adresse='Douala',
+            date_naissance='1980-01-01', date_embauche='2020-01-01', grade='TITULAIRE',
+            specialite='Génie Logiciel', departement=dept
+        )
+
+        emploi = EmploiDuTempsHebdomadaire.objects.create(
+            filiere=self.filiere, niveau='LEVEL_1', titre_semaine='SEMAINE TEST',
+            date_debut_semaine='2026-05-01', date_fin_semaine='2026-05-31', statut='VALIDE'
+        )
+
+        # Créer deux créneaux un Lundi (P2 puis P1)
+        CreneauEmploiDuTemps.objects.create(
+            emploi_du_temps=emploi, jour='LUNDI', plage='P2',
+            intitule='Base de données', enseignant_nom='M. NNANGA', salle_nom='GL1'
+        )
+        CreneauEmploiDuTemps.objects.create(
+            emploi_du_temps=emploi, jour='LUNDI', plage='P1',
+            intitule='Algorithmique', enseignant_nom='M. NNANGA', salle_nom='GL1'
+        )
+
+        # Tester pour une date qui tombe un Lundi (ex: 2026-05-18)
+        lundi_date = datetime.date(2026, 5, 18)
+        resultat = obtenir_programme_quotidien_enseignant(user_prof, date_cible=lundi_date)
+
+        self.assertEqual(len(resultat['creneaux']), 2)
+        # Vérifier l'ordre chronologique (P1 avant P2)
+        self.assertEqual(resultat['creneaux'][0].plage, 'P1')
+        self.assertEqual(resultat['creneaux'][1].plage, 'P2')
+
+
+
+

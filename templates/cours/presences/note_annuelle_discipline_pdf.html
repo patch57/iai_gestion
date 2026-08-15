@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Notes Annuelles de Discipline - {{ classe.nom }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 8mm 12mm 8mm 12mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #000000;
+            font-size: 10px;
+            line-height: 1.2;
+        }
+
+        .no-print {
+            display: block;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                padding: 0;
+                margin: 0;
+            }
+        }
+
+        .action-bar {
+            max-width: 800px;
+            margin: 10px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-print {
+            background: #15803d;
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 12px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+        }
+
+        .doc-container {
+            border: 1.5px solid #000000;
+            padding: 12px 16px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            margin-bottom: 2px;
+        }
+
+        .header-logo {
+            width: 50px;
+            height: auto;
+        }
+
+        .header-line1 {
+            font-size: 10.5px;
+            font-weight: normal;
+        }
+
+        .header-line2 {
+            font-size: 10px;
+            font-weight: normal;
+        }
+
+        .header-line3 {
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #000;
+        }
+
+        .header-contacts {
+            font-size: 8.5px;
+            color: #222;
+            margin-top: 1px;
+        }
+
+        .gold-divider {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, #ca8a04, #facc15, #ca8a04);
+            margin: 4px 0 2px 0;
+        }
+
+        .site-contacts {
+            text-align: center;
+            font-size: 8.5px;
+            color: #222;
+            margin-bottom: 6px;
+        }
+
+        .date-right {
+            text-align: right;
+            font-size: 9.5px;
+            font-weight: normal;
+            margin-bottom: 6px;
+        }
+
+        .doc-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 900;
+            font-style: italic;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 6px 0;
+        }
+
+        .sub-header-line {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 900;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        /* Table des Notes de Discipline */
+        .disc-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+
+        .disc-table th, .disc-table td {
+            border: 1px solid #000000;
+            padding: 3px 5px;
+            vertical-align: middle;
+        }
+
+        .disc-table th {
+            background-color: #f1f5f9;
+            font-weight: 900;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .col-num {
+            width: 30px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .col-name {
+            text-align: left;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .col-val {
+            width: 45px;
+            text-align: center;
+            font-weight: bold;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .col-decision {
+            width: 90px;
+            text-align: center;
+            font-weight: 900;
+            color: #dc2626;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Action Bar -->
+    <div class="action-bar no-print">
+        <div>
+            <strong style="color: #1e293b; font-size: 14px;">Notes Annuelles de Discipline</strong>
+            <span style="color: #64748b; font-size: 12px; margin-left: 8px;">Classe : {{ classe.nom }} ({{ annee_academique }})</span>
+        </div>
+        <div>
+            <button onclick="window.print()" class="btn-print">🖨️ Imprimer / Imprimer PDF</button>
+        </div>
+    </div>
+
+    <div class="doc-container">
+        <!-- En-tête -->
+        <table class="header-table">
+            <tr>
+                <td style="width: 15%; text-align: left;"></td>
+                <td style="width: 70%; text-align: center;">
+                    <!-- Logo Officiel IAI -->
+                    <div style="margin-bottom: 4px;">
+                        <img src="/static/images/logo_iai.png" alt="Logo IAI" style="height: 60px; width: auto;">
+                    </div>
+                    <div class="header-line1">Etablissement Inter – Etats d'Enseignement Supérieur</div>
+                    <div class="header-line2">Représentation du Cameroun</div>
+                    <div class="header-line3">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</div>
+                    <div class="header-contacts">BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57/ 242 72 99 58/ 691 902 120</div>
+                </td>
+                <td style="width: 15%;"></td>
+            </tr>
+        </table>
+
+        <!-- Ligne Dorée -->
+        <div class="gold-divider"></div>
+        <div class="site-contacts">Site web: www.iaicameroun.com &nbsp;&nbsp;&nbsp;&nbsp; E-mail: contact@iaicameroun.com</div>
+
+        <!-- Date -->
+        <div class="date-right">Douala le {{ date_aujourdhui|date:"d/m/Y" }}</div>
+
+        <!-- Titre Document -->
+        <div class="doc-title">NOTES ANNUELLES DE DISCIPLINE</div>
+
+        <!-- Sous-titre Informations -->
+        <div class="sub-header-line">
+            Année Académique : {{ annee_academique }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Classe : {{ classe.nom }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Campus : Douala
+        </div>
+
+        <!-- Tableau des Notes de Discipline -->
+        <table class="disc-table">
+            <thead>
+                <tr>
+                    <th class="col-num">N°</th>
+                    <th style="text-align: left; width: 35%;">NOMS</th>
+                    <th style="text-align: left; width: 35%;">PRENOMS</th>
+                    <th class="col-val">HA</th>
+                    <th class="col-val">HJ</th>
+                    <th class="col-val">HNJ</th>
+                    <th class="col-decision">DECISION</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in data.results %}
+                <tr>
+                    <td class="col-num">{{ r.index }}</td>
+                    <td class="col-name">{{ r.etudiant.nom }}</td>
+                    <td class="col-name" style="font-weight: normal;">{{ r.etudiant.prenom }}</td>
+                    <td class="col-val">{{ r.ha }}</td>
+                    <td class="col-val">{{ r.hj }}</td>
+                    <td class="col-val" style="font-weight: 900; {% if r.hnj > 30 %}color: #dc2626;{% endif %}">{{ r.hnj }}</td>
+                    <td class="col-decision">
+                        {% if r.decision %}
+                        <span style="border: 1px solid #dc2626; padding: 1px 4px; border-radius: 2px;">{{ r.decision }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

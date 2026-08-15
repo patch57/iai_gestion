@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Bulletin de Notes - {{ etudiant.get_nom_complet }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 6mm 8mm 6mm 8mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #000000;
+            font-size: 10px;
+            line-height: 1.15;
+        }
+
+        .no-print {
+            display: block;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                padding: 0;
+                margin: 0;
+            }
+        }
+
+        .bulletin-container {
+            border: 2px solid #000000;
+            padding: 8px 12px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            position: relative;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .header-logo {
+            width: 55px;
+            height: auto;
+        }
+
+        .header-title-main {
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .header-subtitle {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .header-bold-green {
+            font-size: 11px;
+            font-weight: 900;
+            color: #004d25;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .header-contacts {
+            font-size: 8px;
+            color: #333333;
+            margin-top: 2px;
+        }
+
+        .doc-num {
+            font-size: 9px;
+            font-weight: bold;
+            float: left;
+            margin-top: 2px;
+        }
+
+        .main-title {
+            text-align: center;
+            font-size: 15px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 4px 0 6px 0;
+            border-bottom: 2px solid #000;
+            padding-bottom: 2px;
+        }
+
+        .student-info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+            font-size: 9.5px;
+        }
+
+        .student-info-table td {
+            padding: 2px 4px;
+            vertical-align: top;
+        }
+
+        .label-bold {
+            font-weight: bold;
+            color: #111;
+        }
+
+        .val-bold {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .notes-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8.5px;
+            margin-bottom: 6px;
+        }
+
+        .notes-table th, .notes-table td {
+            border: 1px solid #000000;
+            padding: 2px 3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .notes-table th {
+            background-color: #2e7d32;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 8.5px;
+            text-transform: uppercase;
+        }
+
+        .sem-header {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-weight: 900;
+            font-size: 9.5px;
+            letter-spacing: 1px;
+            background-color: #e8f5e9;
+            padding: 4px 2px;
+            width: 18px;
+        }
+
+        .cell-left {
+            text-align: left !important;
+        }
+
+        .cell-mono {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+
+        .row-summary {
+            background-color: #e0e0e0;
+            font-weight: bold;
+            font-size: 9px;
+        }
+
+        .row-summary-recap {
+            background-color: #d6d6d6;
+            font-weight: 900;
+            font-size: 9.5px;
+        }
+
+        .footer-summary-container {
+            width: 100%;
+            border: 2px solid #2e7d32;
+            background-color: #e8f5e9;
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin-top: 4px;
+        }
+
+        .footer-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+
+        .footer-summary-table td {
+            padding: 2px 4px;
+            vertical-align: middle;
+        }
+
+        .decision-box {
+            font-size: 10.5px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #1b5e20;
+            margin-top: 2px;
+        }
+
+        .signature-section {
+            width: 100%;
+            margin-top: 8px;
+            display: table;
+        }
+
+        .sig-left {
+            display: table-cell;
+            width: 50%;
+            vertical-align: bottom;
+            font-size: 8px;
+            color: #555;
+        }
+
+        .sig-right {
+            display: table-cell;
+            width: 50%;
+            text-align: center;
+            vertical-align: top;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        .stamp-box {
+            margin-top: 4px;
+            position: relative;
+            display: inline-block;
+        }
+
+        .flag-bar {
+            width: 100%;
+            height: 12px;
+            margin-top: 6px;
+            background: linear-gradient(to right, 
+                #007a3d 0%, #007a3d 10%, 
+                #ce1126 10%, #ce1126 20%, 
+                #fcd116 20%, #fcd116 30%, 
+                #00247d 30%, #00247d 40%, 
+                #fcd116 40%, #fcd116 50%, 
+                #ce1126 50%, #ce1126 60%, 
+                #007a3d 60%, #007a3d 70%, 
+                #fcd116 70%, #fcd116 80%, 
+                #00247d 80%, #00247d 90%, 
+                #ce1126 90%, #ce1126 100%);
+            border-radius: 2px;
+        }
+
+        .action-bar {
+            max-width: 800px;
+            margin: 10px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-print {
+            background: #15803d;
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 12px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-print:hover {
+            background: #166534;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Action Bar en mode Web -->
+    <div class="action-bar no-print">
+        <div>
+            <strong style="color: #1e293b; font-size: 14px;">Bulletin Officiel de Fin d'Année</strong>
+            <span style="color: #64748b; font-size: 12px; margin-left: 8px;">{{ etudiant.get_nom_complet }} ({{ etudiant.matricule }})</span>
+        </div>
+        <div>
+            <button onclick="window.print()" class="btn-print">🖨️ Imprimer / Sauvegarder PDF</button>
+        </div>
+    </div>
+
+    <div class="bulletin-container">
+        <!-- Numéro d'enregistrement -->
+        <div style="width: 100%; clear: both;">
+            <span class="doc-num">BN° &nbsp; {{ bulletin.numero_bulletin|default:"008" }} &nbsp; /IAI/RRC/DAF/DAA/SDGL/{{ annee_academique }}</span>
+        </div>
+        <br>
+
+        <!-- En-tête -->
+        <table class="header-table">
+            <tr>
+                <td style="width: 15%; text-align: left; vertical-align: middle;">
+                    <img src="/static/images/logo_iai.png" alt="Logo IAI" class="header-logo">
+                </td>
+                <td style="width: 70%; text-align: center;">
+                    <div class="header-title-main">Etablissement Inter - Etats d'Enseignement Supérieur</div>
+                    <div class="header-subtitle">Représentation du Cameroun</div>
+                    <div class="header-bold-green">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</div>
+                    <div class="header-contacts">
+                        BP 13 719 Yaoundé (Cameroun) &nbsp;|&nbsp; Tél. (237) 242 72 99 57 / 242 72 99 58 / 691 902 120<br>
+                        Site web: www.iaicameroun.com &nbsp;|&nbsp; E-mail: contact@iaicameroun.com
+                    </div>
+                </td>
+                <td style="width: 15%;"></td>
+            </tr>
+        </table>
+
+        <!-- Titre -->
+        <div class="main-title">BULLETIN DE NOTES DE FIN D'ANNEE</div>
+
+        <!-- Informations Étudiant -->
+        <table class="student-info-table">
+            <tr>
+                <td style="width: 50%;">
+                    <span class="label-bold">Domaine :</span> <span class="val-bold">{{ domaine|default:"Informatique" }}</span><br>
+                    <span class="label-bold">Spécialité :</span> <span class="val-bold">{{ filiere.nom }}</span><br>
+                    <span class="label-bold">Nom (s) :</span> <span class="val-bold">{{ etudiant.nom }}</span><br>
+                    <span class="label-bold">Prénom (s) :</span> <span class="val-bold">{{ etudiant.prenom }}</span><br>
+                    <span class="label-bold">Pays d'origine :</span> <span class="val-bold">{{ etudiant.nationalite|default:"Cameroun" }}</span>
+                </td>
+                <td style="width: 50%;">
+                    <span class="label-bold">Grade :</span> Licence &nbsp;&nbsp;&nbsp;&nbsp; <span class="label-bold">Campus :</span> {{ etudiant.campus|default:"Douala" }} &nbsp;&nbsp;&nbsp;&nbsp; <span class="label-bold">Niveau :</span> {{ niveau.numero }}<br>
+                    <span class="label-bold">N° Matricule :</span> <span class="val-bold cell-mono">{{ etudiant.matricule }}</span><br>
+                    <span class="label-bold">Date de Naissance :</span> {{ etudiant.date_naissance|date:"d/m/Y"|default:"—" }}<br>
+                    <span class="label-bold">Lieu de Naissance :</span> {{ etudiant.lieu_naissance|default:"—" }}<br>
+                    <span class="label-bold">Année Académique :</span> {{ annee_academique }} &nbsp;&nbsp;&nbsp;&nbsp; <span class="label-bold">Classe :</span> {{ classe.nom }}
+                </td>
+            </tr>
+        </table>
+
+        <!-- Tableau des Notes par Semestre (S1 & S2) -->
+        <table class="notes-table">
+            <thead>
+                <tr>
+                    <th style="width: 15px;"></th>
+                    <th style="width: 65px;">Code UE</th>
+                    <th>Matières</th>
+                    <th style="width: 35px;">Notes</th>
+                    <th style="width: 30px;">Coef</th>
+                    <th style="width: 45px;">Total</th>
+                    <th style="width: 45px;">Moy. UE</th>
+                    <th style="width: 30px;">Rang</th>
+                    <th style="width: 50px;">Mention</th>
+                    <th style="width: 65px;">Session</th>
+                    <th style="width: 35px;">Crédits</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- SEMESTRE 1 -->
+                {% if s1_data.ues %}
+                    {% for ue_item in s1_data.ues %}
+                        {% for mat in ue_item.matieres %}
+                        <tr>
+                            {% if forloop.parentloop.first and forloop.first %}
+                                <td rowspan="{{ s1_data.total_rows }}" class="sem-header">SEMESTRE 1</td>
+                            {% endif %}
+
+                            {% if forloop.first %}
+                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono">{{ ue_item.ue.code }}</td>
+                            {% endif %}
+
+                            <td class="cell-left">{{ mat.nom }}</td>
+                            <td class="cell-mono">{{ mat.note_format }}</td>
+                            <td>{{ mat.coef }}</td>
+                            <td class="cell-mono">{{ mat.total_format }}</td>
+
+                            {% if forloop.first %}
+                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: bold;">{{ ue_item.moyenne_ue_format }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}">{{ ue_item.rang_ue|default:"—" }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.mention_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale 2023-2024" }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.credits_ue }}</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                    <!-- Ligne Total Semestre 1 -->
+                    <tr class="row-summary">
+                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RESULTATS SEMESTRE 1</td>
+                        <td>{{ s1_data.total_coef }}</td>
+                        <td class="cell-mono">{{ s1_data.total_points_format }}</td>
+                        <td class="cell-mono" style="font-size: 9.5px; color: #004d25;">{{ s1_data.moyenne_s1_format }}</td>
+                        <td>{{ s1_data.rang_s1 }}</td>
+                        <td colspan="2" class="cell-left">Total Crédits Semestre 1</td>
+                        <td style="font-size: 9.5px; font-weight: 900;">{{ s1_data.credits_s1 }}</td>
+                    </tr>
+                {% endif %}
+
+                <!-- SEMESTRE 2 -->
+                {% if s2_data.ues %}
+                    {% for ue_item in s2_data.ues %}
+                        {% for mat in ue_item.matieres %}
+                        <tr>
+                            {% if forloop.parentloop.first and forloop.first %}
+                                <td rowspan="{{ s2_data.total_rows }}" class="sem-header">SEMESTRE 2</td>
+                            {% endif %}
+
+                            {% if forloop.first %}
+                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono">{{ ue_item.ue.code }}</td>
+                            {% endif %}
+
+                            <td class="cell-left">{{ mat.nom }}</td>
+                            <td class="cell-mono">{{ mat.note_format }}</td>
+                            <td>{{ mat.coef }}</td>
+                            <td class="cell-mono">{{ mat.total_format }}</td>
+
+                            {% if forloop.first %}
+                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: bold;">{{ ue_item.moyenne_ue_format }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}">{{ ue_item.rang_ue|default:"—" }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.mention_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale 2023-2024" }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.credits_ue }}</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                    <!-- Ligne Total Semestre 2 -->
+                    <tr class="row-summary">
+                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RESULTATS SEMESTRE 2</td>
+                        <td>{{ s2_data.total_coef }}</td>
+                        <td class="cell-mono">{{ s2_data.total_points_format }}</td>
+                        <td class="cell-mono" style="font-size: 9.5px; color: #004d25;">{{ s2_data.moyenne_s2_format }}</td>
+                        <td>{{ s2_data.rang_s2 }}</td>
+                        <td colspan="2" class="cell-left">Total Crédits Semestre 2</td>
+                        <td style="font-size: 9.5px; font-weight: 900;">{{ s2_data.credits_s2 }}</td>
+                    </tr>
+                {% endif %}
+
+                <!-- RECAPITULATIF GLOBAL (S1 & S2) -->
+                <tr class="row-summary-recap">
+                    <td colspan="4" class="cell-left" style="text-transform: uppercase;">RECAPITULATIF (S1&S2)</td>
+                    <td>{{ recap_data.total_coef }}</td>
+                    <td class="cell-mono">{{ recap_data.total_points_format }}</td>
+                    <td colspan="3"></td>
+                    <td class="cell-left" style="font-size: 9px;">Crédits annuels obtenus</td>
+                    <td style="font-size: 10px; font-weight: 900; color: #004d25;">{{ recap_data.total_credits_annuels }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Cartouche Synthèse Annuelle et Décision -->
+        <div class="footer-summary-container">
+            <table class="footer-summary-table">
+                <tr>
+                    <td style="width: 45%;">
+                        <span class="label-bold">Moyenne annuelle de l'étudiant (e) :</span> <strong style="font-size: 10.5px; color: #004d25;">{{ moyenne_annuelle_format }} /20</strong><br>
+                        <span class="label-bold">Moyenne Générale de la Classe :</span> <strong>{{ moyenne_classe_generale_format }} /20</strong><br>
+                        <span class="label-bold">Rang annuel de l'étudiant (e) :</span> <strong>{{ rang_annuel }} Sur {{ total_effectif }}</strong>
+                    </td>
+                    <td style="width: 35%;">
+                        <span class="label-bold">Maximum :</span> {{ moyenne_classe_max_format }}<br>
+                        <span class="label-bold">Minimum :</span> {{ moyenne_classe_min_format }}<br>
+                        <span class="label-bold">Discipline :</span> {{ discipline|default:"-" }}
+                    </td>
+                    <td style="width: 20%;">
+                        <span class="label-bold">Retards :</span> {{ retards|default:"0" }}<br>
+                        <span class="label-bold">Absences :</span> {{ absences|default:"0" }}<br>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="border-top: 1px solid #a5d6a7; padding-top: 4px; margin-top: 2px;">
+                        <div class="decision-box">
+                            Décision du Conseil des Professeurs : 
+                            <span style="border-bottom: 2px dotted #1b5e20;">{{ decision_finale }}</span>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Section Signature Officielle et Sceau -->
+        <div class="signature-section">
+            <div class="sig-left">
+                <span>Fait à Douala, le {{ date_edition|date:"d/m/Y" }}</span>
+            </div>
+            <div class="sig-right">
+                Le Représentant Résident<br>
+                Chef d'Etablissement<br>
+                <div class="stamp-box">
+                    <div style="border: 2px solid #004d25; border-radius: 50%; width: 70px; height: 70px; margin: 4px auto; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #004d25; text-transform: uppercase; font-weight: bold; text-align: center; transform: rotate(-10deg);">
+                        INSTITUT AFRICAIN<br>D'INFORMATIQUE<br>★ DOUALA ★
+                    </div>
+                </div>
+                <div style="margin-top: 4px; font-weight: 900; font-size: 10px; color: #111;">
+                    Armand Claude ABANDA
+                </div>
+            </div>
+        </div>
+
+        <!-- Bande des Drapeaux d'Afrique Centrale -->
+        <div class="flag-bar"></div>
+    </div>
+
+</body>
+</html>

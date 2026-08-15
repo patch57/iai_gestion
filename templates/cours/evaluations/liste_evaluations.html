@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} - IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-r from-blue-700 via-indigo-800 to-purple-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-8 relative overflow-hidden">
+        <div class="relative z-10">
+            <div class="flex items-center space-x-3 text-blue-200 text-sm font-semibold uppercase tracking-wider mb-2">
+                <i class="fas fa-[#00D2FF] fa-shield-alt"></i>
+                <span>Garantie d'Anonymat Strict</span>
+            </div>
+            <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">{{ campagne.titre }}</h1>
+            <p class="mt-2 text-blue-100 max-w-3xl text-sm sm:text-base">
+                Évaluez librement vos enseignements du semestre. Vos réponses sont totalement anonymes et ne peuvent en aucun cas être associées à votre identité.
+            </p>
+        </div>
+        <div class="absolute -right-10 -bottom-10 opacity-15 text-white">
+            <i class="fas fa-[#00D2FF] fa-poll-h text-[200px]"></i>
+        </div>
+    </div>
+
+    <!-- Info Box -->
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-xl shadow-sm">
+        <div class="flex">
+            <div class="flex-shrink-0 text-blue-500">
+                <i class="fas fa-[#00D2FF] fa-info-circle text-xl"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-800 font-medium">
+                    Campagne ouverte jusqu'au <strong>{{ campagne.date_fin|date:"d F Y" }}</strong>.
+                    Prenez quelques minutes pour donner un avis constructif sur la qualité pédagogique, la ponctualité et les supports de cours.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des Cours à Évaluer -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for item in liste_cours %}
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition duration-200 overflow-hidden flex flex-col justify-between">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
+                        {{ item.cours.code }}
+                    </span>
+                    {% if item.est_evalue %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <i class="fas fa-[#00D2FF] fa-check-circle mr-1"></i> Évalué
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        <i class="fas fa-[#00D2FF] fa-clock mr-1"></i> À évaluer
+                    </span>
+                    {% endif %}
+                </div>
+
+                <h3 class="text-lg font-bold text-gray-900 mb-1 leading-snug">
+                    {{ item.cours.matiere.nom }}
+                </h3>
+                
+                <p class="text-xs text-gray-500 mb-4">
+                    Filière : <strong class="text-gray-700">{{ item.cours.filiere.code }}</strong>
+                </p>
+
+                <div class="flex items-center space-x-3 pt-3 border-t border-gray-50">
+                    <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                        <i class="fas fa-[#00D2FF] fa-chalkboard-teacher"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400">Enseignant</p>
+                        <p class="text-sm font-semibold text-gray-800">
+                            {{ item.cours.professeur.get_nom_complet }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                {% if item.est_evalue %}
+                <button disabled class="w-full text-center py-2.5 px-4 rounded-xl bg-gray-200 text-gray-500 font-medium text-sm cursor-not-allowed">
+                    Évaluation soumise
+                </button>
+                {% else %}
+                <a href="{% url 'cours:evaluer_cours' item.cours.id %}" class="w-full text-center py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition shadow-sm hover:shadow flex items-center justify-center space-x-2">
+                    <span>Commencer l'évaluation</span>
+                    <i class="fas fa-[#00D2FF] fa-arrow-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full bg-white rounded-2xl p-12 text-center border border-dashed border-gray-300">
+            <i class="fas fa-[#00D2FF] fa-clipboard-check text-4xl text-gray-300 mb-3"></i>
+            <h3 class="text-base font-semibold text-gray-700">Aucun cours trouvé</h3>
+            <p class="text-sm text-gray-400 mt-1">Vous n'avez aucun cours à évaluer actuellement pour ce semestre.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

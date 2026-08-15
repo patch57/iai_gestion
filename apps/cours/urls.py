@@ -4,6 +4,7 @@ URLs pour la gestion des cours
 from django.urls import path
 from . import views
 from . import views_apprenants
+from . import views_evaluations
 
 app_name = 'cours'
 
@@ -32,8 +33,15 @@ urlpatterns = [
     path('emploi-du-temps/<int:pk>/imprimer/', views.imprimer_emploi_du_temps_officiel, name='imprimer_emploi_du_temps_officiel'),
 
     
-    # Présences
+    # Présences & Fiches Hebdomadaires (LISTE DE PRESENCE IAI)
     path('seance/<int:seance_id>/presence/', views.feuille_presence, name='feuille_presence'),
+    path('presences/fiches/', views.liste_fiches_presence, name='liste_fiches_presence'),
+    path('presences/fiches/creer/', views.creer_fiche_presence, name='creer_fiche_presence'),
+    path('presences/fiches/<int:pk>/saisie/', views.saisie_grille_presence, name='saisie_grille_presence'),
+    path('presences/fiches/importer/', views.importer_fiche_presence, name='importer_fiche_presence'),
+    path('presences/fiches/<int:pk>/publier/', views.publier_fiche_presence, name='publier_fiche_presence'),
+    path('presences/discipline/salle/<int:salle_id>/', views.note_annuelle_discipline, name='note_annuelle_discipline'),
+    path('presences/liste-classe/<int:classe_id>/pdf/', views.exporter_liste_classe_presence_pdf, name='exporter_liste_classe_presence_pdf'),
     
     # Planning
     path('planning-professeur/', views.planning_professeur, name='planning_professeur'),
@@ -43,4 +51,10 @@ urlpatterns = [
     path('apprenants/notes/', views_apprenants.saisir_notes_apprenants, name='saisir_notes_apprenants'),
     path('apprenants/supports/', views_apprenants.liste_supports_apprenant, name='liste_supports_apprenant'),
     path('apprenants/supports/ajouter/', views_apprenants.ajouter_support_apprenant, name='ajouter_support_apprenant'),
+
+    # Évaluation Anonyme des Enseignants par les Apprenants
+    path('evaluations/', views_evaluations.liste_evaluations_etudiant, name='liste_evaluations_etudiant'),
+    path('evaluations/cours/<int:cours_id>/', views_evaluations.evaluer_cours, name='evaluer_cours'),
+    path('evaluations/synthese/', views_evaluations.synthese_evaluations_professeur, name='synthese_evaluations_professeur'),
+    path('evaluations/synthese/<int:professeur_id>/', views_evaluations.synthese_evaluations_professeur, name='synthese_evaluations_professeur_detail'),
 ]

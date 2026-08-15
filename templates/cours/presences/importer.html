@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-4xl mx-auto space-y-6">
+    <div class="flex items-center gap-3 bg-white p-6 border border-gray-200 rounded-3xl shadow-sm">
+        <a href="{% url 'cours:liste_fiches_presence' %}" class="p-2.5 text-gray-500 hover:bg-gray-100 rounded-2xl transition">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <h1 class="text-xl font-black text-gray-800"><i class="fas fa-file-import text-green-700 mr-2"></i>Nouvelle Fiche / Importation de Présence</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Associez une classe et importez ou créez la grille hebdomadaire</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Form 1: Créer une grille vide pré-remplie -->
+        <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center gap-3 text-green-800 font-bold border-b pb-3 border-gray-100">
+                <div class="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center text-green-700">
+                    <i class="fas fa-edit"></i>
+                </div>
+                <span>Option A : Créer une Grille Web</span>
+            </div>
+            <p class="text-xs text-gray-500">Génère la liste pré-remplie avec tous les étudiants inscrits de la classe pour saisie directe sur ordinateur ou tablette.</p>
+
+            <form method="POST" action="{% url 'cours:creer_fiche_presence' %}" class="space-y-4 pt-2">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Classe / Salle</label>
+                    <select name="classe" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-green-600 focus:bg-white transition">
+                        {% for c in classes %}
+                        <option value="{{ c.id }}">{{ c.nom }} ({{ c.filiere.code }} - Niveau {{ c.niveau.numero }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Semaine du</label>
+                        <input type="date" name="semaine_du" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-green-600 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">au</label>
+                        <input type="date" name="semaine_au" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-green-600 transition">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-table"></i> Générer la Grille de Saisie
+                </button>
+            </form>
+        </div>
+
+        <!-- Form 2: Importer un fichier CSV/Excel avec Matching Automatique -->
+        <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center gap-3 text-blue-800 font-bold border-b pb-3 border-gray-100">
+                <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-700">
+                    <i class="fas fa-magic"></i>
+                </div>
+                <span>Option B : Import CSV avec Matching</span>
+            </div>
+            <p class="text-xs text-gray-500">Téléversez un fichier CSV. Le système effectue un **matching automatique et fiable** par matricule/nom pour comptabiliser les absences ('A').</p>
+
+            <form method="POST" action="{% url 'cours:importer_fiche_presence' %}" enctype="multipart/form-data" class="space-y-4 pt-2">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Classe / Salle</label>
+                    <select name="classe" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-600 focus:bg-white transition">
+                        {% for c in classes %}
+                        <option value="{{ c.id }}">{{ c.nom }} ({{ c.filiere.code }} - Niveau {{ c.niveau.numero }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Semaine du</label>
+                        <input type="date" name="semaine_du" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-600 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">au</label>
+                        <input type="date" name="semaine_au" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-600 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Fichier de Présence (CSV)</label>
+                    <input type="file" name="fichier" accept=".csv,.txt" required class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition">
+                </div>
+
+                <button type="submit" class="w-full py-3 bg-gradient-to-r from-blue-700 to-indigo-600 hover:from-blue-800 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-upload"></i> Lancer l'Importation & Matching
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

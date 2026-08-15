@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        nav, sidebar, header, .no-print, button, a {
+            display: none !important;
+        }
+        body, .content-container, main {
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+        }
+        .print-card {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+    }
+
+    .cell-input {
+        width: 22px;
+        height: 26px;
+        text-align: center;
+        font-weight: 900;
+        font-family: monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        background-color: #ffffff;
+        transition: all 0.15s ease-in-out;
+    }
+    .cell-input:focus {
+        border-color: #15803d;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.2);
+    }
+    .cell-absent {
+        background-color: #fee2e2 !important;
+        color: #dc2626 !important;
+        border-color: #f87171 !important;
+    }
+</style>
+
+<div class="p-6 max-w-[98%] mx-auto space-y-6">
+    <!-- Action Bar -->
+    <div class="flex items-center justify-between no-print bg-white p-4 border border-gray-200 rounded-3xl shadow-sm">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'cours:liste_fiches_presence' %}" class="p-2.5 text-gray-500 hover:bg-gray-100 rounded-2xl transition">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="text-lg font-black text-gray-800">Grille de Saisie de Présence — {{ fiche.classe.nom }}</h2>
+                <p class="text-xs text-gray-500">Semaine du {{ fiche.semaine_du|date:"d/m/Y" }} au {{ fiche.semaine_au|date:"d/m/Y" }}</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button onclick="document.getElementById('form-grille').submit()" class="px-5 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-save"></i> Enregistrer la Grille
+            </button>
+
+            {% if fiche.statut != 'PUBLIE' %}
+            <form method="POST" action="{% url 'cours:publier_fiche_presence' fiche.pk %}" onsubmit="return confirm('⚠️ Confirmer la publication de la liste de présence ? Les absences seront immédiatement ajoutées au compteur cumulé de chaque étudiant.');" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-blue-700 to-indigo-600 hover:from-blue-800 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-2">
+                    <i class="fas fa-check-double"></i> Publier & Cumuler
+                </button>
+            </form>
+            {% else %}
+            <span class="px-4 py-2 bg-green-100 text-green-800 border border-green-300 rounded-2xl text-xs font-bold flex items-center gap-1.5">
+                <i class="fas fa-check-circle"></i> Fiche Publiée (Cumulée)
+            </span>
+            {% endif %}
+
+            <button onclick="window.print()" class="px-4 py-2.5 bg-gray-700 hover:bg-gray-800 text-white rounded-2xl text-xs font-bold shadow transition flex items-center gap-2">
+                <i class="fas fa-print"></i> Imprimer
+            </button>
+        </div>
+    </div>
+
+    <!-- Printable Official Sheet Card -->
+    <div class="bg-white border border-gray-300 shadow-xl rounded-3xl p-6 md:p-8 print-card text-black font-sans">
+        <!-- En-tête officiel IAI avec logo centré au-dessus -->
+        <div class="text-center mb-4">
+            <img src="/static/images/logo_iai.png" alt="Logo IAI" class="mx-auto h-14 w-auto mb-2">
+            <h3 class="text-xs uppercase tracking-wide font-extrabold">Etablissement Inter – Etats d’Enseignement Supérieur</h3>
+            <h4 class="text-xs uppercase tracking-wide font-medium">Représentation du Cameroun</h4>
+            <h2 class="text-sm uppercase tracking-wider font-black text-green-900">CENTRE D’EXCELLENCE TECHNOLOGIQUE PAUL BIYA</h2>
+            <p class="text-[9px] text-gray-500">BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57 / 242 72 99 58 / 691 902 120 Site: www.iaicameroun.com</p>
+        </div>
+
+        <div class="text-center mb-4">
+            <h1 class="text-xl font-black uppercase tracking-wider underline underline-offset-4">LISTE DE PRESENCE</h1>
+            <div class="text-xs font-bold text-gray-700 mt-2 flex justify-center gap-6">
+                <span>Année Académique : <strong>{{ fiche.annee_academique }}</strong></span>
+                <span>Centre : <strong>Douala</strong></span>
+                <span>Niveau : <strong>{{ fiche.classe.niveau.numero|default:"1" }}</strong></span>
+                <span>Classe : <strong class="text-green-800">{{ fiche.classe.nom }}</strong></span>
+            </div>
+            <div class="text-xs font-semibold text-gray-600 mt-1">
+                Semaine du <span class="font-bold border-b border-gray-400 px-2">{{ fiche.semaine_du|date:"d/m/Y" }}</span> au <span class="font-bold border-b border-gray-400 px-2">{{ fiche.semaine_au|date:"d/m/Y" }}</span>
+            </div>
+        </div>
+
+        <!-- Légende -->
+        <div class="text-[11px] font-semibold text-gray-600 mb-3 flex items-center justify-between no-print bg-gray-50 p-3 rounded-2xl border border-gray-200">
+            <span><strong>Légende de codage :</strong> <span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded border border-red-300">A</span> = Absent &nbsp;|&nbsp; Case vide = Présent</span>
+            <span class="text-xs text-gray-400 italic">Saisissez 'A' pour comptabiliser une absence.</span>
+        </div>
+
+        <form id="form-grille" method="POST" action="{% url 'cours:saisie_grille_presence' fiche.pk %}">
+            {% csrf_token %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse border border-black text-[10px] table-fixed">
+                    <thead>
+                        <tr class="bg-gray-100 text-center font-bold uppercase border-b border-black">
+                            <th class="p-1 border border-black w-24">NOMS</th>
+                            <th class="p-1 border border-black w-24">PRENOMS</th>
+                            <th class="p-1 border border-black w-28">MATR.</th>
+                            <th class="p-1 border border-black" colspan="4">Lun.</th>
+                            <th class="p-1 border border-black" colspan="4">Mar.</th>
+                            <th class="p-1 border border-black" colspan="4">Mer.</th>
+                            <th class="p-1 border border-black" colspan="4">Jeu.</th>
+                            <th class="p-1 border border-black" colspan="4">Ven.</th>
+                            <th class="p-1 border border-black" colspan="4">Sam.</th>
+                            <th class="p-1 border border-black w-16 bg-red-50 text-red-800">Total Abs.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in lignes_data %}
+                        <tr class="hover:bg-gray-50/80 transition">
+                            <td class="p-1 border border-black font-bold uppercase">{{ item.etudiant.nom }}</td>
+                            <td class="p-1 border border-black font-semibold">{{ item.etudiant.prenom }}</td>
+                            <td class="p-1 border border-black font-mono font-bold">{{ item.etudiant.matricule }}</td>
+                            
+                            <!-- Lun (4 slots) -->
+                            {% for slot_num in "1234" %}
+                            <td class="p-0.5 border border-black text-center">
+                                <input type="text" name="abs_{{ item.etudiant.id }}_lun_{{ slot_num }}" value="{% if item.details.lun %}{{ item.details.lun|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.lun and item.details.lun|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                            </td>
+                            {% endfor %}
+
+                            <!-- Mar (4 slots) -->
+                            {% for slot_num in "1234" %}
+                            <td class="p-0.5 border border-black text-center">
+                                <input type="text" name="abs_{{ item.etudiant.id }}_mar_{{ slot_num }}" value="{% if item.details.mar %}{{ item.details.mar|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.mar and item.details.mar|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                            </td>
+                            {% endfor %}
+
+                            <!-- Mer (4 slots) -->
+                            {% for slot_num in "1234" %}
+                            <td class="p-0.5 border border-black text-center">
+                                <input type="text" name="abs_{{ item.etudiant.id }}_mer_{{ slot_num }}" value="{% if item.details.mer %}{{ item.details.mer|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.mer and item.details.mer|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                            </td>
+                            {% endfor %}
+
+                            <!-- Jeu (4 slots) -->
+                            {% for slot_num in "1234" %}
+                            <td class="p-0.5 border border-black text-center">
+                                <input type="text" name="abs_{{ item.etudiant.id }}_jeu_{{ slot_num }}" value="{% if item.details.jeu %}{{ item.details.jeu|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.jeu and item.details.jeu|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                            </td>
+                            {% endfor %}
+
+                            <!-- Ven (4 slots) -->
+                            {% for slot_num in "1234" %}
+                            <td class="p-0.5 border border-black text-center">
+                                <input type="text" name="abs_{{ item.etudiant.id }}_ven_{{ slot_num }}" value="{% if item.details.ven %}{{ item.details.ven|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.ven and item.details.ven|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                            </td>
+                            {% endfor %}
+
+                            <!-- Sam (4 slots) -->
+                            {% for slot_num in "1234" %}
+                            <td class="p-0.5 border border-black text-center">
+                                <input type="text" name="abs_{{ item.etudiant.id }}_sam_{{ slot_num }}" value="{% if item.details.sam %}{{ item.details.sam|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.sam and item.details.sam|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                            </td>
+                            {% endfor %}
+
+                            <!-- Total absences de la semaine -->
+                            <td class="p-1 border border-black text-center font-extrabold text-xs {% if item.absences > 0 %}text-red-600 bg-red-50{% else %}text-gray-400{% endif %}">
+                                {{ item.absences }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

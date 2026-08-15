@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} - IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row items-center justify-between">
+        <div>
+            <div class="flex items-center space-x-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-2">
+                <i class="fab fa-whatsapp text-lg text-emerald-300"></i>
+                <span>Module Gratuit WhatsApp & SMS</span>
+            </div>
+            <h1 class="text-3xl font-black">Console d'Envoi WhatsApp Direct</h1>
+            <p class="text-emerald-100 text-sm mt-1 max-w-2xl">
+                Envoyez des relances de scolarité, rappels d'absences et convocations sur le WhatsApp des étudiants et tuteurs en 1 clic sans aucun abonnement payant.
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0">
+            <span class="px-4 py-2 bg-emerald-800 bg-opacity-50 text-emerald-100 border border-emerald-400 border-opacity-30 rounded-xl text-xs font-bold">
+                100% Sans Coût / Click-to-WhatsApp
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Formulaire d'Envoi -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <i class="fas fa-[#00D2FF] fa-paper-plane text-emerald-600 mr-2"></i>
+                Rédiger un Message WhatsApp
+            </h2>
+
+            <form method="POST" class="space-y-4">
+                {% csrf_token %}
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Sélectionner l'Étudiant / Destinataire</label>
+                    <select name="etudiant_id" required class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm p-3 border">
+                        <option value="">-- Choisir un étudiant --</option>
+                        {% for e in etudiants %}
+                        <option value="{{ e.id }}">
+                            {{ e.get_nom_complet }} ({{ e.filiere.code|default:"IAI" }}) - Tél: {{ e.telephone|default:e.utilisateur.telephone|default:"Non renseigné" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Objet / Titre de la notification</label>
+                    <input type="text" name="titre" value="Rappel Échéance Scolarité - IAI Cameroun" required class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm p-3 border">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Message</label>
+                    <textarea name="message" rows="5" required class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm p-3 border" placeholder="Entrez votre message ici...">Bonjour, nous vous rappelons que votre prochaine tranche de scolarité arrive à échéance. Merci de bien vouloir régulariser votre situation auprès du service comptabilité.</textarea>
+                </div>
+
+                <button type="submit" class="w-full py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition shadow-lg shadow-emerald-200 flex items-center justify-center space-x-2">
+                    <i class="fab fa-whatsapp text-lg"></i>
+                    <span>Générer le Lien d'Envoi WhatsApp</span>
+                </button>
+            </form>
+
+            {% if resultat %}
+            <div class="mt-6 p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <h3 class="text-sm font-bold text-emerald-900 mb-2 flex items-center">
+                    <i class="fas fa-[#00D2FF] fa-check-circle text-emerald-600 mr-2"></i>
+                    Lien Prêt pour : {{ resultat.etudiant }}
+                </h3>
+                <p class="text-xs text-emerald-700 mb-3">Téléphone : <strong>{{ resultat.telephone }}</strong></p>
+
+                <a href="{{ resultat.lien_whatsapp }}" target="_blank" class="inline-flex items-center space-x-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow">
+                    <i class="fab fa-whatsapp text-base"></i>
+                    <span>Ouvrir WhatsApp et Envoyer le Message</span>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Guide & Avantages -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 class="text-base font-bold text-gray-900 mb-3">Comment ça marche ?</h3>
+                <ul class="space-y-3 text-xs text-gray-600">
+                    <li class="flex items-start">
+                        <i class="fas fa-[#00D2FF] fa-check text-emerald-500 mt-0.5 mr-2"></i>
+                        <span><strong>Gratuité 100%</strong> : Utilise la technologie Click-to-WhatsApp (wa.me) sans intermédiaire payant.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-[#00D2FF] fa-check text-emerald-500 mt-0.5 mr-2"></i>
+                        <span><strong>Double Impact</strong> : Le message est également archivé dans les notifications internes de l'étudiant.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-[#00D2FF] fa-check text-emerald-500 mt-0.5 mr-2"></i>
+                        <span><strong>Format Cameroun</strong> : Détecte et formate automatiquement les numéros (+237 6XX...).</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

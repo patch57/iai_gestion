@@ -46,19 +46,61 @@
                 {% endif %}
             </div>
             
-            <!-- Détails Financiers -->
-            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
-                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-wallet mr-2 text-yellow-500"></i>État de mon solde</h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Montant total payé</span>
-                        <span class="font-bold text-green-600">{{ apprenant.montant_paye|floatformat:0 }} FCFA</span>
-                    </div>
-                    <div class="flex justify-between border-t pt-2">
-                        <span class="text-gray-500 font-bold">Reste à payer</span>
-                        <span class="font-black text-red-600">{{ apprenant.reste_a_payer|floatformat:0 }} FCFA</span>
+            <!-- Détails Financiers & Paiement en Ligne -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 space-y-6">
+                <div>
+                    <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-wallet mr-2 text-yellow-500"></i>État de mon solde</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Montant total payé</span>
+                            <span class="font-bold text-green-600">{{ apprenant.montant_paye|floatformat:0 }} FCFA</span>
+                        </div>
+                        <div class="flex justify-between border-t pt-2">
+                            <span class="text-gray-500 font-bold">Reste à payer</span>
+                            <span class="font-black text-red-600">{{ apprenant.reste_a_payer|floatformat:0 }} FCFA</span>
+                        </div>
                     </div>
                 </div>
+
+                {% if apprenant.reste_a_payer > 0 %}
+                <div class="pt-4 border-t border-gray-100">
+                    <h4 class="font-bold text-sm text-gray-800 mb-3"><i class="fas fa-credit-card mr-2 text-emerald-600"></i>Payer mes frais de formation</h4>
+                    <form method="POST" class="space-y-3">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Montant à verser (FCFA)</label>
+                            <input type="number" name="montant_paiement" max="{{ apprenant.reste_a_payer }}" min="1000" step="500" value="{{ apprenant.reste_a_payer|floatformat:0 }}" required class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Mode de paiement</label>
+                            <select name="mode_paiement" class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 font-medium">
+                                <option value="MTN Mobile Money">MTN Mobile Money (*126#)</option>
+                                <option value="Orange Money">Orange Money (*150#)</option>
+                                <option value="CinetPay (Carte / MoMo)">CinetPay (Carte / MoMo)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Numéro de téléphone du compte (MoMo / OM)</label>
+                            <div class="relative rounded-xl border border-gray-300 overflow-hidden flex items-center bg-gray-50">
+                                <span class="px-3 text-xs font-bold text-gray-600 flex items-center gap-1 border-r border-gray-200 py-2">
+                                    🇨🇲 +237
+                                </span>
+                                <input type="tel" name="telephone_paiement" required maxlength="9" pattern="^6[256789][0-9]{7}$" placeholder="6XXXXXXXX" value="{{ apprenant.contact|slice:'-9:' }}" class="w-full bg-white px-3 py-2 text-sm font-bold text-gray-900 border-0 focus:ring-0 focus:outline-none">
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-1">Saisissez votre numéro MTN (67x, 68x, 650-654) ou Orange (69x, 655-659).</p>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition text-sm flex items-center justify-center gap-2">
+                            <i class="fas fa-mobile-alt text-amber-300"></i> Régler maintenant
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="pt-4 border-t border-gray-100 text-center">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                        <i class="fas fa-check-circle mr-1"></i> Formation entièrement réglée !
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
 

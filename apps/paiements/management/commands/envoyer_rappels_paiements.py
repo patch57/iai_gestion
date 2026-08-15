@@ -23,7 +23,7 @@ class Command(BaseCommand):
             # Calculer les pénalités
             penalites_info = calculer_penalites_etudiant(etudiant)
             
-            if penalites_info['total'] > 0:
+            if penalites_info['total_global'] > 0:
                 compteur_insolvables += 1
                 
                 # Synchroniser également les notifications système en base de données
@@ -105,6 +105,50 @@ class Command(BaseCommand):
                         self.stdout.write(
                             self.style.SUCCESS(f"E-mail de rappel envoyé à {etudiant.get_nom_complet()} ({destinataire}) - Pénalités : {penalites_info['total']} FCFA")
                         )
+
+                        # Envoi de la notification WhatsApp
+                        try:
+                            from apps.tableau_bord.whatsapp_service import WhatsAppService
+                            whatsapp_details = []
+                            for detail in penalites_info.get('details', []):
+                                whatsapp_details.append(
+                                    f"• *{detail['tranche']}* : {detail['montant']:,} FCFA ({detail['semaines_retard']} sem. de retard, limite : {detail['date_limite'].strftime('%d/%m/%Y')})"
+                                )
+                            details_str = "\n".join(whatsapp_details)
+                            site_url = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
+                            annee_code = etudiant.annee_academique.code if etudiant.annee_academique else '2024-2025'
+                            
+                            msg_whatsapp = (
+                                f"*IAI-CAMEROUN (Douala)* 🎓\n"
+                                f"*Rappel de Paiement - Scolarité & Pénalités*\n\n"
+                                f"Bonjour {etudiant.prenom} {etudiant.nom},\n\n"
+                                f"Notre système a détecté des retards de paiement pour vos tranches de scolarité (Année {annee_code}). "
+                                f"Des pénalités de retard ont été appliquées conformément au règlement intérieur.\n\n"
+                                f"*Détails de votre situation :*\n"
+                                f"{details_str}\n\n"
+                                f"*Total des pénalités :* {penalites_info['total']:,} FCFA\n\n"
+                                f"Veuillez régulariser cette situation au plus vite pour éviter toute restriction. Vous pouvez régler en ligne via Mobile Money :\n"
+                                f"{site_url}/paiements/payer-penalites/\n\n"
+                                f"_Ceci est un message automatique de l'administration IAI-Cameroun (Douala)._"
+                            )
+                            
+                            numero_tel = etudiant.telephone
+                            if not numero_tel and etudiant.utilisateur:
+                                numero_tel = getattr(etudiant.utilisateur, 'telephone', '')
+                                
+                            if numero_tel:
+                                WhatsAppService.envoyer_message(numero_tel, msg_whatsapp)
+                                self.stdout.write(
+                                    self.style.SUCCESS(f"WhatsApp envoyé à {etudiant.get_nom_complet()} (+{WhatsAppService.normaliser_numero(numero_tel)})")
+                                )
+                            else:
+                                self.stdout.write(
+                                    self.style.WARNING(f"Aucun numéro de téléphone trouvé pour WhatsApp ({etudiant.get_nom_complet()})")
+                                )
+                        except Exception as whatsapp_err:
+                            self.stdout.write(
+                                self.style.ERROR(f"Échec de l'envoi de la notification WhatsApp pour {etudiant.get_nom_complet()} : {str(whatsapp_err)}")
+                            )
                     except Exception as e:
                         self.stdout.write(
                             self.style.ERROR(f"Échec de l'envoi de l'e-mail à {etudiant.get_nom_complet()} ({destinataire}) : {str(e)}")

@@ -1,307 +1,265 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carte Étudiant - {{ etudiant.get_nom_complet }}</title>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Carte d'Étudiant Officielle - {{ etudiant.get_nom_complet }}</title>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+        @page {
+            size: 86mm 54mm;
             margin: 0;
-            padding: 40px 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            gap: 20px;
         }
 
-        /* Card container matching standard CR80 size (85.6mm x 53.98mm) scaled up */
-        .card-container {
-            width: 86mm;
-            height: 54mm;
-            background: linear-gradient(135deg, #065f46 0%, #047857 70%, #064e3b 100%);
-            border-radius: 4.76mm; /* Scale-friendly rounded corners */
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        * {
             box-sizing: border-box;
-            padding: 4mm;
-            position: relative;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* Gold highlight strip */
-        .card-container::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 1.5mm;
-            background-color: #facc15;
-        }
-
-        /* Watermark */
-        .watermark {
-            position: absolute;
-            font-size: 80px;
-            font-weight: 900;
-            color: rgba(255, 255, 255, 0.03);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-15deg);
-            pointer-events: none;
-            user-select: none;
-            letter-spacing: 5px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 0.5px solid rgba(255, 255, 255, 0.15);
-            padding-bottom: 2mm;
-        }
-
-        .header-logo {
-            display: flex;
-            flex-direction: column;
-        }
-        .logo-text {
-            font-size: 14px;
-            font-weight: 900;
-            letter-spacing: 1px;
+        body {
             margin: 0;
-            color: #facc15;
-        }
-        .logo-sub {
-            font-size: 6px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin: 1px 0 0 0;
-            font-weight: bold;
-        }
-
-        .header-right {
-            font-size: 6px;
-            text-align: right;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .body-section {
+            padding: 20px;
+            background-color: #f1f5f9;
             display: flex;
-            gap: 3mm;
-            align-items: center;
-            margin-top: 1.5mm;
-            flex: 1;
-        }
-
-        .photo-box {
-            width: 17mm;
-            height: 22mm;
-            border-radius: 2mm;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            background-color: rgba(255, 255, 255, 0.1);
-            overflow: hidden;
-            display: flex;
-            align-items: center;
             justify-content: center;
-        }
-        .photo-box img {
-            width: 100%;
-            height: 100%;
-            object-cover: cover;
-        }
-        .photo-placeholder {
-            font-size: 15px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .info-box {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 1mm;
-        }
-
-        .info-row {
-            display: flex;
-            flex-direction: column;
-        }
-        .info-label {
-            font-size: 5px;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.5);
-            font-weight: bold;
-            letter-spacing: 0.3px;
-        }
-        .info-val {
-            font-size: 8px;
-            font-weight: 700;
-            color: white;
-        }
-        .info-val-large {
-            font-size: 10px;
-            font-weight: 800;
-            color: #facc15;
-            text-transform: uppercase;
-        }
-
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-top: 1mm;
-            border-top: 0.3px solid rgba(255, 255, 255, 0.1);
-            padding-top: 1mm;
-            z-index: 10;
-        }
-
-        .barcode-box {
-            background-color: white;
-            padding: 1px 3px;
-            border-radius: 0.5mm;
-            display: flex;
             align-items: center;
-            justify-content: center;
+            flex-direction: column;
+            gap: 15px;
         }
 
-        .validity {
-            font-size: 6px;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.8);
-            font-weight: bold;
-        }
-
-        /* Printable / Action controls */
-        .controls {
+        .no-print-bar {
+            background: #ffffff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             display: flex;
-            gap: 10px;
+            gap: 15px;
+            align-items: center;
         }
-        .btn {
-            background-color: #047857;
-            color: white;
-            border: none;
-            padding: 10px 20px;
+
+        .btn-print {
+            background: linear-gradient(135deg, #047857, #059669);
+            color: #ffffff;
+            padding: 9px 18px;
             border-radius: 8px;
             font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             font-size: 13px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             transition: all 0.2s;
         }
-        .btn:hover {
-            background-color: #065f46;
+        .btn-print:hover {
+            opacity: 0.9;
             transform: translateY(-1px);
         }
 
         @media print {
+            .no-print-bar {
+                display: none !important;
+            }
             body {
-                background-color: white;
                 padding: 0;
-                margin: 0;
+                background: white;
             }
-            .controls {
-                display: none;
+            .badge-card {
+                box-shadow: none !important;
+                margin: 0 !important;
             }
-            .card-container {
-                box-shadow: none;
-                page-break-inside: avoid;
-            }
+        }
+
+        /* Cadre standard Badge CR80 (86mm x 54mm) */
+        .badge-card {
+            width: 86mm;
+            height: 54mm;
+            background: #ffffff;
+            border: 1.5px solid #1e293b;
+            border-radius: 3.5mm;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Bandeau supérieur dynamique (Vert pour Niveau 1, Rouge pour Niveau 2) */
+        .header-bar-niveau {
+            {% if etudiant.niveau and etudiant.niveau.numero == 2 %}
+            background: linear-gradient(135deg, #b91c1c, #dc2626); /* Rouge Niveau 2 */
+            {% else %}
+            background: linear-gradient(135deg, #047857, #059669); /* Vert Niveau 1 */
+            {% endif %}
+            height: 12mm;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            padding: 0 3mm;
+            gap: 2.5mm;
+            color: #ffffff;
+        }
+
+        .logo-header {
+            height: 9.5mm;
+            width: 9.5mm;
+            object-fit: contain;
+            background: #ffffff;
+            border-radius: 50%;
+            padding: 1px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .header-text-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .text-inst-title {
+            font-size: 6.5pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            line-height: 1.1;
+        }
+
+        .text-inst-subtitle {
+            font-size: 5pt;
+            font-weight: 700;
+            color: #f3f4f6;
+            text-transform: uppercase;
+            margin-top: 1px;
+        }
+
+        /* Zone de contenu principale */
+        .badge-body {
+            display: flex;
+            padding: 1.5mm 3mm;
+            justify-content: space-between;
+            align-items: center;
+            flex: 1;
+        }
+
+        .photo-column {
+            width: 22mm;
+            height: 26mm;
+            flex-shrink: 0;
+        }
+
+        .photo-frame {
+            width: 22mm;
+            height: 26mm;
+            border: 1px solid #cbd5e1;
+            object-fit: cover;
+            background-color: #f8fafc;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .fields-column {
+            flex: 1;
+            padding-left: 3mm;
+            font-size: 5.5pt;
+            line-height: 1.35;
+            color: #1e293b;
+        }
+
+        .field-row {
+            display: flex;
+            margin-bottom: 0.5mm;
+        }
+
+        .field-label {
+            font-weight: 700;
+            color: #475569;
+            width: 20mm;
+            flex-shrink: 0;
+        }
+
+        .field-val {
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Pied de carte sécurisé */
+        .footer-sec-bar {
+            background-color: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            height: 4.5mm;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 3mm;
+            font-size: 4pt;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .flag-bar-bottom {
+            height: 1.5mm;
+            width: 100%;
+            background: linear-gradient(to right, 
+                #007a3d 0%, #007a3d 20%, 
+                #ce1126 20%, #ce1126 40%, 
+                #fcd116 40%, #fcd116 60%, 
+                #007a3d 60%, #007a3d 80%, 
+                #ce1126 80%, #ce1126 100%);
         }
     </style>
 </head>
 <body>
 
-    <div class="controls">
-        <button onclick="window.print()" class="btn">🖨️ Imprimer la Carte</button>
+    <div class="no-print-bar">
+        <strong>Carte d'Étudiant Officielle</strong>
+        <span>{{ etudiant.get_nom_complet }} — {{ etudiant.matricule|default:"En cours" }}</span>
+        <button onclick="window.print()" class="btn-print">🖨️ Imprimer la Carte</button>
+        <a href="{% url 'paiements:exporter_carte_etudiant_pdf' etudiant.id %}" target="_blank" class="btn-print" style="background: #1e3a8a;">📄 Télécharger PDF</a>
     </div>
 
-    <!-- Student Card Card-CR80 size -->
-    <div class="card-container">
-        <div class="watermark">IAI</div>
-
-        <!-- Header -->
-        <div class="header">
-            <div class="header-logo">
-                <h3 class="logo-text">IAI-CAMEROUN</h3>
-                <span class="logo-sub">DOUALA CENTRE</span>
-            </div>
-            <div class="header-right">
-                Carte d'Étudiant<br>
-                Student Card
+    <div class="badge-card">
+        <!-- Bandeau Supérieur avec Couleur Dynamique et Logo IAI -->
+        <div class="header-bar-niveau">
+            <img src="{% static 'images/logo_iai.png' %}" class="logo-header" alt="Logo IAI">
+            <div class="header-text-container">
+                <div class="text-inst-title">INSTITUT AFRICAIN D'INFORMATIQUE</div>
+                <div class="text-inst-subtitle">Centre de Douala (PK10) — Carte Étudiant Niveau {{ etudiant.niveau.numero|default:1 }}</div>
             </div>
         </div>
 
-        <!-- Body Section -->
-        <div class="body-section">
-            <div class="photo-box">
+        <!-- Corps de la Carte -->
+        <div class="badge-body">
+            <div class="photo-column">
                 {% if etudiant.photo %}
-                <img src="{{ etudiant.photo.url }}" alt="Photo">
+                    <img src="{{ etudiant.photo.url }}" alt="Photo {{ etudiant.nom }}" class="photo-frame">
                 {% else %}
-                <div class="photo-placeholder">👤</div>
+                    <div class="photo-frame" style="display: flex; align-items: center; justify-content: center; font-size: 5.5pt; color: #94a3b8; font-weight: bold;">PHOTO</div>
                 {% endif %}
             </div>
-            <div class="info-box">
-                <div class="info-row">
-                    <span class="info-label">Noms & Prénoms / Names</span>
-                    <span class="info-val-large">{{ etudiant.get_nom_complet }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Filière / Department</span>
-                    <span class="info-val">{{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }})</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Matricule / ID</span>
-                    <span class="info-val">{{ etudiant.matricule }}</span>
-                </div>
+
+            <div class="fields-column">
+                <div class="field-row"><span class="field-label">Matricule :</span> <span class="field-val" style="color: #047857;">{{ etudiant.matricule|default:"En cours d'attribution" }}</span></div>
+                <div class="field-row"><span class="field-label">Nom :</span> <span class="field-val">{{ etudiant.nom }}</span></div>
+                <div class="field-row"><span class="field-label">Prénom :</span> <span class="field-val">{{ etudiant.prenom }}</span></div>
+                <div class="field-row"><span class="field-label">Filière :</span> <span class="field-val">{{ etudiant.filiere.nom|default:etudiant.filiere.code }}</span></div>
+                <div class="field-row"><span class="field-label">Niveau :</span> <span class="field-val">Niveau {{ etudiant.niveau.numero|default:1 }}</span></div>
+                <div class="field-row"><span class="field-label">Année Acad. :</span> <span class="field-val">{{ annee_active|default:"2026-2027" }}</span></div>
             </div>
         </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            <div class="validity">
-                Valide : {{ annee_active.code|default:"2024-2025" }}
-            </div>
-            <div class="barcode-box">
-                <!-- Simple CSS Barcode Mockup -->
-                <svg width="60" height="15" viewBox="0 0 100 20" style="fill: black;">
-                    <rect x="0" y="0" width="3" height="20" />
-                    <rect x="5" y="0" width="1" height="20" />
-                    <rect x="8" y="0" width="2" height="20" />
-                    <rect x="12" y="0" width="4" height="20" />
-                    <rect x="18" y="0" width="1" height="20" />
-                    <rect x="21" y="0" width="3" height="20" />
-                    <rect x="26" y="0" width="2" height="20" />
-                    <rect x="30" y="0" width="1" height="20" />
-                    <rect x="33" y="0" width="4" height="20" />
-                    <rect x="39" y="0" width="2" height="20" />
-                    <rect x="43" y="0" width="1" height="20" />
-                    <rect x="46" y="0" width="3" height="20" />
-                    <rect x="51" y="0" width="2" height="20" />
-                    <rect x="55" y="0" width="1" height="20" />
-                    <rect x="58" y="0" width="4" height="20" />
-                    <rect x="64" y="0" width="2" height="20" />
-                    <rect x="68" y="0" width="1" height="20" />
-                    <rect x="71" y="0" width="3" height="20" />
-                    <rect x="76" y="0" width="2" height="20" />
-                    <rect x="80" y="0" width="1" height="20" />
-                    <rect x="83" y="0" width="4" height="20" />
-                    <rect x="89" y="0" width="2" height="20" />
-                    <rect x="93" y="0" width="1" height="20" />
-                    <rect x="96" y="0" width="4" height="20" />
-                </svg>
-            </div>
+        <!-- Pied de Carte (Sans signature ni représentant résident) -->
+        <div class="footer-sec-bar">
+            <span>AUTHENTIFICATION SÉCURISÉE IAI-CAMEROUN</span>
+            <span>CENTRE DE DOUALA</span>
         </div>
+        <div class="flag-bar-bottom"></div>
     </div>
 
 </body>
 </html>
+

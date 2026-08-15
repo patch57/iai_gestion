@@ -68,9 +68,11 @@ urlpatterns = [
     path('pv/<int:pk>/transmettre/', views.transmettre_pv, name='transmettre_pv'),
     path('pv/<int:pk>/supprimer/', views.supprimer_pv, name='supprimer_pv'),
     
-    # ========== BORDEREAUX DE NOTES PAR UE ==========
+    # ========== BORDEREAUX DE NOTES PAR UE & BULLETINS OFFICIELS ==========
     path('bordereaux/', views.liste_bordereaux, name='liste_bordereaux'),
     path('bordereaux/salle/<int:salle_id>/', views.generer_bordereau, name='generer_bordereau'),
     path('bordereaux/diffuser/<int:salle_id>/', views.diffuser_resultats, name='diffuser_resultats'),
+    path('bordereaux/publier/<int:salle_id>/', views.publier_bulletins_salle, name='publier_bulletins_salle'),
+    path('bulletins/officiel/<int:bulletin_id>/', views.voir_bulletin_officiel, name='voir_bulletin_officiel'),
     path('releve/consulter/<str:token>/', views.consulter_resultat_individuel, name='consulter_resultat_individuel'),
 ]

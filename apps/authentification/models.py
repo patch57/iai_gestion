@@ -17,6 +17,7 @@ class Utilisateur(AbstractUser):
         ('FORMATEUR', '👨‍🏫 Formateur (Certifications)'),
         ('PROFESSEUR', '👨‍🏫 Professeur'),
         ('ENSEIGNANT', '👨‍🏫 Enseignant'),
+        ('CHEF_FORMATION_CONTINUE', '🎓 Chef Service Formation Continue & Certifiante'),
         ('ADMIN_PEDAGOGIQUE', '📚 Admin Pédagogique'),
         ('ADMIN_FINANCIER', '💰 Admin Financier'),
         ('CHEF_SCOLARITE', '🏫 Chef Scolarité'),
@@ -55,8 +56,8 @@ class Utilisateur(AbstractUser):
     ]
     
     matricule_validator = RegexValidator(
-        regex=r'^((GL|SR)\.CMR\.(D\d{3}|DO\d{2}|D014)\.\d{4}[A-Z]?|[A-Z]{2,3}\.CMR\.D\d{3}\.\d{4}\.[A-Z])$',
-        message='Format de matricule invalide. Exemples : GL.CMR.D043.2324A ou CSE.CMR.D123.2026.A'
+        regex=r'^((GL|SR)\.CMR\.(D\d{3}|DO\d{2}|D014)\.\d{4}[A-Z]?|[A-Z]{2,4}\.CMR\.D\d{3}\.\d{4}\.[A-Z]|CS-[A-Z0-9\-_]+|[A-Za-z0-9\-_]{3,30})$',
+        message='Format de matricule invalide. Exemples : GL.CMR.D043.2324A ou CS-FC-2026-01'
     )
     
     telephone_validator = RegexValidator(
@@ -66,7 +67,7 @@ class Utilisateur(AbstractUser):
     
     # Champs principaux
     type_utilisateur = models.CharField(
-        max_length=20, 
+        max_length=35, 
         choices=TYPE_UTILISATEUR, 
         blank=True, 
         null=True,
@@ -303,10 +304,10 @@ class Utilisateur(AbstractUser):
                 })
                 
         elif self.type_utilisateur in ['ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'ADMIN_FINANCIER'] or self.type_utilisateur == 'PROFESSEUR' or self.type_utilisateur == 'ENSEIGNANT' or self.type_utilisateur.startswith('CHEF_'):
-            pattern = r'^[A-Z]{3}\.CMR\.D\d{3}\.\d{4}\.[A-Z]$'
+            pattern = r'^([A-Z]{2,4}\.CMR\.D\d{3}\.\d{4}\.[A-Z]|CS-[A-Z0-9\-_]+|[A-Za-z0-9\-_]{3,30})$'
             if not re.match(pattern, self.matricule):
                 raise ValidationError({
-                    'matricule': _('Format invalide. Format attendu: CSE.CMR.D123.2026.A')
+                    'matricule': _('Format invalide. Format attendu: CSE.CMR.D123.2026.A ou CS-FC-2026-01')
                 })
     
     def save(self, *args, **kwargs):
@@ -326,8 +327,8 @@ class Utilisateur(AbstractUser):
         if self.pk and not self._state.adding and self.last_login != self._original_last_login:
             self.derniere_connexion = self.last_login
         
-        # Générer un matricule automatiquement si nécessaire
-        if not self.matricule and self.statut_inscription == 'COMPTE_ACTIF':
+        # Générer un matricule automatiquement si nécessaire (exclus pour les apprenants)
+        if not self.matricule and self.statut_inscription == 'COMPTE_ACTIF' and self.type_utilisateur != 'APPRENANT':
             self.generer_matricule()
         
         # Appeler full_clean seulement si ce n'est pas un superuser en création

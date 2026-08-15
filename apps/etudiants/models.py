@@ -493,6 +493,10 @@ class Etudiant(models.Model):
         default='PREINSCRIT',
         verbose_name="Statut"
     )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name="Compte actif (Soft Delete)"
+    )
     
     # Documents
     photo = models.ImageField(
@@ -530,6 +534,19 @@ class Etudiant(models.Model):
     nom_mere = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nom de la mère")
     telephone_mere = models.CharField(max_length=20, blank=True, null=True, verbose_name="Téléphone de la mère")
     
+    # Informations complémentaires de la Fiche de Renseignement
+    pays_naissance = models.CharField(max_length=100, default='Cameroun', blank=True, verbose_name="Pays de naissance")
+    situation_matrimoniale = models.CharField(max_length=50, default='Célibataire', blank=True, verbose_name="Situation matrimoniale")
+    region_origine = models.CharField(max_length=100, blank=True, default='', verbose_name="Région d'origine")
+    lieu_residence = models.CharField(max_length=100, blank=True, default='', verbose_name="Lieu de résidence")
+    personne_contact_nom_prenom = models.CharField(max_length=150, blank=True, default='', verbose_name="Personne à contacter (Nom & Prénom)")
+    personne_contact_telephone = models.CharField(max_length=30, blank=True, default='', verbose_name="Téléphone de la personne à contacter")
+    personne_contact_residence = models.CharField(max_length=100, blank=True, default='', verbose_name="Lieu de résidence de la personne à contacter")
+    serie_bacc = models.CharField(max_length=50, blank=True, default='', verbose_name="Série / Type BACC")
+    date_premiere_rentree = models.DateField(blank=True, null=True, verbose_name="Date de première rentrée académique")
+    statut_etudiant_fiche = models.CharField(max_length=50, default='Nouvelle admission', blank=True, verbose_name="Statut étudiant sur fiche")
+    date_concours = models.DateField(blank=True, null=True, verbose_name="Date du concours")
+
     # Informations de santé
     groupe_sanguin = models.CharField(
         max_length=5,
@@ -1016,3 +1033,35 @@ class Apprenant(models.Model):
         total_tarif = sum(f.tarif for f in self.formations.all())
         self.reste_a_payer = max(0, total_tarif - self.montant_paye)
         self.save()
+
+    def enregistrer_paiement_formation(self, montant, mode_paiement='Mobile Money'):
+        """
+        Enregistre un paiement de frais pour la formation continue / certifiante
+        et notifie le Chef de la Comptabilité dans son Dashboard et via WhatsApp.
+        """
+        from decimal import Decimal
+        import logging
+
+        self.montant_paye += Decimal(str(montant))
+        self.recalculer_solde()
+
+        # Notification automatique du Chef de la Comptabilité (Dashboard & WhatsApp)
+        try:
+            from apps.tableau_bord.whatsapp_service import WhatsAppService
+            formations_str = ", ".join(f.get_nom_display() for f in self.formations.all()) or "Formation Continue / Certifiante"
+            titre = f"Nouveau paiement formation : {self.nom_complet} ({montant:,.0f} FCFA)"
+            message = (
+                f"L'apprenant(e) {self.nom_complet} ({self.email}) a effectué un règlement de "
+                f"{montant:,.0f} FCFA via {mode_paiement}.\n"
+                f"Formation(s) concernée(s) : {formations_str}.\n"
+                f"Total versé : {self.montant_paye:,.0f} FCFA | Reste à payer : {self.reste_a_payer:,.0f} FCFA."
+            )
+            WhatsAppService.notifier_chef_comptabilite(
+                titre=titre,
+                message=message,
+                lien='/tableau-de-bord/chef-comptabilite/'
+            )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"[Apprenant] Erreur notification Chef Comptabilité : {e}")
+
+        return self.reste_a_payer

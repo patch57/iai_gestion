@@ -667,3 +667,214 @@ def statistiques_financieres(request):
         'titre': 'Statistiques Financières'
     }
     return render(request, 'inscriptions/statistiques_financieres.html', context)
+
+
+# ==================== FICHE DE RENSEIGNEMENT ====================
+
+@login_required
+def fiche_renseignement_etudiant(request):
+    """
+    Remplissage ou modification de la Fiche de Renseignement par l'étudiant
+    avec contrôle IA de la photo et vérification du reçu bancaire.
+    """
+    from apps.etudiants.models import Etudiant
+    from apps.etudiants.ai_services import verifier_photo_identite
+    from apps.paiements.models import RecuPaiement, TranchePaiement
+    from .forms import FicheRenseignementEtudiantForm
+    from .models import FicheRenseignement, AnneeAcademique, Inscription
+
+    user = request.user
+    etudiant = getattr(user, 'profil_etudiant', None)
+
+    # Si l'utilisateur n'a pas encore de profil étudiant lié, le trouver par email ou en créer un
+    if not etudiant and user.email:
+        etudiant = Etudiant.objects.filter(email=user.email).first()
+        if etudiant:
+            etudiant.utilisateur = user
+            etudiant.save(update_fields=['utilisateur'])
+
+    if not etudiant:
+        messages.error(request, "⚠️ Aucun profil étudiant associé à votre compte. Veuillez contacter l'administration.")
+        return redirect('tableau_bord:index')
+
+    annee_active = AnneeAcademique.get_active() or AnneeAcademique.objects.first()
+    fiche_existante = FicheRenseignement.objects.filter(etudiant=etudiant).order_by('-date_soumission').first()
+
+    if request.method == 'POST':
+        form = FicheRenseignementEtudiantForm(request.POST, request.FILES)
+        if form.is_valid():
+            photo_file = request.FILES.get('photo_identite')
+            recu_file = request.FILES.get('recu_paiement_fichier')
+
+            # 1. Vérification de la photo par l'Agent IA
+            photo_valide, msg_photo, details_photo = verifier_photo_identite(photo_file)
+            if not photo_valide:
+                messages.error(request, f"❌ Erreur Photo d'Identité (Agent IA) : {msg_photo}")
+                return render(request, 'inscriptions/fiche_renseignement_form.html', {
+                    'form': form,
+                    'etudiant': etudiant,
+                    'fiche': fiche_existante,
+                    'titre': 'Fiche de Renseignement'
+                })
+
+            # 2. Mise à jour des informations de l'étudiant
+            etudiant.nom = form.cleaned_data['nom'].upper()
+            etudiant.prenom = form.cleaned_data['prenom']
+            etudiant.date_naissance = form.cleaned_data['date_naissance']
+            etudiant.lieu_naissance = form.cleaned_data['lieu_naissance']
+            etudiant.pays_naissance = form.cleaned_data['pays_naissance']
+            etudiant.situation_matrimoniale = form.cleaned_data['situation_matrimoniale']
+            etudiant.nationalite = form.cleaned_data['nationalite']
+            etudiant.region_origine = form.cleaned_data['region_origine']
+            etudiant.adresse = form.cleaned_data['adresse_permanente']
+            etudiant.telephone = form.cleaned_data['telephone']
+            etudiant.lieu_residence = form.cleaned_data['lieu_residence']
+            etudiant.email = form.cleaned_data['email']
+
+            etudiant.personne_contact_nom_prenom = form.cleaned_data['personne_contact_nom_prenom']
+            etudiant.personne_contact_telephone = form.cleaned_data['personne_contact_telephone']
+            etudiant.personne_contact_residence = form.cleaned_data['personne_contact_residence']
+
+            etudiant.filiere = form.cleaned_data['filiere']
+            etudiant.serie_bacc = form.cleaned_data['serie_bacc']
+
+            if form.cleaned_data.get('date_premiere_rentree'):
+                etudiant.date_premiere_rentree = form.cleaned_data['date_premiere_rentree']
+            etudiant.statut_etudiant_fiche = form.cleaned_data['statut_etudiant_fiche']
+            if form.cleaned_data.get('date_concours'):
+                etudiant.date_concours = form.cleaned_data['date_concours']
+
+            if form.cleaned_data.get('matricule'):
+                etudiant.matricule = form.cleaned_data['matricule']
+
+            if photo_file:
+                etudiant.photo = photo_file
+
+            etudiant.save()
+
+            # 3. Création du reçu de paiement et analyse OCR IA
+            tranche_1 = TranchePaiement.objects.filter(numero=1).first()
+            recu = RecuPaiement.objects.create(
+                etudiant=etudiant,
+                tranche=tranche_1,
+                recu_fichier=recu_file,
+                statut='EN_ATTENTE'
+            )
+            # Exécuter l'analyse IA du reçu
+            recu.analyser_par_ia()
+            recu.save()
+
+            # Vérification si le reçu est authentique et validé par l'IA (score >= 90%)
+            recu_valide_ia = recu.statut == 'VALIDE' or (recu.score_confiance and recu.score_confiance >= 0.90)
+
+            # 4. Inscription associée
+            inscription, _ = Inscription.objects.get_or_create(
+                etudiant=etudiant,
+                annee_academique=annee_active,
+                defaults={
+                    'filiere': etudiant.filiere,
+                    'type_inscription': 'NOUVELLE',
+                    'statut': 'VALIDEE' if recu_valide_ia else 'EN_ATTENTE'
+                }
+            )
+            if recu_valide_ia:
+                inscription.statut = 'VALIDEE'
+                inscription.save()
+                etudiant.statut = 'INSCRIT'
+                etudiant.save(update_fields=['statut'])
+
+            # 5. Création/Mise à jour de la FicheRenseignement
+            statut_fiche = 'VALIDE' if recu_valide_ia else 'EN_ATTENTE_VERIFICATION'
+            msg_ia = "✅ Photo d'identité conforme. Reçu bancaire authentifié et validé automatiquement par l'IA !" if recu_valide_ia else "✅ Photo d'identité conforme. Reçu bancaire transmis au Chef de la Comptabilité pour vérification finale."
+
+            fiche = FicheRenseignement.objects.create(
+                etudiant=etudiant,
+                annee_academique=annee_active,
+                inscription=inscription,
+                recu_paiement=recu,
+                photo_validee_ia=True,
+                recu_valide_ia=recu_valide_ia,
+                statut_validation=statut_fiche,
+                details_ia_photo=details_photo,
+                details_ia_recu=recu.verification_ia or {},
+                message_ia=msg_ia
+            )
+
+            if recu_valide_ia:
+                messages.success(request, f"🎉 Fiche enregistrée avec succès ! {msg_ia}")
+            else:
+                messages.warning(request, f"📋 Fiche enregistrée avec succès. {msg_ia}")
+
+            return redirect('inscriptions:detail_fiche_renseignement', pk=fiche.pk)
+
+    else:
+        # Données initiales
+        initial_data = {
+            'nom': etudiant.nom,
+            'prenom': etudiant.prenom,
+            'date_naissance': etudiant.date_naissance,
+            'lieu_naissance': etudiant.lieu_naissance,
+            'pays_naissance': etudiant.pays_naissance or 'Cameroun',
+            'situation_matrimoniale': etudiant.situation_matrimoniale or 'Célibataire',
+            'nationalite': etudiant.nationalite or 'CMR',
+            'region_origine': etudiant.region_origine,
+            'adresse_permanente': etudiant.adresse,
+            'telephone': etudiant.telephone,
+            'lieu_residence': etudiant.lieu_residence,
+            'email': etudiant.email,
+            'personne_contact_nom_prenom': etudiant.personne_contact_nom_prenom or etudiant.nom_tuteur,
+            'personne_contact_telephone': etudiant.personne_contact_telephone or etudiant.telephone_tuteur,
+            'personne_contact_residence': etudiant.personne_contact_residence,
+            'filiere': etudiant.filiere,
+            'serie_bacc': etudiant.serie_bacc,
+            'niveau': etudiant.niveau.numero if etudiant.niveau else '1',
+            'date_premiere_rentree': etudiant.date_premiere_rentree,
+            'statut_etudiant_fiche': etudiant.statut_etudiant_fiche or 'Nouvelle admission',
+            'date_concours': etudiant.date_concours,
+            'matricule': etudiant.matricule,
+        }
+        form = FicheRenseignementEtudiantForm(initial=initial_data)
+
+    context = {
+        'form': form,
+        'etudiant': etudiant,
+        'fiche': fiche_existante,
+        'titre': 'Fiche de Renseignement'
+    }
+    return render(request, 'inscriptions/fiche_renseignement_form.html', context)
+
+
+@login_required
+def detail_fiche_renseignement(request, pk):
+    """
+    Affichage de la Fiche de Renseignement d'un étudiant.
+    Textuellement et visuellement identique à la version papier imprimée.
+    """
+    from .models import FicheRenseignement
+    fiche = get_object_or_404(FicheRenseignement.objects.select_related('etudiant', 'annee_academique', 'inscription', 'recu_paiement'), pk=pk)
+    etudiant = fiche.etudiant
+
+    context = {
+        'fiche': fiche,
+        'etudiant': etudiant,
+        'titre': f'Fiche de Renseignement - {etudiant.get_nom_complet()}'
+    }
+    return render(request, 'inscriptions/detail_fiche_renseignement.html', context)
+
+
+@login_required
+def telecharger_fiche_pdf(request, pk):
+    """Générer et télécharger la Fiche de Renseignement officielle en PDF"""
+    from .models import FicheRenseignement
+    from .pdf_services import generer_fiche_renseignement_pdf
+
+    fiche = get_object_or_404(FicheRenseignement.objects.select_related('etudiant', 'annee_academique'), pk=pk)
+    etudiant = fiche.etudiant
+
+    base_url = request.build_absolute_uri('/')[:-1]
+    pdf_bytes = generer_fiche_renseignement_pdf(etudiant, fiche=fiche, domain_url=base_url)
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    filename = f"Fiche_Renseignement_{etudiant.matricule or etudiant.id}.pdf"
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
