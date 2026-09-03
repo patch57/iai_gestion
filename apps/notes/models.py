@@ -360,7 +360,7 @@ class Bulletin(models.Model):
     annee_academique = models.CharField(max_length=9, default='2024-2025')
     semestre = models.PositiveIntegerField(
         default=1,
-        validators=[MinValueValidator(1), MaxValueValidator(2)]
+        validators=[MinValueValidator(1), MaxValueValidator(3)]
     )
     
     # Moyennes
@@ -494,19 +494,16 @@ class DetailBulletin(models.Model):
         return f"{self.matiere} - {self.bulletin}"
     
     def calculer_moyenne(self):
-        """Calcule la moyenne de la matière"""
+        """Calcule la moyenne de la matière (CC 40% et Examen 60%)"""
         notes = []
         coeffs = []
         
         if self.note_cc is not None:
             notes.append(float(self.note_cc))
-            coeffs.append(0.3)
-        if self.note_tp is not None:
-            notes.append(float(self.note_tp))
-            coeffs.append(0.2)
+            coeffs.append(0.4)
         if self.note_examen is not None:
             notes.append(float(self.note_examen))
-            coeffs.append(0.5)
+            coeffs.append(0.6)
         
         if notes and coeffs:
             total_pondere = sum(n * c for n, c in zip(notes, coeffs))
@@ -884,6 +881,18 @@ class ProcesVerbalNotes(models.Model):
     def __str__(self):
         return f"PV Notes - {self.titre}"
 
+    def get_nb_cc(self):
+        """
+        Détermine le nombre de sous-évaluations CC réellement présent sur ce PV (0 à 5).
+        Si nb_cc <= 1, seule la colonne finale 'Moyenne CC' est affichée.
+        """
+        max_sub = 0
+        for ligne in self.lignes.all():
+            for idx, val in enumerate([ligne.note_1, ligne.note_2, ligne.note_3, ligne.note_4, ligne.note_5], start=1):
+                if val is not None:
+                    max_sub = max(max_sub, idx)
+        return max_sub
+
     def actualiser_depuis_fiches_anonymat(self):
         """
         Agrège dynamiquement les fiches d'anonymat (CC, Examen, Rattrapage) associées à cette matière et cette salle.
@@ -916,41 +925,116 @@ class ProcesVerbalNotes(models.Model):
         elif self.filiere and self.niveau:
             fiches_qs = fiches_qs.filter(filiere=self.filiere, niveau=self.niveau)
 
-        # Dictionnaire: etudiant_id -> {'CC': val, 'EXAM': val, 'RATT': val}
-        notes_par_etudiant = {}
+        cc_fiches = []
+        exam_fiches = []
+        ratt_fiches = []
         types_transmis = set()
 
         for fiche in fiches_qs:
-            code_type = fiche.type_evaluation.code.upper()
+            code_type = fiche.type_evaluation.code.upper() if fiche.type_evaluation else ''
             is_cc = 'CC' in code_type or 'CONTROLE' in code_type or 'TP' in code_type or 'TD' in code_type
             is_ratt = 'RATT' in code_type or 'RATTRAPAGE' in code_type
             is_exam = ('EXAM' in code_type or 'EXAMEN' in code_type) and not is_ratt
 
             est_fiche_transmise = (fiche.statut in ['TRANSMIS_CHEF_ETUDES', 'VALIDE']) or self.est_transmis
 
-            if is_cc and est_fiche_transmise:
-                types_transmis.add('CC')
-            if is_exam and est_fiche_transmise:
-                types_transmis.add('EXAM')
+            if is_cc:
+                cc_fiches.append(fiche)
+                if est_fiche_transmise:
+                    types_transmis.add('CC')
+            elif is_ratt:
+                ratt_fiches.append(fiche)
+            elif is_exam:
+                exam_fiches.append(fiche)
+                if est_fiche_transmise:
+                    types_transmis.add('EXAM')
 
+        # Dict: student_id -> dict avec note_1..5, CC, EXAM, RATT
+        notes_par_etudiant = {}
+        nb_cc_effective = 0
+
+        if len(cc_fiches) == 1:
+            fiche = cc_fiches[0]
+            max_sub = 0
+            for ligne in fiche.lignes.all():
+                for idx, n in enumerate([ligne.note_1, ligne.note_2, ligne.note_3, ligne.note_4, ligne.note_5], start=1):
+                    if n is not None:
+                        max_sub = max(max_sub, idx)
+
+            if max_sub > 1:
+                nb_cc_effective = max_sub
+                for ligne in fiche.lignes.select_related('etudiant').all():
+                    if ligne.etudiant:
+                        eid = ligne.etudiant.id
+                        if eid not in notes_par_etudiant:
+                            notes_par_etudiant[eid] = {}
+                        
+                        sub_notes = [ligne.note_1, ligne.note_2, ligne.note_3, ligne.note_4, ligne.note_5][:nb_cc_effective]
+                        sum_val = 0.0
+                        for idx, sn in enumerate(sub_notes, start=1):
+                            val_sn = float(sn) if sn is not None else 0.0
+                            notes_par_etudiant[eid][f'note_{idx}'] = val_sn
+                            sum_val += val_sn
+                        
+                        notes_par_etudiant[eid]['CC'] = round(sum_val / nb_cc_effective, 2)
+            else:
+                nb_cc_effective = 1
+                for ligne in fiche.lignes.select_related('etudiant').all():
+                    if ligne.etudiant:
+                        eid = ligne.etudiant.id
+                        if eid not in notes_par_etudiant:
+                            notes_par_etudiant[eid] = {}
+                        
+                        val = ligne.note if ligne.note is not None else ligne.moyenne_cc
+                        if val is None and ligne.note_1 is not None:
+                            val = ligne.note_1
+                        
+                        if val is not None:
+                            notes_par_etudiant[eid]['CC'] = float(val)
+
+        elif len(cc_fiches) > 1:
+            nb_cc_effective = min(len(cc_fiches), 5)
+            for idx_f, fiche in enumerate(cc_fiches[:nb_cc_effective], start=1):
+                for ligne in fiche.lignes.select_related('etudiant').all():
+                    if ligne.etudiant:
+                        eid = ligne.etudiant.id
+                        if eid not in notes_par_etudiant:
+                            notes_par_etudiant[eid] = {}
+                        val = ligne.note if ligne.note is not None else ligne.moyenne_cc
+                        if val is None and ligne.note_1 is not None:
+                            val = ligne.note_1
+                        if val is not None:
+                            notes_par_etudiant[eid][f'note_{idx_f}'] = float(val)
+
+            for eid, data in notes_par_etudiant.items():
+                sum_val = 0.0
+                for k in range(1, nb_cc_effective + 1):
+                    val_k = data.get(f'note_{k}')
+                    val_float = float(val_k) if val_k is not None else 0.0
+                    data[f'note_{k}'] = val_float
+                    sum_val += val_float
+                data['CC'] = round(sum_val / nb_cc_effective, 2)
+
+        for fiche in exam_fiches:
             for ligne in fiche.lignes.select_related('etudiant').all():
                 if ligne.etudiant:
                     eid = ligne.etudiant.id
                     if eid not in notes_par_etudiant:
                         notes_par_etudiant[eid] = {}
-
                     val = ligne.note if ligne.note is not None else ligne.moyenne_cc
                     if val is not None:
-                        val = float(val)
+                        notes_par_etudiant[eid]['EXAM'] = float(val)
 
-                    if is_cc:
-                        notes_par_etudiant[eid]['CC'] = val
-                    elif is_ratt:
-                        notes_par_etudiant[eid]['RATT'] = val
-                    elif is_exam:
-                        notes_par_etudiant[eid]['EXAM'] = val
+        for fiche in ratt_fiches:
+            for ligne in fiche.lignes.select_related('etudiant').all():
+                if ligne.etudiant:
+                    eid = ligne.etudiant.id
+                    if eid not in notes_par_etudiant:
+                        notes_par_etudiant[eid] = {}
+                    val = ligne.note if ligne.note is not None else ligne.moyenne_cc
+                    if val is not None:
+                        notes_par_etudiant[eid]['RATT'] = float(val)
 
-        # Les deux notes (CC et Examen) doivent être transmises pour imputer les zéros et calculer la moyenne finale
         cc_transmis = 'CC' in types_transmis or (self.est_transmis and any('CC' in n for n in notes_par_etudiant.values()))
         exam_transmis = 'EXAM' in types_transmis or (self.est_transmis and any('EXAM' in n for n in notes_par_etudiant.values()))
         les_deux_transmis = cc_transmis and exam_transmis
@@ -963,11 +1047,26 @@ class ProcesVerbalNotes(models.Model):
             )
             et_notes = notes_par_etudiant.get(etudiant.id, {})
 
+            if nb_cc_effective > 1:
+                ligne_pv.note_1 = et_notes.get('note_1', 0.0)
+                ligne_pv.note_2 = et_notes.get('note_2', 0.0)
+                ligne_pv.note_3 = et_notes.get('note_3', 0.0)
+                ligne_pv.note_4 = et_notes.get('note_4', 0.0)
+                ligne_pv.note_5 = et_notes.get('note_5', 0.0)
+            else:
+                ligne_pv.note_1 = et_notes.get('note_1')
+                ligne_pv.note_2 = None
+                ligne_pv.note_3 = None
+                ligne_pv.note_4 = None
+                ligne_pv.note_5 = None
+
             if 'CC' in et_notes:
                 ligne_pv.note_cc = et_notes['CC']
             elif not cc_transmis:
                 ligne_pv.note_cc = None
                 ligne_pv.note_cc_manquante = False
+            elif cc_transmis and nb_cc_effective > 1:
+                ligne_pv.note_cc = 0.0
 
             if 'EXAM' in et_notes:
                 ligne_pv.note_examen = et_notes['EXAM']
@@ -991,6 +1090,12 @@ class LigneProcesVerbalNotes(models.Model):
     pv = models.ForeignKey(ProcesVerbalNotes, on_delete=models.CASCADE, related_name='lignes')
     etudiant = models.ForeignKey('etudiants.Etudiant', on_delete=models.CASCADE, related_name='lignes_pv')
     
+    note_1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    note_2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    note_3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    note_4 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    note_5 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
     note_cc = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     note_examen = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     note_rattrapage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -1010,6 +1115,21 @@ class LigneProcesVerbalNotes(models.Model):
 
     def __str__(self):
         return f"{self.etudiant.get_nom_complet()} - CC: {self.note_cc if self.note_cc is not None else 'N/A'}, EX: {self.note_examen if self.note_examen is not None else 'N/A'}, RATT: {self.note_rattrapage if self.note_rattrapage is not None else 'N/A'} -> Final: {self.note_finale if self.note_finale is not None else 'N/A'}"
+
+    def get_sub_cc_notes(self, nb_cc):
+        """
+        Retourne la liste des sous-notes CC de la ligne jusqu'à nb_cc.
+        Si nb_cc <= 1, retourne une liste vide [].
+        Si nb_cc > 1 et une sous-note est absente/None, elle vaut 0.00.
+        """
+        if nb_cc <= 1:
+            return []
+        notes = [self.note_1, self.note_2, self.note_3, self.note_4, self.note_5]
+        res = []
+        for idx in range(nb_cc):
+            val = notes[idx]
+            res.append(float(val) if val is not None else 0.0)
+        return res
 
     def calculer_note_finale(self, cc_transmis=False, exam_transmis=False, imputer_zero_si_transmis=False):
         """

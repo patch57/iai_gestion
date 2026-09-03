@@ -64,8 +64,8 @@ class Utilisateur(AbstractUser):
     )
     
     telephone_validator = RegexValidator(
-        regex=r'^(6|2)\d{8}$',
-        message='Numéro de téléphone invalide. Format attendu: 6XXXXXXXX ou 2XXXXXXXX'
+        regex=r'^\+?\d{9,15}$',
+        message='Numéro de téléphone invalide. Format attendu : 6XXXXXXXX, 2XXXXXXXX ou format international (+237...)'
     )
     
     # Champs principaux

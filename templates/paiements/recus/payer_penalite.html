@@ -75,95 +75,168 @@
             </div>
 
             <!-- Payment Section -->
-            <div id="payment-form-section">
-                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6">
-                    <div class="flex items-start">
-                        <i class="fas fa-shield-alt text-blue-500 text-xl mr-3 mt-0.5"></i>
+            <div id="payment-form-section" class="space-y-6">
+                <!-- Bandeau Sécurité SSL & Gateway -->
+                <div class="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-4 text-white flex items-center justify-between shadow-md">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center text-lg font-bold border border-emerald-500/30">
+                            <i class="fas fa-lock"></i>
+                        </div>
                         <div>
-                            <h4 class="font-bold text-blue-800 text-sm">Paiement 100% sécurisé via CinetPay</h4>
-                            <p class="text-blue-600 text-xs mt-1">
-                                Vous serez redirigé vers la page sécurisée de CinetPay pour choisir votre opérateur 
-                                (MTN MoMo ou Orange Money) et effectuer le paiement. Aucune information bancaire 
-                                n'est stockée sur notre plateforme.
-                            </p>
+                            <h4 class="font-extrabold text-sm text-slate-100 flex items-center gap-2">
+                                Passerelle Sécurisée Mobile Money
+                                <span class="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-500/30">CinetPay SSL 256-bit</span>
+                            </h4>
+                            <p class="text-slate-400 text-xs mt-0.5">Cryptage de bout en bout — Aucun stockage de code PIN sur la plateforme.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Payment Methods Preview -->
-                <div class="grid grid-cols-2 gap-6 mb-8">
-                    <div class="group flex flex-col items-center justify-center p-5 rounded-3xl border border-yellow-200 bg-gradient-to-br from-yellow-50/80 to-white shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
-                        <div class="w-16 h-16 bg-gradient-to-tr from-yellow-500 to-amber-400 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-yellow-500/20 mb-3 font-black text-white text-lg tracking-tight relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
-                            <span class="z-10">MTN</span>
-                            <span class="z-10 text-[9px] font-bold uppercase tracking-widest text-yellow-100 opacity-90 -mt-1">MoMo</span>
-                            <div class="absolute -right-3 -bottom-3 w-10 h-10 bg-white/10 rounded-full blur-xs pointer-events-none"></div>
+                <!-- Sélecteur d'Opérateur Interactif (Cards & Radios) -->
+                <div>
+                    <label class="block text-xs font-black text-gray-700 uppercase tracking-wider mb-3 flex items-center justify-between">
+                        <span>1. Choisissez votre opérateur Mobile Money</span>
+                        <span id="op-detected-badge" class="text-[11px] font-extrabold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                            Sélectionnez un opérateur
+                        </span>
+                    </label>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Option MTN Mobile Money -->
+                        <div id="card-mtn" onclick="selectOperator('MTN')" 
+                             class="cursor-pointer relative rounded-2xl border-2 p-4 transition-all duration-300 bg-white shadow-sm hover:shadow-md flex items-center justify-between border-amber-300 bg-amber-50/30">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-14 h-14 bg-gradient-to-tr from-yellow-500 to-amber-400 rounded-2xl flex flex-col items-center justify-center shadow-md text-white font-black relative overflow-hidden flex-shrink-0">
+                                    <span class="text-base tracking-tight leading-none z-10">MTN</span>
+                                    <span class="text-[8px] uppercase tracking-widest text-yellow-100 font-bold z-10">MoMo</span>
+                                </div>
+                                <div>
+                                    <h5 class="font-black text-gray-900 text-sm flex items-center gap-1.5">
+                                        MTN Mobile Money
+                                        <span class="w-2 h-2 rounded-full bg-yellow-500 inline-block animate-pulse"></span>
+                                    </h5>
+                                    <p class="text-xs text-amber-900 font-medium mt-0.5">Code USSD : <strong class="font-bold">*126#</strong></p>
+                                    <span class="inline-block mt-1 text-[10px] font-extrabold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-md border border-yellow-200">
+                                        Prefixes: 67x, 68x, 650-654
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="radio" name="operator_choice" id="radio-mtn" value="MTN" checked class="w-5 h-5 text-yellow-600 focus:ring-yellow-500 cursor-pointer">
+                            </div>
                         </div>
-                        <span class="font-bold text-gray-700 text-sm">MTN Mobile Money</span>
-                        <span class="text-[10px] text-yellow-600 font-bold bg-yellow-100/60 px-2 py-0.5 rounded-full mt-1.5 border border-yellow-200/50">Disponible</span>
-                    </div>
-                    <div class="group flex flex-col items-center justify-center p-5 rounded-3xl border border-orange-200 bg-gradient-to-br from-orange-50/80 to-white shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
-                        <div class="w-16 h-16 bg-gradient-to-tr from-orange-600 to-orange-400 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-orange-500/20 mb-3 font-black text-white text-lg tracking-tight relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
-                            <span class="z-10">OM</span>
-                            <span class="z-10 text-[9px] font-bold uppercase tracking-widest text-orange-100 opacity-90 -mt-1">Orange</span>
-                            <div class="absolute -right-3 -bottom-3 w-10 h-10 bg-white/10 rounded-full blur-xs pointer-events-none"></div>
+
+                        <!-- Option Orange Money -->
+                        <div id="card-orange" onclick="selectOperator('ORANGE')" 
+                             class="cursor-pointer relative rounded-2xl border-2 p-4 transition-all duration-300 bg-white shadow-sm hover:shadow-md flex items-center justify-between border-gray-200 hover:border-orange-300">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-14 h-14 bg-gradient-to-tr from-orange-600 to-orange-400 rounded-2xl flex flex-col items-center justify-center shadow-md text-white font-black relative overflow-hidden flex-shrink-0">
+                                    <span class="text-base tracking-tight leading-none z-10">OM</span>
+                                    <span class="text-[8px] uppercase tracking-widest text-orange-100 font-bold z-10">Orange</span>
+                                </div>
+                                <div>
+                                    <h5 class="font-black text-gray-900 text-sm flex items-center gap-1.5">
+                                        Orange Money
+                                        <span class="w-2 h-2 rounded-full bg-orange-500 inline-block"></span>
+                                    </h5>
+                                    <p class="text-xs text-orange-900 font-medium mt-0.5">Code USSD : <strong class="font-bold">#150#</strong></p>
+                                    <span class="inline-block mt-1 text-[10px] font-extrabold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-md border border-orange-200">
+                                        Prefixes: 69x, 655-659
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="radio" name="operator_choice" id="radio-orange" value="ORANGE" class="w-5 h-5 text-orange-600 focus:ring-orange-500 cursor-pointer">
+                            </div>
                         </div>
-                        <span class="font-bold text-gray-700 text-sm">Orange Money</span>
-                        <span class="text-[10px] text-orange-700 font-bold bg-orange-100/60 px-2 py-0.5 rounded-full mt-1.5 border border-orange-200/50">Disponible</span>
                     </div>
                 </div>
 
-                <!-- Champ Numéro Mobile Money & Sélection d'Opérateur -->
-                <div class="mb-6 bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <label class="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">
-                        Numéro Mobile Money (MTN ou Orange Cameroun)
+                <!-- Champ Numéro Mobile Money avec Autodétection -->
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider">
+                        2. Entrez votre Numéro Mobile Money (+237 Cameroun)
                     </label>
                     <div class="relative rounded-xl shadow-sm">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-sm">
-                            +237
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-sm border-r border-slate-200 pr-2 my-1.5">
+                            🇨🇲 +237
                         </div>
-                        <input type="tel" id="input-telephone" value="{{ etudiant.telephone|default:'' }}" placeholder="6XXXXXXXX"
-                            class="block w-full pl-14 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        <input type="tel" id="input-telephone" value="{{ etudiant.telephone|default:'' }}" maxlength="9" placeholder="6XXXXXXXX"
+                            oninput="onPhoneInput(this.value)"
+                            class="block w-full pl-28 pr-4 py-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-black text-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition tracking-wider">
                     </div>
-                    <p class="text-[11px] text-slate-500 mt-1.5">
-                        💡 Un message de confirmation (USSD Prompt) sera envoyé directement sur ce numéro pour autoriser le prélèvement.
-                    </p>
+                    
+                    <!-- Guide USSD Dynamique -->
+                    <div id="ussd-prompt-guide" class="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                        <i class="fas fa-mobile-alt text-amber-600 text-base mt-0.5"></i>
+                        <div>
+                            <span class="font-extrabold block">💡 Prélèvement USSD Direct :</span>
+                            <span id="ussd-guide-text">Dès la validation, un message s'affichera directement sur l'écran de votre téléphone pour saisir votre code PIN.</span>
+                        </div>
+                    </div>
                 </div>
 
+                <!-- Récapitulatif Financier de la Transaction -->
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-200 rounded-2xl p-5 space-y-2.5">
+                    <h5 class="text-xs font-black text-emerald-900 uppercase tracking-wider flex items-center justify-between">
+                        <span>Récapitulatif de la transaction</span>
+                        <span class="text-[10px] text-emerald-700 font-bold bg-white px-2 py-0.5 rounded-md border border-emerald-200">Frais inclus</span>
+                    </h5>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex justify-between text-slate-600 font-medium">
+                            <span>Montant des pénalités à régler :</span>
+                            <span class="font-bold text-slate-800">{{ total_a_payer|floatformat:0 }} FCFA</span>
+                        </div>
+                        <div class="flex justify-between text-slate-600 font-medium">
+                            <span>Frais de traitement gateway Mobile Money :</span>
+                            <span class="font-bold text-emerald-700">0 FCFA (Offerts)</span>
+                        </div>
+                        <div class="pt-2 border-t border-emerald-200 flex justify-between items-center text-sm">
+                            <span class="font-black text-emerald-950">Total net à débiter :</span>
+                            <span class="font-black text-xl text-emerald-700">{{ total_a_payer|floatformat:0 }} FCFA</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bouton Action Principale -->
                 <button type="button" id="btn-pay" onclick="startPayment()"
-                    class="w-full bg-gradient-to-r from-green-700 via-emerald-600 to-green-600 hover:from-green-800 hover:to-emerald-700 text-white font-extrabold py-4 px-6 rounded-2xl shadow-xl shadow-green-600/20 hover:shadow-green-600/40 hover:scale-[1.01] active:scale-[0.99] transition duration-300 flex items-center justify-center gap-2 group cursor-pointer text-sm tracking-wide">
-                    <i class="fas fa-shield-alt text-emerald-200 group-hover:scale-110 transition-transform"></i>
-                    <span>Initier le paiement de {{ total_a_payer|floatformat:0 }} FCFA</span>
+                    class="w-full bg-gradient-to-r from-emerald-700 via-green-600 to-emerald-600 hover:from-emerald-800 hover:to-green-700 text-white font-black py-4 px-6 rounded-2xl shadow-xl shadow-emerald-700/20 hover:shadow-emerald-700/40 hover:scale-[1.01] active:scale-[0.99] transition duration-300 flex items-center justify-center gap-3 cursor-pointer text-base tracking-wide">
+                    <i class="fas fa-paper-plane text-yellow-300 text-lg"></i>
+                    <span>Initier le paiement de <strong class="underline decoration-yellow-400 decoration-2 ml-1">{{ total_a_payer|floatformat:0 }} FCFA</strong></span>
                 </button>
             </div>
 
-            <!-- Loading Screen -->
+            <!-- Loading Screen (Simulation & Connexion Gateway) -->
             <div id="payment-loading-section" class="hidden text-center py-10 space-y-6">
-                <div class="relative w-24 h-24 mx-auto">
-                    <div class="absolute inset-0 border-4 border-green-200 rounded-full"></div>
-                    <div class="absolute inset-0 border-4 border-green-600 rounded-full animate-spin border-t-transparent"></div>
-                    <div class="absolute inset-0 flex items-center justify-center text-green-600">
-                        <i class="fas fa-spinner fa-lg"></i>
+                <div class="relative w-28 h-28 mx-auto">
+                    <div class="absolute inset-0 border-4 border-amber-200 rounded-full"></div>
+                    <div class="absolute inset-0 border-4 border-yellow-500 rounded-full animate-spin border-t-transparent"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-yellow-600 text-2xl font-black">
+                        <i class="fas fa-mobile-alt animate-pulse"></i>
                     </div>
                 </div>
-                <div>
-                    <h3 class="font-extrabold text-xl text-gray-800">Initialisation de la passerelle CinetPay API...</h3>
-                    <p class="text-gray-500 text-sm mt-2 max-w-md mx-auto" id="loading-msg">
-                        Connexion sécurisée aux serveurs de paiement Mobile Money. Veuillez patienter...
+                <div class="space-y-2">
+                    <span class="bg-amber-100 text-amber-900 text-xs font-black px-3 py-1 rounded-full border border-amber-300 uppercase tracking-wider">
+                        Prélèvement USSD en cours
+                    </span>
+                    <h3 class="font-black text-2xl text-gray-900 mt-2" id="loading-title">Envoi de la requête Mobile Money...</h3>
+                    <p class="text-gray-600 text-sm max-w-md mx-auto leading-relaxed" id="loading-msg">
+                        Interconnexion sécurisée avec les serveurs de l'opérateur. Veuillez consulter votre téléphone portable...
                     </p>
                 </div>
             </div>
 
             <!-- Error / Retry Screen -->
             <div id="payment-error-section" class="hidden text-center py-10 space-y-6">
-                <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto text-red-500 text-3xl">
-                    <i class="fas fa-times-circle"></i>
+                <div class="w-20 h-20 bg-rose-100 border-2 border-rose-300 rounded-full flex items-center justify-center mx-auto text-rose-600 text-3xl shadow-inner">
+                    <i class="fas fa-exclamation-triangle"></i>
                 </div>
                 <div>
                     <h3 class="font-extrabold text-xl text-gray-800" id="error-title">Échec du Paiement</h3>
-                    <p class="text-red-500 text-sm mt-2 max-w-md mx-auto" id="error-msg">Une erreur s'est produite.</p>
+                    <p class="text-rose-600 text-sm mt-2 max-w-md mx-auto font-semibold" id="error-msg">Une erreur s'est produite.</p>
                 </div>
-                <button type="button" onclick="resetPayment()" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-6 rounded-xl transition shadow-md">
-                    Réessayer
+                <button type="button" onclick="resetPayment()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-xl transition shadow-md text-sm">
+                    <i class="fas fa-redo mr-2"></i> Réessayer un autre numéro
                 </button>
             </div>
 
@@ -172,10 +245,50 @@
 </div>
 
 <script>
-    let selectedOperator = 'MOBILE_MONEY';
+    let selectedOperator = 'MTN';
 
     function selectOperator(op) {
         selectedOperator = op;
+        const cardMtn = document.getElementById('card-mtn');
+        const cardOrange = document.getElementById('card-orange');
+        const radioMtn = document.getElementById('radio-mtn');
+        const radioOrange = document.getElementById('radio-orange');
+        const guideText = document.getElementById('ussd-guide-text');
+        const badge = document.getElementById('op-detected-badge');
+
+        if (op === 'MTN') {
+            radioMtn.checked = true;
+            cardMtn.className = "cursor-pointer relative rounded-2xl border-2 p-4 transition-all duration-300 bg-amber-50/40 shadow-md border-amber-400 ring-2 ring-amber-400/20";
+            cardOrange.className = "cursor-pointer relative rounded-2xl border-2 p-4 transition-all duration-300 bg-white shadow-sm hover:shadow-md border-gray-200 hover:border-orange-300 opacity-70";
+            guideText.innerHTML = "Un prompt USSD <strong>MTN MoMo</strong> sera transmis sur votre téléphone. Composez votre code secret <strong>MoMo (*126#)</strong> pour valider.";
+            badge.innerHTML = "🟡 MTN Mobile Money sélectionné";
+            badge.className = "text-[11px] font-extrabold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300";
+        } else {
+            radioOrange.checked = true;
+            cardOrange.className = "cursor-pointer relative rounded-2xl border-2 p-4 transition-all duration-300 bg-orange-50/40 shadow-md border-orange-500 ring-2 ring-orange-500/20";
+            cardMtn.className = "cursor-pointer relative rounded-2xl border-2 p-4 transition-all duration-300 bg-white shadow-sm hover:shadow-md border-gray-200 hover:border-amber-300 opacity-70";
+            guideText.innerHTML = "Un prompt USSD <strong>Orange Money</strong> sera transmis sur votre téléphone. Générez votre code OTP via <strong>#150#</strong> pour valider.";
+            badge.innerHTML = "🟠 Orange Money sélectionné";
+            badge.className = "text-[11px] font-extrabold text-orange-900 bg-orange-100 px-2.5 py-0.5 rounded-full border border-orange-300";
+        }
+    }
+
+    function onPhoneInput(val) {
+        const clean = val.replace(/\D/g, '');
+        if (clean.length >= 2) {
+            const prefix = clean.substring(0, 3);
+            const prefix2 = clean.substring(0, 2);
+            
+            // Détection automatique préfixes Cameroun (MTN vs Orange)
+            // MTN: 67x, 68x, 650, 651, 652, 653, 654
+            // Orange: 69x, 655, 656, 657, 658, 659
+            const pNum = parseInt(prefix, 10);
+            if (prefix2 === '67' || prefix2 === '68' || (pNum >= 650 && pNum <= 654)) {
+                selectOperator('MTN');
+            } else if (prefix2 === '69' || (pNum >= 655 && pNum <= 659)) {
+                selectOperator('ORANGE');
+            }
+        }
     }
 
     function getCookie(name) {
@@ -194,7 +307,15 @@
     }
 
     function startPayment() {
-        const phone = document.getElementById('input-telephone').value.trim();
+        const phoneInput = document.getElementById('input-telephone');
+        const phone = phoneInput.value.trim();
+        const cleanPhone = phone.replace(/\D/g, '');
+
+        if (cleanPhone.length < 9) {
+            phoneInput.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/20');
+            alert("⚠️ Veuillez saisir un numéro Mobile Money valide à 9 chiffres (ex: 690000008).");
+            return;
+        }
 
         const btn = document.getElementById('btn-pay');
         btn.disabled = true;
@@ -210,17 +331,17 @@
                 'X-CSRFToken': getCookie('csrftoken')
             },
             body: JSON.stringify({
-                telephone: phone,
+                telephone: cleanPhone,
                 operateur: selectedOperator
             })
         })
         .then(res => res.json())
         .then(data => {
             if (data.status === 'PENDING' && data.payment_url) {
-                document.getElementById('loading-msg').innerText = 
-                    'Redirection vers la page de paiement sécurisée...';
+                document.getElementById('loading-title').innerText = 'Requête USSD transmise !';
+                document.getElementById('loading-msg').innerHTML = 
+                    'Redirection vers la passerelle sécurisée de validation Mobile Money...';
                 
-                // Rediriger vers CinetPay après un court délai visuel
                 setTimeout(() => {
                     window.location.href = data.payment_url;
                 }, 800);
@@ -229,7 +350,7 @@
             }
         })
         .catch(err => {
-            showError("Erreur réseau", "Impossible de contacter le serveur. Vérifiez votre connexion.");
+            showError("Erreur réseau", "Impossible de contacter les serveurs de paiement. Vérifiez votre connexion internet.");
         });
     }
 
@@ -248,5 +369,11 @@
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
+
+    // Initialiser la sélection de l'opérateur au chargement
+    document.addEventListener('DOMContentLoaded', () => {
+        const phone = document.getElementById('input-telephone').value;
+        if (phone) onPhoneInput(phone);
+    });
 </script>
 {% endblock %}

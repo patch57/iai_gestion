@@ -10,6 +10,11 @@
     size: auto;
 }
 @media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
     /* Isolation stricte d'impression : Masquer tout sauf #printable-pv */
     body * {
         visibility: hidden !important;
@@ -195,12 +200,12 @@
                         <!-- MATRICULE -->
                         <td class="border border-slate-900 py-2 px-3 font-mono font-bold text-slate-800 text-center">{{ lg.etudiant.matricule }}</td>
                         
-                        <!-- Note 1..5 (CC individuel si présent) -->
-                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
-                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
-                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
-                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
-                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
+                        <!-- Note 1 à Note 5 (Sous-notes CC) -->
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-800 bg-blue-50/20 font-semibold">{% if lg.note_1 is not None %}{{ lg.note_1|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-800 bg-blue-50/20 font-semibold">{% if lg.note_2 is not None %}{{ lg.note_2|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-800 bg-blue-50/20 font-semibold">{% if lg.note_3 is not None %}{{ lg.note_3|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-800 bg-blue-50/20 font-semibold">{% if lg.note_4 is not None %}{{ lg.note_4|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-800 bg-blue-50/20 font-semibold">{% if lg.note_5 is not None %}{{ lg.note_5|floatformat:2 }}{% else %}-{% endif %}</td>
                         
                         <!-- Moyenne CC -->
                         <td class="border border-slate-900 py-2 px-2 text-center font-black text-slate-900 bg-blue-100/50 text-sm">

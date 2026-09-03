@@ -124,8 +124,8 @@ def inscription(request):
         
         if not telephone:
             errors.append("Le téléphone est obligatoire.")
-        elif not re.match(r'^(6|2)\d{8}$', telephone):
-            errors.append("Le numéro de téléphone doit être au format 6XXXXXXXX ou 2XXXXXXXX.")
+        elif not re.match(r'^\+?\d{9,15}$', telephone):
+            errors.append("Le numéro de téléphone doit contenir de 9 à 15 chiffres (ex: 6XXXXXXXX ou +2376XXXXXXXX).")
         
         # Le justificatif n'est pas obligatoire pour l'apprenant à la création de son compte
         if type_utilisateur != 'APPRENANT':

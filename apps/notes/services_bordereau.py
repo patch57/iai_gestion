@@ -34,6 +34,8 @@ def calculer_bordereau_matrice(classe, semestre=1):
     niveau = classe.niveau
     annee_academique = classe.annee_academique.code if classe.annee_academique else '2025-2026'
 
+    is_annuel = str(semestre).lower() in ['annuel', 'annual', '3', '0']
+
     # 1. Récupération des UEs rattachées à la filière/niveau ou globales
     ues_qs = UniteEnseignement.objects.filter(
         Q(filiere=filiere, niveau=niveau) | Q(filiere__isnull=True, niveau__isnull=True) | Q(filiere=filiere, niveau__isnull=True)
@@ -43,10 +45,16 @@ def calculer_bordereau_matrice(classe, semestre=1):
     matieres_all = []
     
     for ue in ues_qs:
-        matieres = list(Matiere.objects.filter(unite_enseignement=ue, semestre=semestre, est_actif=True).order_by('code'))
-        if not matieres:
-            # Recherche sans filtre strict si les matières ne sont pas encore liées
-            matieres = list(Matiere.objects.filter(unite_enseignement=ue, est_actif=True).order_by('code'))
+        if is_annuel:
+            matieres = list(Matiere.objects.filter(unite_enseignement=ue, est_actif=True).order_by('semestre', 'code'))
+        else:
+            try:
+                sem_int = int(semestre)
+            except (ValueError, TypeError):
+                sem_int = 1
+            matieres = list(Matiere.objects.filter(unite_enseignement=ue, semestre=sem_int, est_actif=True).order_by('code'))
+            if not matieres:
+                matieres = list(Matiere.objects.filter(unite_enseignement=ue, est_actif=True).order_by('code'))
             
         if matieres:
             total_credits_ue = sum(m.credit for m in matieres)
@@ -61,11 +69,21 @@ def calculer_bordereau_matrice(classe, semestre=1):
 
     # Si aucune UE spécifique n'est trouvée, récupérer les matières directement par semestre
     if not ues_structure:
-        matieres_orphelines = list(Matiere.objects.filter(semestre=semestre, est_actif=True).order_by('code'))
+        if is_annuel:
+            matieres_orphelines = list(Matiere.objects.filter(est_actif=True).order_by('semestre', 'code'))
+            sem_code = "UE_ANNUEL"
+        else:
+            try:
+                sem_int = int(semestre)
+            except (ValueError, TypeError):
+                sem_int = 1
+            matieres_orphelines = list(Matiere.objects.filter(semestre=sem_int, est_actif=True).order_by('code'))
+            sem_code = f"UE_S{sem_int}"
+
         if matieres_orphelines:
             ues_structure.append({
                 'id': 0,
-                'code': f'UE_S{semestre}',
+                'code': sem_code,
                 'nom': 'Enseignements Généraux',
                 'matieres': matieres_orphelines,
                 'total_credits': sum(m.credit for m in matieres_orphelines)
@@ -203,10 +221,62 @@ def calculer_bordereau_matrice(classe, semestre=1):
     # Re-tri par nom/prénom pour l'affichage officiel du bordereau
     etudiants_rows.sort(key=lambda x: (x['etudiant'].nom, x['etudiant'].prenom))
 
-    # 6. Statistiques globales
+    # 6. Moyennes par matière et par UE sur la classe
+    moyennes_matieres = {}
+    for mat in matieres_all:
+        notes_m = [r['notes_matiere_flat'][mat.id] for r in etudiants_rows if mat.id in r['notes_matiere_flat'] and r['notes_matiere_flat'][mat.id] is not None]
+        moy = (sum(notes_m) / len(notes_m)) if notes_m else 0.0
+        moyennes_matieres[mat.id] = arrondir_note(moy, 2)
+
+    moyennes_ues = {}
+    for ue_item in ues_structure:
+        ue_id = ue_item['id']
+        notes_ue = [r['ues_data'][ue_id]['moyenne'] for r in etudiants_rows if ue_id in r['ues_data']]
+        moy = (sum(notes_ue) / len(notes_ue)) if notes_ue else 0.0
+        moyennes_ues[ue_id] = arrondir_note(moy, 2)
+
     total_etudiants = len(etudiants_rows)
     nb_admis = sum(1 for r in etudiants_rows if r['decision'] == 'ADMIS')
     taux_reussite = (nb_admis / total_etudiants * 100) if total_etudiants > 0 else 0.0
+
+    # 7. Découpage horizontal intelligent par tranches de 3 UEs (conforme modèle PDF IAI-Cameroun)
+    chunk_size = 3
+    ue_chunks = []
+    if ues_structure:
+        for i in range(0, len(ues_structure), chunk_size):
+            chunk_ues = ues_structure[i:i + chunk_size]
+            is_last = (i + chunk_size >= len(ues_structure))
+
+            chunk_etudiants_rows = []
+            for r in etudiants_rows:
+                chunk_ues_list = [r['ues_data'][u['id']] for u in chunk_ues if u['id'] in r['ues_data']]
+                chunk_etudiants_rows.append({
+                    'etudiant': r['etudiant'],
+                    'ues_list': chunk_ues_list,
+                    'total_points': r['total_points'],
+                    'moyenne': r['moyenne'],
+                    'rang': r['rang'],
+                    'credits_possibles': r['credits_possibles'],
+                    'credits_capitalises': r['credits_capitalises'],
+                    'absences': r['absences'],
+                    'retards': r['retards'],
+                    'discipline': r['discipline'],
+                    'decision': r['decision'],
+                })
+
+            ue_chunks.append({
+                'chunk_index': len(ue_chunks) + 1,
+                'ues': chunk_ues,
+                'etudiants_rows': chunk_etudiants_rows,
+                'is_last_chunk': is_last,
+            })
+    else:
+        ue_chunks.append({
+            'chunk_index': 1,
+            'ues': [],
+            'etudiants_rows': etudiants_rows,
+            'is_last_chunk': True,
+        })
 
     return {
         'header': {
@@ -215,10 +285,11 @@ def calculer_bordereau_matrice(classe, semestre=1):
             'classe': classe.nom,
             'filiere': filiere.nom if filiere else '',
             'annee_academique': annee_academique,
-            'semestre': semestre,
+            'semestre': 'ANNUEL (S1 + S2)' if is_annuel else f"SEMESTRE {semestre}",
             'date_impression': timezone.now().strftime('%d/%m/%Y %H:%M')
         },
         'ues': ues_structure,
+        'ue_chunks': ue_chunks,
         'matieres_all': matieres_all,
         'etudiants_rows': etudiants_rows,
         'statistiques': {
@@ -226,6 +297,8 @@ def calculer_bordereau_matrice(classe, semestre=1):
             'nb_admis': nb_admis,
             'nb_ajournes': total_etudiants - nb_admis,
             'taux_reussite': arrondir_note(taux_reussite, 1),
+            'moyennes_matieres': moyennes_matieres,
+            'moyennes_ues': moyennes_ues,
         }
     }
 
@@ -240,10 +313,11 @@ def publier_bulletins_classe(classe, semestre, user_publieur):
     bulletins_crees = 0
     for row in matrice['etudiants_rows']:
         et = row['etudiant']
+        sem_val = 3 if str(semestre).lower() in ['annuel', 'annual', '3', '0'] else int(semestre)
         bulletin, created = Bulletin.objects.update_or_create(
             etudiant=et,
             annee_academique=annee_code,
-            semestre=semestre,
+            semestre=sem_val,
             defaults={
                 'moyenne_semestre': Decimal(str(row['moyenne'])),
                 'credits_obtenus': row['credits_capitalises'],

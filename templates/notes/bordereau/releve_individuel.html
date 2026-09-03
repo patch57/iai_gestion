@@ -29,9 +29,15 @@
     <!-- Action bar (No print) -->
     <div class="flex items-center justify-between no-print bg-white p-4 border border-gray-200 rounded-3xl shadow-sm">
         <span class="text-sm font-bold text-gray-700">Relevé de notes individuel et confidentiel</span>
+        {% if user.is_superuser or user.type_utilisateur not in 'ETUDIANT,APPRENANT' and not user.est_etudiant %}
         <button onclick="window.print()" class="px-5 py-2.5 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center">
-            <i class="fas fa-print mr-1.5"></i> Imprimer mon Relevé
+            <i class="fas fa-print mr-1.5"></i> Imprimer le Relevé
         </button>
+        {% else %}
+        <span class="text-xs font-bold text-gray-500 bg-gray-100 border border-gray-200 px-3.5 py-2 rounded-xl flex items-center gap-1.5">
+            <i class="fas fa-lock text-gray-400"></i> Consultation en ligne uniquement (Impression réservée à la scolarité)
+        </span>
+        {% endif %}
     </div>
 
     <!-- Printable Card -->

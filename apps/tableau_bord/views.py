@@ -459,7 +459,8 @@ def etudiant_dashboard(request):
     prochaines_echeances_tp_td = RessourceCours.objects.filter(
         filt_echeances,
         type_ressource__in=['TD', 'TP'],
-        date_limite_remise_physique__isnull=False
+        date_limite_remise_physique__isnull=False,
+        date_limite_remise_physique__gte=timezone.now().date()
     ).distinct().select_related('cours', 'cours__matiere').order_by('date_limite_remise_physique')
 
     context = {
@@ -1901,11 +1902,18 @@ def modifier_profil(request):
         etudiant = getattr(user, 'profil_etudiant', None)
         
     if request.method == 'POST':
+        import re
         first_name = request.POST.get('first_name', '').strip()
         last_name = request.POST.get('last_name', '').strip()
         email = request.POST.get('email', '').strip()
         telephone = request.POST.get('telephone', '').strip()
+        indicatif_telephone = request.POST.get('indicatif_telephone', '').strip()
         adresse = request.POST.get('adresse', '').strip()
+        
+        if indicatif_telephone and telephone and not telephone.startswith('+'):
+            num_clean = re.sub(r'\D', '', telephone)
+            if num_clean:
+                telephone = f"{indicatif_telephone}{num_clean}"
         
         errors = []
         
@@ -1922,7 +1930,13 @@ def modifier_profil(request):
             nationalite = request.POST.get('nationalite', '').strip()
             nom_tuteur = request.POST.get('nom_tuteur', '').strip()
             telephone_tuteur = request.POST.get('telephone_tuteur', '').strip()
+            indicatif_tuteur = request.POST.get('indicatif_tuteur', '').strip()
             email_tuteur = request.POST.get('email_tuteur', '').strip()
+            
+            if indicatif_tuteur and telephone_tuteur and not telephone_tuteur.startswith('+'):
+                num_clean_tuteur = re.sub(r'\D', '', telephone_tuteur)
+                if num_clean_tuteur:
+                    telephone_tuteur = f"{indicatif_tuteur}{num_clean_tuteur}"
             
             if not date_naissance_str or not lieu_naissance or not sexe or not nationalite or not telephone_tuteur or not nom_tuteur or not telephone or not adresse:
                 errors.append("Tous les champs du profil étudiant (informations personnelles, contact, tuteur) sont obligatoires.")

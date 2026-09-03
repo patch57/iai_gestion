@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
-from decimal import Decimal
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import RecuPaiement, TranchePaiement, SessionConcours, EcheanceSessionNiveau1, ResultatConcours
 from apps.etudiants.models import Etudiant
 

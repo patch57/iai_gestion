@@ -155,8 +155,23 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Téléphone Personnel *</label>
-                        <input type="text" name="telephone" value="{{ user.telephone|default:'' }}" required placeholder="Ex: 6XXXXXXXX"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-bold bg-gray-50/50 focus:bg-white transition-all">
+                        <div class="flex rounded-xl shadow-xs overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 bg-gray-50/50 focus-within:bg-white transition-all">
+                            <select name="indicatif_telephone" class="bg-gray-100 text-gray-800 text-xs font-extrabold px-3 py-3 border-r border-gray-200 focus:outline-none cursor-pointer">
+                                <option value="+237" selected>🇨🇲 +237 (Cameroun)</option>
+                                <option value="+241">🇬🇦 +241 (Gabon)</option>
+                                <option value="+235">🇹🇩 +235 (Tchad)</option>
+                                <option value="+236">🇨🇫 +236 (RCA)</option>
+                                <option value="+242">🇨🇬 +242 (Congo)</option>
+                                <option value="+225">🇨🇮 +225 (Côte d'Ivoire)</option>
+                                <option value="+221">🇸🇳 +221 (Sénégal)</option>
+                                <option value="+228">🇹🇬 +228 (Togo)</option>
+                                <option value="+33">🇫🇷 +33 (France)</option>
+                                <option value="+1">🇺🇸 +1 (USA/Canada)</option>
+                            </select>
+                            <input type="text" name="telephone" value="{{ user.telephone|default:'' }}" required placeholder="Ex: 6XXXXXXXX"
+                                class="w-full px-4 py-3 text-sm font-bold bg-transparent border-0 focus:outline-none">
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-1">Choisissez l'indicateur pays puis entrez votre numéro mobile.</p>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Adresse de Résidence *</label>
@@ -178,8 +193,23 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Téléphone du Tuteur *</label>
-                            <input type="text" name="telephone_tuteur" value="{{ etudiant.telephone_tuteur }}" required placeholder="Ex: 6XXXXXXXX"
-                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-bold bg-gray-50/50 focus:bg-white transition-all">
+                            <div class="flex rounded-xl shadow-xs overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 bg-gray-50/50 focus-within:bg-white transition-all">
+                                <select name="indicatif_tuteur" class="bg-gray-100 text-gray-800 text-xs font-extrabold px-3 py-3 border-r border-gray-200 focus:outline-none cursor-pointer">
+                                    <option value="+237" selected>🇨🇲 +237 (Cameroun)</option>
+                                    <option value="+241">🇬🇦 +241 (Gabon)</option>
+                                    <option value="+235">🇹🇩 +235 (Tchad)</option>
+                                    <option value="+236">🇨🇫 +236 (RCA)</option>
+                                    <option value="+242">🇨🇬 +242 (Congo)</option>
+                                    <option value="+225">🇨🇮 +225 (Côte d'Ivoire)</option>
+                                    <option value="+221">🇸🇳 +221 (Sénégal)</option>
+                                    <option value="+228">🇹🇬 +228 (Togo)</option>
+                                    <option value="+33">🇫🇷 +33 (France)</option>
+                                    <option value="+1">🇺🇸 +1 (USA/Canada)</option>
+                                </select>
+                                <input type="text" name="telephone_tuteur" value="{{ etudiant.telephone_tuteur }}" required placeholder="Ex: 6XXXXXXXX"
+                                    class="w-full px-4 py-3 text-sm font-bold bg-transparent border-0 focus:outline-none">
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-1">Choisissez l'indicateur pays puis entrez le numéro du tuteur.</p>
                         </div>
                     </div>
                     <div>

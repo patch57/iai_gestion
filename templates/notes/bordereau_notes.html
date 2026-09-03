@@ -1,19 +1,100 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load notes_extras %}
 
 {% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
 
 {% block content %}
+<style>
+    @page {
+        size: A4 landscape;
+        margin: 6mm;
+    }
+    @media print {
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            overflow: visible !important;
+        }
+        html, body, main, div, table, tbody, td, th {
+            overflow: visible !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+        ::-webkit-scrollbar {
+            display: none !important;
+        }
+        .print-break-before {
+            page-break-before: always !important;
+            break-before: page !important;
+            margin-top: 0 !important;
+        }
+        header, nav, footer, aside, .no-print, .no-print *, #sidebar, .sidebar {
+            display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            opacity: 0 !important;
+        }
+        body, main, .content-container {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+        }
+        #printable-bordereau-screen {
+            display: none !important;
+        }
+        #printable-bordereau-print {
+            display: block !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+        }
+        thead { display: table-header-group !important; }
+        tfoot { display: table-footer-group !important; }
+        tr { page-break-inside: avoid !important; }
+    }
+
+    /* Style strict pour en-têtes verticaux sans chevauchement ni découpage de lettres */
+    .th-vertical-cell {
+        height: 140px !important;
+        vertical-align: bottom !important;
+        text-align: center !important;
+        padding: 4px 2px !important;
+        white-space: nowrap !important;
+        background-color: #ffffff;
+    }
+    .th-vertical-text {
+        writing-mode: vertical-rl !important;
+        transform: rotate(180deg) !important;
+        white-space: nowrap !important;
+        word-break: keep-all !important;
+        text-align: left !important;
+        font-size: 8.5px !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+        max-height: 135px !important;
+        width: auto !important;
+        display: inline-block !important;
+        color: #0f172a !important;
+    }
+</style>
+
 <div class="max-w-[100vw] mx-auto px-2 sm:px-6 py-6 animate-fadeInUp">
 
     <!-- Actions Bar (No Print) -->
-    <div class="mb-6 bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+    <div class="no-print mb-6 bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex flex-wrap items-center justify-between gap-4">
         <div>
             <h1 class="text-xl font-black text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-table-cells text-emerald-600"></i> Bordereau de Notes & Délibérations Officiel
             </h1>
             <p class="text-xs text-slate-500 mt-0.5">
-                Classe : <span class="font-bold text-slate-800">{{ classe.nom }}</span> | Semestre {{ semestre }} | Année Académique : {{ header.annee_academique }}
+                Classe : <span class="font-bold text-slate-800">{{ classe.nom }}</span> | {% if semestre == 'annuel' %}Annuel (Semestres 1 + 2){% else %}Semestre {{ semestre }}{% endif %} | Année Académique : {{ header.annee_academique }}
             </p>
         </div>
 
@@ -35,9 +116,15 @@
             <form method="POST" action="{% url 'notes:publier_bulletins_salle' classe.id %}" onsubmit="return confirm('Confirmez-vous la publication officielle des bulletins de cette classe aux étudiants ?');">
                 {% csrf_token %}
                 <input type="hidden" name="semestre" value="{{ semestre }}">
+                {% if peut_publier %}
                 <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-2">
                     <i class="fa-solid fa-paper-plane"></i> Publier les Bulletins aux Étudiants
                 </button>
+                {% else %}
+                <button type="button" disabled class="bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed font-bold px-5 py-2.5 rounded-xl text-xs shadow-none flex items-center gap-2" title="{{ message_prerequis }}">
+                    <i class="fa-solid fa-lock text-amber-600"></i> Publication Verrouillée
+                </button>
+                {% endif %}
             </form>
 
             <button onclick="window.print()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-2">
@@ -46,134 +133,187 @@
         </div>
     </div>
 
-    <!-- Bordereau Papier Officiel (Print Container) -->
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-300 p-6 md:p-8 overflow-x-auto text-slate-900" id="printable-bordereau">
+    {% if not peut_publier %}
+    <div class="no-print mb-4 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl text-amber-900 text-xs font-bold flex items-center gap-3 shadow-xs">
+        <i class="fa-solid fa-lock text-amber-600 text-lg"></i>
+        <span>{{ message_prerequis }}</span>
+    </div>
+    {% endif %}
 
+    <!-- ================================================================= -->
+    <!-- 1. MODE ÉCRAN : MATRICE UNIQUE AVEC DEFILEMENT HORIZONTAL (OVERFLOW-X-AUTO) -->
+    <!-- ================================================================= -->
+    <div class="no-print bg-white rounded-3xl shadow-2xl border-2 border-slate-900 p-4 md:p-6 text-slate-900 overflow-x-auto" id="printable-bordereau-screen">
+        
         <!-- Entête Institutionnel IAI-Cameroun -->
-        <div class="text-center border-b-2 border-slate-900 pb-4 mb-4 relative">
-            <!-- Logo IAI centré en haut -->
-            <div class="flex justify-center mb-2">
-                <img src="{% static 'images/logo.png' %}" alt="Logo IAI" class="h-16 w-auto object-contain">
+        <div class="text-center border-b-2 border-slate-900 pb-3 mb-4 relative min-w-[1100px]">
+            <div class="flex justify-center mb-1">
+                <img src="{% static 'images/logo.png' %}" alt="Logo IAI" class="h-14 w-auto object-contain">
             </div>
             
-            <div class="text-center max-w-2xl mx-auto">
-                <h2 class="text-base font-black text-slate-900 tracking-wide uppercase">INSTITUT AFRICAIN D'INFORMATIQUE</h2>
-                <p class="text-xs font-bold text-emerald-700 uppercase mt-0.5">Établissement Inter-États d'Enseignement Supérieur</p>
-                <p class="text-[11px] font-extrabold text-slate-800 uppercase mt-0.5">Centre d'Excellence Technologique Paul Biya</p>
-                <p class="text-[10px] text-slate-500 mt-1 font-medium">BP 13 719 Yaoundé / Douala &bull; Tél: (237) 242 72 99 57 &bull; www.iaicameroun.com</p>
+            <div class="text-center max-w-3xl mx-auto">
+                <h2 class="text-xs font-black text-slate-900 tracking-wide uppercase">ÉTABLISSEMENT INTER-ÉTATS D'ENSEIGNEMENT SUPÉRIEUR</h2>
+                <p class="text-[11px] font-bold text-emerald-800 uppercase mt-0.5">REPRÉSENTATION DU CAMEROUN &bull; CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</p>
+                <p class="text-[9px] text-slate-500 mt-0.5">BP 13 719 Yaoundé (Cameroun) &bull; Tél. (237) 242 72 99 57/ 242 72 99 58 &bull; Site web: www.iaicameroun.com &bull; E-mail: contact@iaicameroun.com</p>
             </div>
 
-            <div class="mt-3 inline-block bg-slate-900 text-white font-black text-base px-8 py-1.5 rounded-lg tracking-widest uppercase shadow">
-                BORDEREAU DE NOTES — SEMESTRE {{ semestre }}
+            <div class="mt-2 inline-block border border-slate-900 bg-slate-900 text-white font-black text-sm px-8 py-1 rounded-md tracking-widest uppercase shadow">
+                BORDEREAU DE NOTES
             </div>
 
             <!-- Meta Data Sub-bar -->
-            <div class="mt-4 grid grid-cols-5 text-xs bg-slate-100 p-2.5 rounded-xl border border-slate-300 text-center font-bold">
-                <div>Campus : <span class="text-emerald-700">{{ header.campus }}</span></div>
-                <div>Niveau : <span class="text-emerald-700">{{ header.niveau }}</span></div>
-                <div>Classe : <span class="text-emerald-700">{{ header.classe }}</span></div>
-                <div>Année Acad. : <span class="text-emerald-700">{{ header.annee_academique }}</span></div>
-                <div>Date : <span class="text-slate-600">{{ header.date_impression }}</span></div>
+            <div class="mt-3 grid grid-cols-5 text-[11px] bg-slate-100 p-2 rounded-lg border border-slate-400 text-center font-bold">
+                <div>Campus : <span class="text-emerald-800">{{ header.campus }}</span></div>
+                <div>Niveau : <span class="text-emerald-800">{{ header.niveau }}</span></div>
+                <div>Classe : <span class="text-emerald-800">{{ header.classe }}</span></div>
+                <div>Année Acad. : <span class="text-emerald-800">{{ header.annee_academique }}</span></div>
+                <div>Date : <span class="text-slate-700">{{ header.date_impression }}</span></div>
             </div>
         </div>
 
-        <!-- Matrice des Notes -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-[10px] border-collapse border border-slate-900">
-                <thead>
-                    <!-- Ligne 1 : En-têtes UEs -->
-                    <tr class="bg-slate-800 text-white font-bold text-center">
-                        <th colspan="8" class="border border-slate-700 p-1.5 bg-slate-900">INFORMATIONS ÉTUDIANT</th>
-                        {% for ue in ues %}
-                            <th colspan="{{ ue.matieres|length|add:2 }}" class="border border-slate-700 p-1.5 bg-emerald-950 text-emerald-200">
-                                UE : {{ ue.code }} - {{ ue.nom }} ({{ ue.total_credits }} Crédits)
+        <!-- Grande Table Complète avec Défilement Horizontal -->
+        <table class="w-full text-[10px] border-collapse border-2 border-slate-900 min-w-[1100px]">
+            <thead>
+                <!-- Ligne 1 : En-têtes UEs -->
+                <tr class="bg-slate-900 text-white font-bold text-center">
+                    <th colspan="8" class="border border-slate-700 p-1.5 bg-slate-950 text-left pl-2">INFORMATIONS ÉTUDIANT</th>
+                    {% for ue in ues %}
+                        <th colspan="{{ ue.matieres|length|add:2 }}" class="border border-slate-700 p-1.5 bg-slate-800 text-slate-100">
+                            UE : {{ ue.code }} - {{ ue.nom }} ({{ ue.total_credits }} Crédits)
+                        </th>
+                    {% endfor %}
+                    <th colspan="8" class="border border-slate-700 p-1.5 bg-slate-950 text-sky-200">{% if semestre == 'annuel' %}RÉSULTATS ANNUELS (S1 + S2){% else %}RÉSULTATS DU SEMESTRE {{ semestre }}{% endif %}</th>
+                </tr>
+
+                <!-- Ligne 2 : Titres des Matières (Verticales) -->
+                <tr class="bg-slate-100 text-slate-900 font-bold text-center text-[9px]">
+                    <th class="border border-slate-400 p-1 w-6">N°</th>
+                    <th class="border border-slate-400 p-1 text-left min-w-[110px]">Noms</th>
+                    <th class="border border-slate-400 p-1 text-left min-w-[95px]">Prénoms</th>
+                    <th class="border border-slate-400 p-1 min-w-[65px]">Date naiss.</th>
+                    <th class="border border-slate-400 p-1 min-w-[65px]">Lieu naiss.</th>
+                    <th class="border border-slate-400 p-1 min-w-[85px]">Matricule</th>
+                    <th class="border border-slate-400 p-1 min-w-[50px]">Filière</th>
+                    <th class="border border-slate-400 p-1 min-w-[50px]">Pays orig.</th>
+
+                    {% for ue in ues %}
+                        {% for mat in ue.matieres %}
+                            <th class="th-vertical-cell border border-slate-400" title="{{ mat.nom }}">
+                                <div class="th-vertical-text">{{ mat.nom }}</div>
                             </th>
                         {% endfor %}
-                        <th colspan="8" class="border border-slate-700 p-1.5 bg-slate-950 text-sky-200">RÉSULTATS DU SEMESTRE {{ semestre }}</th>
-                    </tr>
+                        <th class="th-vertical-cell border border-slate-400 bg-slate-200" title="Moyenne UE">
+                            <div class="th-vertical-text text-slate-900 font-black">Moyenne UE</div>
+                        </th>
+                        <th class="th-vertical-cell border border-slate-400 bg-slate-200" title="Mention UE">
+                            <div class="th-vertical-text text-slate-900 font-black">Mention</div>
+                        </th>
+                    {% endfor %}
 
-                    <!-- Ligne 2 : Titres des Matières et Composantes -->
-                    <tr class="bg-slate-100 text-slate-900 font-bold text-center text-[9px]">
-                        <th class="border border-slate-400 p-1 w-6">N°</th>
-                        <th class="border border-slate-400 p-1">Noms</th>
-                        <th class="border border-slate-400 p-1">Prénoms</th>
-                        <th class="border border-slate-400 p-1">Date naiss.</th>
-                        <th class="border border-slate-400 p-1">Lieu naiss.</th>
-                        <th class="border border-slate-400 p-1">Matricule</th>
-                        <th class="border border-slate-400 p-1">Filière</th>
-                        <th class="border border-slate-400 p-1">Pays</th>
+                    <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Total Pts</th>
+                    <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Moyenne</th>
+                    <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Rang</th>
+                    <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Crédits</th>
+                    <th class="border border-slate-400 p-1">Abs.</th>
+                    <th class="border border-slate-400 p-1">Ret.</th>
+                    <th class="border border-slate-400 p-1">Disc.</th>
+                    <th class="border border-slate-400 p-1 bg-slate-900 text-white font-black">Décision</th>
+                </tr>
 
-                        {% for ue in ues %}
-                            {% for mat in ue.matieres %}
-                                <th class="border border-slate-400 p-1 min-w-[60px]" title="{{ mat.nom }}">{{ mat.code }}</th>
-                            {% endfor %}
-                            <th class="border border-slate-400 p-1 bg-emerald-100 text-emerald-900">Moy. UE</th>
-                            <th class="border border-slate-400 p-1 bg-emerald-100 text-emerald-900">Ment.</th>
+                <!-- Ligne 3 : Crédits / Coefficients -->
+                <tr class="bg-slate-200 text-slate-900 font-bold text-center text-[9px] border-b-2 border-slate-900">
+                    <td colspan="8" class="border border-slate-400 p-0.5 bg-slate-300 text-right pr-2 font-black">Crédits / Coefficients</td>
+                    {% for ue in ues %}
+                        {% for mat in ue.matieres %}
+                            <td class="border border-slate-400 p-0.5 font-black text-center text-slate-900 bg-slate-100">{{ mat.coefficient|default:mat.credit|default:1 }}</td>
                         {% endfor %}
+                        <td class="border border-slate-400 p-0.5 font-black text-center bg-slate-300 text-slate-950">{{ ue.total_credits }}</td>
+                        <td class="border border-slate-400 p-0.5 font-black text-center bg-slate-300 text-slate-950">-</td>
+                    {% endfor %}
+                    <td colspan="8" class="border border-slate-400 p-0.5 bg-sky-200 text-center font-bold text-sky-900">--</td>
+                </tr>
+            </thead>
 
-                        <th class="border border-slate-400 p-1 bg-sky-100 text-sky-900">Total Pts</th>
-                        <th class="border border-slate-400 p-1 bg-sky-100 text-sky-900">Moyenne</th>
-                        <th class="border border-slate-400 p-1 bg-sky-100 text-sky-900">Rang</th>
-                        <th class="border border-slate-400 p-1 bg-sky-100 text-sky-900">Crédits</th>
-                        <th class="border border-slate-400 p-1">Abs.</th>
-                        <th class="border border-slate-400 p-1">Ret.</th>
-                        <th class="border border-slate-400 p-1">Disc.</th>
-                        <th class="border border-slate-400 p-1 bg-slate-900 text-white">Décision</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in etudiants_rows %}
-                    <tr class="hover:bg-slate-50 transition border-b border-slate-300 text-center font-medium">
-                        <td class="border border-slate-300 p-1 font-bold">{{ forloop.counter }}</td>
-                        <td class="border border-slate-300 p-1 text-left font-bold text-slate-900 uppercase">{{ row.etudiant.nom }}</td>
-                        <td class="border border-slate-300 p-1 text-left text-slate-800">{{ row.etudiant.prenom }}</td>
-                        <td class="border border-slate-300 p-1 text-slate-600">{{ row.etudiant.date_naissance|date:"d/m/Y" }}</td>
-                        <td class="border border-slate-300 p-1 text-slate-600">{{ row.etudiant.lieu_naissance }}</td>
-                        <td class="border border-slate-300 p-1 font-mono font-bold text-emerald-800">{{ row.etudiant.matricule }}</td>
-                        <td class="border border-slate-300 p-1 font-bold">{{ row.etudiant.filiere.code }}</td>
-                        <td class="border border-slate-300 p-1">{{ row.etudiant.nationalite }}</td>
+            <tbody>
+                {% for row in etudiants_rows %}
+                <tr class="hover:bg-slate-50 transition border-b border-slate-300 text-center font-medium">
+                    <td class="border border-slate-300 p-1 font-bold">{{ forloop.counter }}</td>
+                    <td class="border border-slate-300 p-1 text-left font-bold text-slate-900 uppercase whitespace-nowrap">{{ row.etudiant.nom }}</td>
+                    <td class="border border-slate-300 p-1 text-left text-slate-800 whitespace-nowrap">{{ row.etudiant.prenom }}</td>
+                    <td class="border border-slate-300 p-1 text-slate-600 whitespace-nowrap">{{ row.etudiant.date_naissance|date:"d/m/Y" }}</td>
+                    <td class="border border-slate-300 p-1 text-slate-600 whitespace-nowrap">{{ row.etudiant.lieu_naissance }}</td>
+                    <td class="border border-slate-300 p-1 font-mono font-bold text-slate-900 whitespace-nowrap">{{ row.etudiant.matricule }}</td>
+                    <td class="border border-slate-300 p-1 font-bold">{{ row.etudiant.filiere.code }}</td>
+                    <td class="border border-slate-300 p-1">{{ row.etudiant.nationalite }}</td>
 
-                        {% for ue_data in row.ues_list %}
-                            {% for mat_info in ue_data.matieres_list %}
-                                <td class="border border-slate-300 p-1 {% if mat_info.note < 10 %}text-rose-600 font-bold{% endif %}">
-                                    {{ mat_info.note|default:"0.0" }}
+                    {% for ue in ues %}
+                        {% with ue_data=row.ues_data|get_item:ue.id %}
+                            {% for mat in ue.matieres %}
+                                {% with note_val=row.notes_matiere_flat|get_item:mat.id %}
+                                <td class="border border-slate-300 p-1 {% if note_val != None and note_val < 10 %}text-rose-600 font-bold{% else %}text-sky-700 font-semibold{% endif %}">
+                                    {{ note_val|floatformat:2|default:"0,00" }}
                                 </td>
+                                {% endwith %}
                             {% endfor %}
 
-                            <td class="border border-slate-300 p-1 font-bold bg-emerald-50/60 {% if ue_data.moyenne < 10 %}text-rose-600{% else %}text-emerald-800{% endif %}">
-                                {{ ue_data.moyenne }}
+                            <td class="border border-slate-300 p-1 font-bold bg-slate-50 {% if ue_data.moyenne < 10 %}text-rose-600{% else %}text-emerald-800{% endif %}">
+                                {{ ue_data.moyenne|floatformat:2|default:"0,00" }}
                             </td>
                             <td class="border border-slate-300 p-1 font-bold">
                                 {% if ue_data.mention == 'V' %}
-                                    <span class="inline-block px-1 rounded bg-emerald-100 text-emerald-800">V</span>
+                                    <span class="text-slate-900 font-black">V</span>
                                 {% else %}
-                                    <span class="inline-block px-1 rounded bg-rose-100 text-rose-800">NV</span>
+                                    <span class="text-rose-600 font-black">NV</span>
                                 {% endif %}
                             </td>
-                        {% endfor %}
-
-                        <td class="border border-slate-300 p-1 font-bold text-slate-900 bg-sky-50/50">{{ row.total_points }}</td>
-                        <td class="border border-slate-300 p-1 font-extrabold text-sm {% if row.moyenne < 10 %}text-rose-600{% else %}text-emerald-700{% endif %} bg-sky-50/50">
-                            {{ row.moyenne }}
-                        </td>
-                        <td class="border border-slate-300 p-1 font-bold bg-sky-50/50">{{ row.rang }}</td>
-                        <td class="border border-slate-300 p-1 font-bold bg-sky-50/50 text-emerald-800">{{ row.credits_capitalises }}/{{ row.credits_possibles }}</td>
-                        <td class="border border-slate-300 p-1">{{ row.absences }}h</td>
-                        <td class="border border-slate-300 p-1">{{ row.retards }}</td>
-                        <td class="border border-slate-300 p-1">{{ row.discipline }}</td>
-                        <td class="border border-slate-300 p-1 font-black uppercase text-[9px] {% if row.decision == 'ADMIS' %}bg-emerald-600 text-white{% else %}bg-rose-600 text-white{% endif %}">
-                            {{ row.decision }}
-                        </td>
-                    </tr>
+                        {% endwith %}
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
 
-        <!-- Statistiques et Pied de Bordereau -->
-        <div class="mt-6 pt-4 border-t-2 border-slate-900 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-300 space-y-1">
-                <h4 class="font-bold text-slate-900 uppercase text-xs mb-2">Statistiques Globale de la Classe</h4>
+                    <td class="border border-slate-300 p-1 font-bold text-slate-900 bg-sky-50/50">{{ row.total_points|floatformat:2 }}</td>
+                    <td class="border border-slate-300 p-1 font-extrabold text-xs {% if row.moyenne < 10 %}text-rose-600{% else %}text-emerald-700{% endif %} bg-sky-50/50">
+                        {{ row.moyenne|floatformat:2 }}
+                    </td>
+                    <td class="border border-slate-300 p-1 font-bold bg-sky-50/50">{{ row.rang }}</td>
+                    <td class="border border-slate-300 p-1 font-bold bg-sky-50/50 text-emerald-800">{{ row.credits_capitalises }}/{{ row.credits_possibles }}</td>
+                    <td class="border border-slate-300 p-1">{{ row.absences }}h</td>
+                    <td class="border border-slate-300 p-1">{{ row.retards }}</td>
+                    <td class="border border-slate-300 p-1">{{ row.discipline }}</td>
+                    <td class="border border-slate-300 p-1 font-black uppercase text-[9px] {% if row.decision == 'ADMIS' %}bg-emerald-600 text-white{% else %}bg-rose-600 text-white{% endif %}">
+                        {{ row.decision }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="100" class="p-6 text-center text-slate-400">Aucun étudiant inscrit dans cette classe.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+            <tfoot>
+                <tr class="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-900 text-[9px] text-center">
+                    <td colspan="8" class="border border-slate-400 p-1 text-right pr-2 uppercase font-black">Moyennes de la classe</td>
+                    {% for ue in ues %}
+                        {% for mat in ue.matieres %}
+                            <td class="border border-slate-400 p-1 text-slate-900 font-bold">
+                                {{ statistiques.moyennes_matieres|get_item:mat.id|floatformat:2|default:"-" }}
+                            </td>
+                        {% endfor %}
+                        <td class="border border-slate-400 p-1 bg-slate-200 text-slate-950 font-black">
+                            {{ statistiques.moyennes_ues|get_item:ue.id|floatformat:2|default:"-" }}
+                        </td>
+                        <td class="border border-slate-400 p-1 bg-slate-200">-</td>
+                    {% endfor %}
+                    <td colspan="8" class="border border-slate-400 p-1 bg-sky-100 text-sky-950 text-center font-extrabold">
+                        Taux Réussite : {{ statistiques.taux_reussite }}%
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- Statistiques et Pied de Bordereau (Signatures) -->
+        <div class="mt-6 pt-4 border-t-2 border-slate-900 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs min-w-[1100px]">
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-400 space-y-1">
+                <h4 class="font-black text-slate-900 uppercase text-xs mb-2">STATISTIQUES GLOBALES DE LA CLASSE</h4>
                 <p>Nombre total d'étudiants : <strong class="text-slate-900">{{ statistiques.total_etudiants }}</strong></p>
                 <p>Nombre d'admis : <strong class="text-emerald-700">{{ statistiques.nb_admis }}</strong> &bull; Ajournés : <strong class="text-rose-600">{{ statistiques.nb_ajournes }}</strong></p>
                 <p>Taux de réussite global : <strong class="text-emerald-700 text-sm">{{ statistiques.taux_reussite }}%</strong></p>
@@ -181,22 +321,227 @@
 
             <!-- Signatures Officiel -->
             <div class="grid grid-cols-2 gap-4 text-center font-bold pt-2">
-                <div class="p-3 border border-slate-300 rounded-xl bg-slate-50 flex flex-col justify-between min-h-[90px]">
-                    <span class="text-slate-900">Le Jury des Délibérations</span>
+                <div class="p-3 border border-slate-400 rounded-xl bg-slate-50 flex flex-col justify-between min-h-[90px]">
+                    <span class="text-slate-900 font-black">Le Jury des Délibérations</span>
                     <span class="text-[9px] text-slate-400 font-normal">(Signatures des membres du Jury)</span>
                 </div>
-                <div class="p-3 border border-slate-300 rounded-xl bg-slate-50 flex flex-col justify-between min-h-[90px]">
-                    <span class="text-slate-900">Le Chef du Service des Études</span>
+                <div class="p-3 border border-slate-400 rounded-xl bg-slate-50 flex flex-col justify-between min-h-[90px]">
+                    <span class="text-slate-900 font-black">Le Chef du Service des Études</span>
                     <span class="text-[9px] text-slate-400 font-normal">(Signature & Cachet)</span>
                 </div>
             </div>
         </div>
+    </div>
 
+
+    <!-- ================================================================= -->
+    <!-- 2. MODE IMPRESSION : DÉCOUPAGE PAR TRANCHES D'UES SANS DEFILEMENT -->
+    <!-- ================================================================= -->
+    <div class="hidden print:block text-slate-900" id="printable-bordereau-print">
+        {% for chunk in ue_chunks %}
+        <div class="print-chunk-block {% if not forloop.first %}print-break-before mt-8{% endif %}">
+            
+            <!-- Entête Institutionnel IAI-Cameroun -->
+            <div class="text-center border-b-2 border-slate-900 pb-3 mb-4 relative">
+                <div class="flex justify-center mb-1">
+                    <img src="{% static 'images/logo.png' %}" alt="Logo IAI" class="h-14 w-auto object-contain">
+                </div>
+                
+                <div class="text-center max-w-3xl mx-auto">
+                    <h2 class="text-xs font-black text-slate-900 tracking-wide uppercase">ÉTABLISSEMENT INTER-ÉTATS D'ENSEIGNEMENT SUPÉRIEUR</h2>
+                    <p class="text-[11px] font-bold text-emerald-800 uppercase mt-0.5">REPRÉSENTATION DU CAMEROUN &bull; CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</p>
+                    <p class="text-[9px] text-slate-500 mt-0.5">BP 13 719 Yaoundé (Cameroun) &bull; Tél. (237) 242 72 99 57/ 242 72 99 58 &bull; Site web: www.iaicameroun.com &bull; E-mail: contact@iaicameroun.com</p>
+                </div>
+
+                <div class="mt-2 inline-block border border-slate-900 bg-slate-900 text-white font-black text-sm px-8 py-1 rounded-md tracking-widest uppercase shadow">
+                    BORDEREAU DE NOTES
+                </div>
+
+                <!-- Meta Data Sub-bar -->
+                <div class="mt-3 grid grid-cols-5 text-[11px] bg-slate-100 p-2 rounded-lg border border-slate-400 text-center font-bold">
+                    <div>Campus : <span class="text-emerald-800">{{ header.campus }}</span></div>
+                    <div>Niveau : <span class="text-emerald-800">{{ header.niveau }}</span></div>
+                    <div>Classe : <span class="text-emerald-800">{{ header.classe }}</span></div>
+                    <div>Année Acad. : <span class="text-emerald-800">{{ header.annee_academique }}</span></div>
+                    <div>Date : <span class="text-slate-700">{{ header.date_impression }}</span></div>
+                </div>
+            </div>
+
+            <!-- Table de la tranche d'UEs -->
+            <div class="overflow-x-visible">
+                <table class="w-full text-[10px] border-collapse border-2 border-slate-900">
+                    <thead>
+                        <!-- Ligne 1 : En-têtes UEs de la tranche -->
+                        <tr class="bg-slate-900 text-white font-bold text-center">
+                            <th colspan="8" class="border border-slate-700 p-1.5 bg-slate-950 text-left pl-2">INFORMATIONS ÉTUDIANT</th>
+                            {% for ue in chunk.ues %}
+                                <th colspan="{{ ue.matieres|length|add:2 }}" class="border border-slate-700 p-1.5 bg-slate-800 text-slate-100">
+                                    UE : {{ ue.code }} - {{ ue.nom }} ({{ ue.total_credits }} Crédits)
+                                </th>
+                            {% endfor %}
+                            {% if chunk.is_last_chunk %}
+                                <th colspan="8" class="border border-slate-700 p-1.5 bg-slate-950 text-sky-200">{% if semestre == 'annuel' %}RÉSULTATS ANNUELS (S1 + S2){% else %}RÉSULTATS DU SEMESTRE {{ semestre }}{% endif %}</th>
+                            {% endif %}
+                        </tr>
+
+                        <!-- Ligne 2 : Titres des Matières (Verticales) -->
+                        <tr class="bg-slate-100 text-slate-900 font-bold text-center text-[9px]">
+                            <th class="border border-slate-400 p-1 w-6">N°</th>
+                            <th class="border border-slate-400 p-1 text-left min-w-[110px]">Noms</th>
+                            <th class="border border-slate-400 p-1 text-left min-w-[95px]">Prénoms</th>
+                            <th class="border border-slate-400 p-1 min-w-[65px]">Date naiss.</th>
+                            <th class="border border-slate-400 p-1 min-w-[65px]">Lieu naiss.</th>
+                            <th class="border border-slate-400 p-1 min-w-[85px]">Matricule</th>
+                            <th class="border border-slate-400 p-1 min-w-[50px]">Filière</th>
+                            <th class="border border-slate-400 p-1 min-w-[50px]">Pays orig.</th>
+
+                            {% for ue in chunk.ues %}
+                                {% for mat in ue.matieres %}
+                                    <th class="th-vertical-cell border border-slate-400" title="{{ mat.nom }}">
+                                        <div class="th-vertical-text">{{ mat.nom }}</div>
+                                    </th>
+                                {% endfor %}
+                                <th class="th-vertical-cell border border-slate-400 bg-slate-200" title="Moyenne UE">
+                                    <div class="th-vertical-text text-slate-900 font-black">Moyenne UE</div>
+                                </th>
+                                <th class="th-vertical-cell border border-slate-400 bg-slate-200" title="Mention UE">
+                                    <div class="th-vertical-text text-slate-900 font-black">Mention</div>
+                                </th>
+                            {% endfor %}
+
+                            {% if chunk.is_last_chunk %}
+                                <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Total Pts</th>
+                                <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Moyenne</th>
+                                <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Rang</th>
+                                <th class="border border-slate-400 p-1 bg-sky-100 text-sky-950 font-bold">Crédits</th>
+                                <th class="border border-slate-400 p-1">Abs.</th>
+                                <th class="border border-slate-400 p-1">Ret.</th>
+                                <th class="border border-slate-400 p-1">Disc.</th>
+                                <th class="border border-slate-400 p-1 bg-slate-900 text-white font-black">Décision</th>
+                            {% endif %}
+                        </tr>
+
+                        <!-- Ligne 3 : Crédits / Coefficients -->
+                        <tr class="bg-slate-200 text-slate-900 font-bold text-center text-[9px] border-b-2 border-slate-900">
+                            <td colspan="8" class="border border-slate-400 p-0.5 bg-slate-300 text-right pr-2 font-black">Crédits / Coefficients</td>
+                            {% for ue in chunk.ues %}
+                                {% for mat in ue.matieres %}
+                                    <td class="border border-slate-400 p-0.5 font-black text-center text-slate-900 bg-slate-100">{{ mat.coefficient|default:mat.credit|default:1 }}</td>
+                                {% endfor %}
+                                <td class="border border-slate-400 p-0.5 font-black text-center bg-slate-300 text-slate-950">{{ ue.total_credits }}</td>
+                                <td class="border border-slate-400 p-0.5 font-black text-center bg-slate-300 text-slate-950">-</td>
+                            {% endfor %}
+                            {% if chunk.is_last_chunk %}
+                                <td colspan="8" class="border border-slate-400 p-0.5 bg-sky-200 text-center font-bold text-sky-900">--</td>
+                            {% endif %}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for row in chunk.etudiants_rows %}
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-300 text-center font-medium">
+                            <td class="border border-slate-300 p-1 font-bold">{{ forloop.counter }}</td>
+                            <td class="border border-slate-300 p-1 text-left font-bold text-slate-900 uppercase whitespace-nowrap">{{ row.etudiant.nom }}</td>
+                            <td class="border border-slate-300 p-1 text-left text-slate-800 whitespace-nowrap">{{ row.etudiant.prenom }}</td>
+                            <td class="border border-slate-300 p-1 text-slate-600 whitespace-nowrap">{{ row.etudiant.date_naissance|date:"d/m/Y" }}</td>
+                            <td class="border border-slate-300 p-1 text-slate-600 whitespace-nowrap">{{ row.etudiant.lieu_naissance }}</td>
+                            <td class="border border-slate-300 p-1 font-mono font-bold text-slate-900 whitespace-nowrap">{{ row.etudiant.matricule }}</td>
+                            <td class="border border-slate-300 p-1 font-bold">{{ row.etudiant.filiere.code }}</td>
+                            <td class="border border-slate-300 p-1">{{ row.etudiant.nationalite }}</td>
+
+                            {% for ue_data in row.ues_list %}
+                                {% for mat_info in ue_data.matieres_list %}
+                                    <td class="border border-slate-300 p-1 {% if mat_info.note != None and mat_info.note < 10 %}text-rose-600 font-bold{% else %}text-sky-700 font-semibold{% endif %}">
+                                        {{ mat_info.note|floatformat:2|default:"0,00" }}
+                                    </td>
+                                {% endfor %}
+
+                                <td class="border border-slate-300 p-1 font-bold bg-slate-50 {% if ue_data.moyenne < 10 %}text-rose-600{% else %}text-emerald-800{% endif %}">
+                                    {{ ue_data.moyenne|floatformat:2|default:"0,00" }}
+                                </td>
+                                <td class="border border-slate-300 p-1 font-bold">
+                                    {% if ue_data.mention == 'V' %}
+                                        <span class="text-slate-900 font-black">V</span>
+                                    {% else %}
+                                        <span class="text-rose-600 font-black">NV</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+
+                            {% if chunk.is_last_chunk %}
+                                <td class="border border-slate-300 p-1 font-bold text-slate-900 bg-sky-50/50">{{ row.total_points|floatformat:2 }}</td>
+                                <td class="border border-slate-300 p-1 font-extrabold text-xs {% if row.moyenne < 10 %}text-rose-600{% else %}text-emerald-700{% endif %} bg-sky-50/50">
+                                    {{ row.moyenne|floatformat:2 }}
+                                </td>
+                                <td class="border border-slate-300 p-1 font-bold bg-sky-50/50">{{ row.rang }}</td>
+                                <td class="border border-slate-300 p-1 font-bold bg-sky-50/50 text-emerald-800">{{ row.credits_capitalises }}/{{ row.credits_possibles }}</td>
+                                <td class="border border-slate-300 p-1">{{ row.absences }}h</td>
+                                <td class="border border-slate-300 p-1">{{ row.retards }}</td>
+                                <td class="border border-slate-300 p-1">{{ row.discipline }}</td>
+                                <td class="border border-slate-300 p-1 font-black uppercase text-[9px] {% if row.decision == 'ADMIS' %}bg-emerald-600 text-white{% else %}bg-rose-600 text-white{% endif %}">
+                                    {{ row.decision }}
+                                </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="100" class="p-6 text-center text-slate-400">Aucun étudiant inscrit dans cette classe.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+
+                    <tfoot>
+                        <tr class="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-900 text-[9px] text-center">
+                            <td colspan="8" class="border border-slate-400 p-1 text-right pr-2 uppercase font-black">Moyennes de la classe</td>
+                            {% for ue in chunk.ues %}
+                                {% for mat in ue.matieres %}
+                                    <td class="border border-slate-400 p-1 text-slate-900 font-bold">
+                                        {{ statistiques.moyennes_matieres|get_item:mat.id|floatformat:2|default:"-" }}
+                                    </td>
+                                {% endfor %}
+                                <td class="border border-slate-400 p-1 bg-slate-200 text-slate-950 font-black">
+                                    {{ statistiques.moyennes_ues|get_item:ue.id|floatformat:2|default:"-" }}
+                                </td>
+                                <td class="border border-slate-400 p-1 bg-slate-200">-</td>
+                            {% endfor %}
+                            {% if chunk.is_last_chunk %}
+                                <td colspan="8" class="border border-slate-400 p-1 bg-sky-100 text-sky-950 text-center font-extrabold">
+                                    Taux Réussite : {{ statistiques.taux_reussite }}%
+                                </td>
+                            {% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {% if chunk.is_last_chunk %}
+            <!-- Statistiques et Pied de Bordereau (Signatures) sur la dernière tranche -->
+            <div class="mt-6 pt-4 border-t-2 border-slate-900 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-400 space-y-1">
+                    <h4 class="font-black text-slate-900 uppercase text-xs mb-2">STATISTIQUES GLOBALES DE LA CLASSE</h4>
+                    <p>Nombre total d'étudiants : <strong class="text-slate-900">{{ statistiques.total_etudiants }}</strong></p>
+                    <p>Nombre d'admis : <strong class="text-emerald-700">{{ statistiques.nb_admis }}</strong> &bull; Ajournés : <strong class="text-rose-600">{{ statistiques.nb_ajournes }}</strong></p>
+                    <p>Taux de réussite global : <strong class="text-emerald-700 text-sm">{{ statistiques.taux_reussite }}%</strong></p>
+                </div>
+
+                <!-- Signatures Officiel -->
+                <div class="grid grid-cols-2 gap-4 text-center font-bold pt-2">
+                    <div class="p-3 border border-slate-400 rounded-xl bg-slate-50 flex flex-col justify-between min-h-[90px]">
+                        <span class="text-slate-900 font-black">Le Jury des Délibérations</span>
+                        <span class="text-[9px] text-slate-400 font-normal">(Signatures des membres du Jury)</span>
+                    </div>
+                    <div class="p-3 border border-slate-400 rounded-xl bg-slate-50 flex flex-col justify-between min-h-[90px]">
+                        <span class="text-slate-900 font-black">Le Chef du Service des Études</span>
+                        <span class="text-[9px] text-slate-400 font-normal">(Signature & Cachet)</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+        {% endfor %}
     </div>
 
 </div>
-
-<!-- Template Tag Custom Helper pour accès dict dynamique -->
-{% load notes_extras %}
 
 {% endblock %}

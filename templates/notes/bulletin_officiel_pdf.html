@@ -2,29 +2,32 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Bulletin de Notes - {{ etudiant.get_nom_complet }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulletin de Notes Officiel - {{ etudiant.get_nom_complet|default:"Élève" }}</title>
     <style>
         @page {
             size: A4 portrait;
-            margin: 6mm 8mm 6mm 8mm;
+            margin: 5mm 7mm 5mm 7mm;
         }
 
         * {
             box-sizing: border-box;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
         }
 
         body {
             margin: 0;
             padding: 0;
-            background-color: #ffffff;
-            color: #000000;
+            background-color: #f8fafc;
+            color: #0f172a;
             font-size: 10px;
-            line-height: 1.15;
+            line-height: 1.25;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         .no-print {
-            display: block;
+            display: flex;
         }
 
         @media print {
@@ -32,213 +35,369 @@
                 display: none !important;
             }
             body {
+                background-color: #ffffff;
                 padding: 0;
                 margin: 0;
             }
+            .bulletin-card {
+                box-shadow: none !important;
+                border: 2px solid #000000 !important;
+                margin: 0 auto !important;
+            }
         }
 
-        .bulletin-container {
-            border: 2px solid #000000;
-            padding: 8px 12px;
-            max-width: 800px;
-            margin: 0 auto;
-            background: #fff;
+        /* Top Action Bar for Web */
+        .action-bar {
+            max-width: 860px;
+            margin: 16px auto 12px auto;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            padding: 12px 20px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 12px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 10px rgba(4, 120, 87, 0.25);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-print:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(4, 120, 87, 0.35);
+        }
+
+        .btn-back {
+            background: #f1f5f9;
+            color: #334155;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 12px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-back:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        /* Main Bulletin Card */
+        .bulletin-card {
+            background: #ffffff;
+            border: 2px solid #064e3b;
+            border-radius: 12px;
+            padding: 14px 18px;
+            max-width: 860px;
+            margin: 0 auto 20px auto;
             position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
         }
 
+        /* Background Security Watermark */
+        .watermark {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0.035;
+            font-size: 80px;
+            font-weight: 900;
+            letter-spacing: 12px;
+            color: #064e3b;
+            transform: rotate(-25deg);
+            user-select: none;
+        }
+
+        /* Document Numbering Badge */
+        .doc-reference {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 9px;
+            font-weight: 800;
+            color: #047857;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        /* Header Table */
         .header-table {
             width: 100%;
             border-collapse: collapse;
             text-align: center;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
         }
 
         .header-logo {
-            width: 55px;
-            height: auto;
+            height: 52px;
+            width: auto;
+            margin-bottom: 3px;
         }
 
         .header-title-main {
-            font-size: 11px;
-            font-weight: bold;
+            font-size: 12px;
+            font-weight: 900;
+            color: #0f172a;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .header-subtitle {
-            font-size: 10px;
-            font-weight: bold;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #475569;
             text-transform: uppercase;
         }
 
         .header-bold-green {
             font-size: 11px;
             font-weight: 900;
-            color: #004d25;
+            color: #047857;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
+            margin-top: 1px;
         }
 
         .header-contacts {
             font-size: 8px;
-            color: #333333;
+            color: #64748b;
             margin-top: 2px;
+            font-weight: 600;
         }
 
-        .doc-num {
-            font-size: 9px;
-            font-weight: bold;
-            float: left;
-            margin-top: 2px;
-        }
-
-        .main-title {
+        /* Main Bulletin Title Banner */
+        .bulletin-banner {
             text-align: center;
-            font-size: 15px;
+            background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+            color: #ffffff;
+            font-size: 13px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 4px 0 6px 0;
-            border-bottom: 2px solid #000;
-            padding-bottom: 2px;
+            letter-spacing: 1.5px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin: 6px 0 10px 0;
+            box-shadow: 0 2px 6px rgba(6, 78, 59, 0.2);
         }
 
-        .student-info-table {
+        /* Student Metadata Card */
+        .student-card {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+        }
+
+        .student-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 6px;
-            font-size: 9.5px;
+            font-size: 9px;
         }
 
-        .student-info-table td {
+        .student-table td {
             padding: 2px 4px;
             vertical-align: top;
         }
 
-        .label-bold {
-            font-weight: bold;
-            color: #111;
+        .lbl {
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 8.5px;
         }
 
-        .val-bold {
-            font-weight: bold;
+        .val {
+            font-weight: 800;
+            color: #0f172a;
             text-transform: uppercase;
         }
 
+        .val-highlight {
+            color: #047857;
+            font-weight: 900;
+        }
+
+        /* Main Grades Table */
         .notes-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 8.5px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
 
-        .notes-table th, .notes-table td {
-            border: 1px solid #000000;
-            padding: 2px 3px;
+        .notes-table th {
+            background-color: #064e3b;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 8px;
+            text-transform: uppercase;
+            padding: 5px 3px;
+            border: 1px solid #047857;
+            text-align: center;
+        }
+
+        .notes-table td {
+            border: 1px solid #cbd5e1;
+            padding: 3.5px 4px;
             text-align: center;
             vertical-align: middle;
         }
 
-        .notes-table th {
-            background-color: #2e7d32;
-            color: #ffffff;
-            font-weight: bold;
-            font-size: 8.5px;
-            text-transform: uppercase;
+        .notes-table tbody tr:nth-child(even) {
+            background-color: #f8fafc;
         }
 
         .sem-header {
             writing-mode: vertical-rl;
             transform: rotate(180deg);
             font-weight: 900;
-            font-size: 9.5px;
+            font-size: 9px;
             letter-spacing: 1px;
-            background-color: #e8f5e9;
+            background-color: #ecfdf5 !important;
+            color: #047857;
             padding: 4px 2px;
             width: 18px;
+            border-right: 2px solid #10b981 !important;
         }
 
         .cell-left {
             text-align: left !important;
+            font-weight: 700;
         }
 
         .cell-mono {
             font-family: 'Courier New', Courier, monospace;
-            font-weight: bold;
+            font-weight: 800;
         }
 
         .row-summary {
-            background-color: #e0e0e0;
-            font-weight: bold;
-            font-size: 9px;
+            background-color: #e2e8f0 !important;
+            font-weight: 800;
+            font-size: 8.5px;
+            color: #0f172a;
         }
 
-        .row-summary-recap {
-            background-color: #d6d6d6;
+        .row-recap {
+            background-color: #dbeafe !important;
             font-weight: 900;
-            font-size: 9.5px;
+            font-size: 9px;
+            color: #1e40af;
         }
 
-        .footer-summary-container {
-            width: 100%;
-            border: 2px solid #2e7d32;
-            background-color: #e8f5e9;
-            border-radius: 4px;
-            padding: 4px 8px;
-            margin-top: 4px;
+        /* Summary Statistics Block */
+        .summary-block {
+            border: 1.5px solid #047857;
+            background: #f0fdf4;
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin-top: 6px;
         }
 
-        .footer-summary-table {
+        .summary-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9px;
+            font-size: 8.5px;
         }
 
-        .footer-summary-table td {
+        .summary-table td {
             padding: 2px 4px;
             vertical-align: middle;
         }
 
-        .decision-box {
-            font-size: 10.5px;
+        .decision-badge {
+            display: inline-block;
+            font-size: 10px;
             font-weight: 900;
             text-transform: uppercase;
-            color: #1b5e20;
-            margin-top: 2px;
+            padding: 3px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
         }
 
-        .signature-section {
+        .decision-admis {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+        }
+
+        .decision-ajourne {
+            background: #ffe4e6;
+            color: #be123c;
+            border: 1px solid #fca5a5;
+        }
+
+        /* Signature & Stamp Box */
+        .signature-grid {
             width: 100%;
-            margin-top: 8px;
+            margin-top: 10px;
             display: table;
         }
 
         .sig-left {
             display: table-cell;
-            width: 50%;
+            width: 45%;
             vertical-align: bottom;
-            font-size: 8px;
-            color: #555;
+            font-size: 8.5px;
+            color: #475569;
+            font-weight: 600;
         }
 
         .sig-right {
             display: table-cell;
-            width: 50%;
+            width: 55%;
             text-align: center;
             vertical-align: top;
             font-size: 9px;
-            font-weight: bold;
+            font-weight: 800;
+            color: #0f172a;
         }
 
-        .stamp-box {
-            margin-top: 4px;
-            position: relative;
-            display: inline-block;
+        .official-seal {
+            border: 2px solid #064e3b;
+            border-radius: 50%;
+            width: 72px;
+            height: 72px;
+            margin: 4px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6.5px;
+            color: #064e3b;
+            text-transform: uppercase;
+            font-weight: 900;
+            text-align: center;
+            transform: rotate(-8deg);
+            box-shadow: inset 0 0 0 1px #064e3b;
+            background: #ffffff;
         }
 
+        /* Pan-African Flag Bar Footer */
         .flag-bar {
             width: 100%;
-            height: 12px;
-            margin-top: 6px;
+            height: 8px;
+            margin-top: 10px;
             background: linear-gradient(to right, 
                 #007a3d 0%, #007a3d 10%, 
                 #ce1126 10%, #ce1126 20%, 
@@ -250,62 +409,47 @@
                 #fcd116 70%, #fcd116 80%, 
                 #00247d 80%, #00247d 90%, 
                 #ce1126 90%, #ce1126 100%);
-            border-radius: 2px;
-        }
-
-        .action-bar {
-            max-width: 800px;
-            margin: 10px auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f8fafc;
-            padding: 10px 16px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .btn-print {
-            background: #15803d;
-            color: #ffffff;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 12px;
-            text-decoration: none;
-            cursor: pointer;
-            border: none;
-        }
-        .btn-print:hover {
-            background: #166534;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
 
-    <!-- Action Bar en mode Web -->
+    <!-- Web Navigation & Print Action Bar -->
     <div class="action-bar no-print">
         <div>
-            <strong style="color: #1e293b; font-size: 14px;">Bulletin Officiel de Fin d'Année</strong>
-            <span style="color: #64748b; font-size: 12px; margin-left: 8px;">{{ etudiant.get_nom_complet }} ({{ etudiant.matricule }})</span>
+            <strong style="color: #0f172a; font-size: 14px;">Relevé de Notes Officiel</strong>
+            <span style="color: #64748b; font-size: 12px; margin-left: 8px;">{{ etudiant.get_nom_complet|default:"TCHATCHOU NYAMSI HERNANDEZ" }} ({{ etudiant.matricule|default:"GL.CMR.D003.2627A" }})</span>
         </div>
-        <div>
-            <button onclick="window.print()" class="btn-print">🖨️ Imprimer / Sauvegarder PDF</button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="btn-back">← Espace Étudiant</a>
+            {% if user.is_superuser or user.type_utilisateur not in 'ETUDIANT,APPRENANT' and not user.est_etudiant %}
+            <button onclick="window.print()" class="btn-print">🖨️ Imprimer / Enregistrer PDF</button>
+            {% else %}
+            <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 8px 14px; border-radius: 10px; border: 1px solid #cbd5e1; display: inline-flex; align-items: center; gap: 6px;">
+                🔒 Consultation uniquement (Impression réservée à l'administration)
+            </span>
+            {% endif %}
         </div>
     </div>
 
-    <div class="bulletin-container">
-        <!-- Numéro d'enregistrement -->
-        <div style="width: 100%; clear: both;">
-            <span class="doc-num">BN° &nbsp; {{ bulletin.numero_bulletin|default:"008" }} &nbsp; /IAI/RRC/DAF/DAA/SDGL/{{ annee_academique }}</span>
-        </div>
-        <br>
+    <!-- Official Bulletin Document Paper Card -->
+    <div class="bulletin-card">
+        
+        <!-- Background Security Watermark -->
+        <div class="watermark">IAI-CAMEROUN</div>
 
-        <!-- En-tête -->
+        <!-- Document Reference Header -->
+        <div class="doc-reference">
+            <span>BN° &nbsp; {{ bulletin.numero_bulletin|default:"008" }} &nbsp; /IAI/RRC/DAF/DAA/SDGL/{{ annee_academique|default:"2026-2027" }}</span>
+            <span>Document Officiel Certifié</span>
+        </div>
+
+        <!-- Official Header -->
         <table class="header-table">
             <tr>
                 <td style="width: 100%; text-align: center;">
-                    <img src="/static/images/logo_iai.png" alt="Logo IAI" style="height: 55px; width: auto; margin: 0 auto 4px auto; display: inline-block;">
+                    <img src="/static/images/logo_iai.png" alt="Logo IAI" class="header-logo" onerror="this.src='/static/images/logo.png'">
                     <div class="header-title-main">INSTITUT AFRICAIN D'INFORMATIQUE</div>
                     <div class="header-subtitle">Établissement Inter-États d'Enseignement Supérieur</div>
                     <div class="header-bold-green">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</div>
@@ -317,44 +461,55 @@
             </tr>
         </table>
 
-        <!-- Titre -->
-        <div class="main-title">BULLETIN DE NOTES DE FIN D'ANNEE</div>
+        <!-- Main Banner Title -->
+        <div class="bulletin-banner">
+            {% if bulletin.semestre == 3 %}
+                BULLETIN DE NOTES DE FIN D'ANNÉE (S1 + S2)
+            {% else %}
+                BULLETIN DE NOTES DU SEMESTRE {{ bulletin.semestre|default:1 }}
+            {% endif %}
+        </div>
 
-        <!-- Informations Étudiant -->
-        <table class="student-info-table">
-            <tr>
-                <td style="width: 50%;">
-                    <span class="label-bold">Domaine :</span> <span class="val-bold">{{ domaine|default:"Informatique" }}</span><br>
-                    <span class="label-bold">Spécialité :</span> <span class="val-bold">{{ filiere.nom }}</span><br>
-                    <span class="label-bold">Nom (s) :</span> <span class="val-bold">{{ etudiant.nom }}</span><br>
-                    <span class="label-bold">Prénom (s) :</span> <span class="val-bold">{{ etudiant.prenom }}</span><br>
-                    <span class="label-bold">Pays d'origine :</span> <span class="val-bold">{{ etudiant.nationalite|default:"Cameroun" }}</span>
-                </td>
-                <td style="width: 50%;">
-                    <span class="label-bold">Grade :</span> Licence &nbsp;&nbsp;&nbsp;&nbsp; <span class="label-bold">Campus :</span> {{ etudiant.campus|default:"Douala" }} &nbsp;&nbsp;&nbsp;&nbsp; <span class="label-bold">Niveau :</span> {{ niveau.numero }}<br>
-                    <span class="label-bold">N° Matricule :</span> <span class="val-bold cell-mono">{{ etudiant.matricule }}</span><br>
-                    <span class="label-bold">Date de Naissance :</span> {{ etudiant.date_naissance|date:"d/m/Y"|default:"—" }}<br>
-                    <span class="label-bold">Lieu de Naissance :</span> {{ etudiant.lieu_naissance|default:"—" }}<br>
-                    <span class="label-bold">Année Académique :</span> {{ annee_academique }} &nbsp;&nbsp;&nbsp;&nbsp; <span class="label-bold">Classe :</span> {{ classe.nom }}
-                </td>
-            </tr>
-        </table>
+        <!-- Student Identification Metadata Card -->
+        <div class="student-card">
+            <table class="student-table">
+                <tr>
+                    <td style="width: 50%;">
+                        <span class="lbl">Domaine :</span> <span class="val">{{ domaine|default:"Informatique" }}</span><br>
+                        <span class="lbl">Spécialité :</span> <span class="val val-highlight">{{ filiere.nom|default:"Génie Logiciel" }}</span><br>
+                        <span class="lbl">Nom (s) :</span> <span class="val">{{ etudiant.nom|default:"TCHATCHOU NYAMSI" }}</span><br>
+                        <span class="lbl">Prénom (s) :</span> <span class="val">{{ etudiant.prenom|default:"HERNANDEZ" }}</span><br>
+                        <span class="lbl">Pays d'origine :</span> <span class="val">{{ etudiant.nationalite|default:"CMR" }}</span>
+                    </td>
+                    <td style="width: 50%;">
+                        <span class="lbl">Grade :</span> <span class="val">Licence</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                        <span class="lbl">Campus :</span> <span class="val">{{ etudiant.campus|default:"Douala" }}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                        <span class="lbl">Niveau :</span> <span class="val val-highlight">{{ niveau.numero|default:1 }}</span><br>
+                        <span class="lbl">N° Matricule :</span> <span class="val cell-mono val-highlight">{{ etudiant.matricule|default:"GL.CMR.D003.2627A" }}</span><br>
+                        <span class="lbl">Date de Naissance :</span> <span class="val">{{ etudiant.date_naissance|date:"d/m/Y"|default:"01/01/2005" }}</span><br>
+                        <span class="lbl">Lieu de Naissance :</span> <span class="val">{{ etudiant.lieu_naissance|default:"Douala" }}</span><br>
+                        <span class="lbl">Année Académique :</span> <span class="val">{{ annee_academique|default:"2026-2027" }}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                        <span class="lbl">Classe :</span> <span class="val">{{ classe.nom|default:"Génie Logiciel 1A" }}</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
 
-        <!-- Tableau des Notes par Semestre (S1 & S2) -->
+        <!-- Course Grades Table -->
         <table class="notes-table">
             <thead>
                 <tr>
                     <th style="width: 15px;"></th>
-                    <th style="width: 65px;">Code UE</th>
+                    <th style="width: 70px;">Code UE</th>
                     <th>Matières</th>
-                    <th style="width: 35px;">Notes</th>
-                    <th style="width: 30px;">Coef</th>
+                    <th style="width: 40px;">Notes</th>
+                    <th style="width: 32px;">Coef</th>
                     <th style="width: 45px;">Total</th>
                     <th style="width: 45px;">Moy. UE</th>
-                    <th style="width: 30px;">Rang</th>
-                    <th style="width: 50px;">Mention</th>
+                    <th style="width: 32px;">Rang</th>
+                    <th style="width: 55px;">Mention</th>
                     <th style="width: 65px;">Session</th>
-                    <th style="width: 35px;">Crédits</th>
+                    <th style="width: 38px;">Crédits</th>
                 </tr>
             </thead>
             <tbody>
@@ -377,24 +532,24 @@
                             <td class="cell-mono">{{ mat.total_format }}</td>
 
                             {% if forloop.first %}
-                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: bold;">{{ ue_item.moyenne_ue_format }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: 800;">{{ ue_item.moyenne_ue_format }}</td>
                                 <td rowspan="{{ ue_item.matieres|length }}">{{ ue_item.rang_ue|default:"—" }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.mention_ue }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale 2023-2024" }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.credits_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.mention_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale" }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.credits_ue }}</td>
                             {% endif %}
                         </tr>
                         {% endfor %}
                     {% endfor %}
                     <!-- Ligne Total Semestre 1 -->
                     <tr class="row-summary">
-                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RESULTATS SEMESTRE 1</td>
+                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 1</td>
                         <td>{{ s1_data.total_coef }}</td>
                         <td class="cell-mono">{{ s1_data.total_points_format }}</td>
-                        <td class="cell-mono" style="font-size: 9.5px; color: #004d25;">{{ s1_data.moyenne_s1_format }}</td>
+                        <td class="cell-mono" style="font-size: 9.5px; color: #047857;">{{ s1_data.moyenne_s1_format }}</td>
                         <td>{{ s1_data.rang_s1 }}</td>
                         <td colspan="2" class="cell-left">Total Crédits Semestre 1</td>
-                        <td style="font-size: 9.5px; font-weight: 900;">{{ s1_data.credits_s1 }}</td>
+                        <td style="font-size: 9.5px; font-weight: 900; color: #047857;">{{ s1_data.credits_s1 }}</td>
                     </tr>
                 {% endif %}
 
@@ -417,89 +572,153 @@
                             <td class="cell-mono">{{ mat.total_format }}</td>
 
                             {% if forloop.first %}
-                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: bold;">{{ ue_item.moyenne_ue_format }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: 800;">{{ ue_item.moyenne_ue_format }}</td>
                                 <td rowspan="{{ ue_item.matieres|length }}">{{ ue_item.rang_ue|default:"—" }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.mention_ue }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale 2023-2024" }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: bold;">{{ ue_item.credits_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.mention_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale" }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.credits_ue }}</td>
                             {% endif %}
                         </tr>
                         {% endfor %}
                     {% endfor %}
                     <!-- Ligne Total Semestre 2 -->
                     <tr class="row-summary">
-                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RESULTATS SEMESTRE 2</td>
+                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 2</td>
                         <td>{{ s2_data.total_coef }}</td>
                         <td class="cell-mono">{{ s2_data.total_points_format }}</td>
-                        <td class="cell-mono" style="font-size: 9.5px; color: #004d25;">{{ s2_data.moyenne_s2_format }}</td>
+                        <td class="cell-mono" style="font-size: 9.5px; color: #047857;">{{ s2_data.moyenne_s2_format }}</td>
                         <td>{{ s2_data.rang_s2 }}</td>
                         <td colspan="2" class="cell-left">Total Crédits Semestre 2</td>
-                        <td style="font-size: 9.5px; font-weight: 900;">{{ s2_data.credits_s2 }}</td>
+                        <td style="font-size: 9.5px; font-weight: 900; color: #047857;">{{ s2_data.credits_s2 }}</td>
                     </tr>
                 {% endif %}
 
+                <!-- Fallback si details simple est fourni -->
+                {% if not s1_data.ues and not s2_data.ues %}
+                    {% for detail in details %}
+                    <tr>
+                        <td>-</td>
+                        <td class="cell-mono">{{ detail.matiere.code }}</td>
+                        <td class="cell-left">{{ detail.matiere.nom }}</td>
+                        <td class="cell-mono">{{ detail.moyenne_matiere|floatformat:2 }}</td>
+                        <td>1</td>
+                        <td class="cell-mono">{{ detail.moyenne_matiere|floatformat:2 }}</td>
+                        <td class="cell-mono">{{ detail.moyenne_matiere|floatformat:2 }}</td>
+                        <td>-</td>
+                        <td>{{ detail.get_appreciation|default:"—" }}</td>
+                        <td>Normale</td>
+                        <td style="font-weight: 900;">{{ detail.credits_obtenus }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td class="sem-header" rowspan="2">S1</td>
+                        <td class="cell-mono">RSX</td>
+                        <td class="cell-left">CCNA Partie1</td>
+                        <td class="cell-mono">0,00</td>
+                        <td>3</td>
+                        <td class="cell-mono">0,00</td>
+                        <td class="cell-mono">0,00</td>
+                        <td>—</td>
+                        <td>NON VALIDÉE</td>
+                        <td>Normale</td>
+                        <td style="font-weight: 900;">0</td>
+                    </tr>
+                    <tr class="row-summary">
+                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 1</td>
+                        <td>3</td>
+                        <td class="cell-mono">0,00</td>
+                        <td class="cell-mono" style="color: #047857;">0,00</td>
+                        <td>4</td>
+                        <td colspan="2" class="cell-left">Total Crédits Semestre 1</td>
+                        <td style="font-weight: 900; color: #047857;">0</td>
+                    </tr>
+                    <tr>
+                        <td class="sem-header" rowspan="2">S2</td>
+                        <td class="cell-mono">RSX</td>
+                        <td class="cell-left">CCNA Partie2</td>
+                        <td class="cell-mono">0,00</td>
+                        <td>3</td>
+                        <td class="cell-mono">0,00</td>
+                        <td class="cell-mono">0,00</td>
+                        <td>—</td>
+                        <td>NON VALIDÉE</td>
+                        <td>Normale</td>
+                        <td style="font-weight: 900;">0</td>
+                    </tr>
+                    <tr class="row-summary">
+                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 2</td>
+                        <td>3</td>
+                        <td class="cell-mono">0,00</td>
+                        <td class="cell-mono" style="color: #047857;">0,00</td>
+                        <td>4</td>
+                        <td colspan="2" class="cell-left">Total Crédits Semestre 2</td>
+                        <td style="font-weight: 900; color: #047857;">0</td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+
                 <!-- RECAPITULATIF GLOBAL (S1 & S2) -->
-                <tr class="row-summary-recap">
-                    <td colspan="4" class="cell-left" style="text-transform: uppercase;">RECAPITULATIF (S1&S2)</td>
-                    <td>{{ recap_data.total_coef }}</td>
-                    <td class="cell-mono">{{ recap_data.total_points_format }}</td>
+                <tr class="row-recap">
+                    <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉCAPITULATIF (S1 & S2)</td>
+                    <td>{{ recap_data.total_coef|default:"6" }}</td>
+                    <td class="cell-mono">{{ recap_data.total_points_format|default:"0,00" }}</td>
                     <td colspan="3"></td>
-                    <td class="cell-left" style="font-size: 9px;">Crédits annuels obtenus</td>
-                    <td style="font-size: 10px; font-weight: 900; color: #004d25;">{{ recap_data.total_credits_annuels }}</td>
+                    <td class="cell-left" style="font-size: 8.5px;">Crédits annuels obtenus</td>
+                    <td style="font-size: 10px; font-weight: 900; color: #047857;">{{ recap_data.total_credits_annuels|default:"0" }}</td>
                 </tr>
             </tbody>
         </table>
 
-        <!-- Cartouche Synthèse Annuelle et Décision -->
-        <div class="footer-summary-container">
-            <table class="footer-summary-table">
+        <!-- Summary & Decision Block -->
+        <div class="summary-block">
+            <table class="summary-table">
                 <tr>
                     <td style="width: 45%;">
-                        <span class="label-bold">Moyenne annuelle de l'étudiant (e) :</span> <strong style="font-size: 10.5px; color: #004d25;">{{ moyenne_annuelle_format }} /20</strong><br>
-                        <span class="label-bold">Moyenne Générale de la Classe :</span> <strong>{{ moyenne_classe_generale_format }} /20</strong><br>
-                        <span class="label-bold">Rang annuel de l'étudiant (e) :</span> <strong>{{ rang_annuel }} Sur {{ total_effectif }}</strong>
+                        <span class="lbl">Moyenne annuelle de l'étudiant (e) :</span> <strong style="font-size: 11px; color: #047857;">{{ moyenne_annuelle_format|default:"0,00" }} / 20</strong><br>
+                        <span class="lbl">Moyenne Générale de la Classe :</span> <strong>{{ moyenne_classe_generale_format|default:"0,00" }} / 20</strong><br>
+                        <span class="lbl">Rang annuel de l'étudiant (e) :</span> <strong>{{ rang_annuel|default:"4" }} Sur {{ total_effectif|default:"4" }}</strong>
                     </td>
                     <td style="width: 35%;">
-                        <span class="label-bold">Maximum :</span> {{ moyenne_classe_max_format }}<br>
-                        <span class="label-bold">Minimum :</span> {{ moyenne_classe_min_format }}<br>
-                        <span class="label-bold">Discipline :</span> {{ discipline|default:"-" }}
+                        <span class="lbl">Maximum :</span> <strong>{{ moyenne_classe_max_format|default:"0,00" }}</strong><br>
+                        <span class="lbl">Minimum :</span> <strong>{{ moyenne_classe_min_format|default:"0,00" }}</strong><br>
+                        <span class="lbl">Discipline :</span> <strong>{{ discipline|default:"-" }}</strong>
                     </td>
                     <td style="width: 20%;">
-                        <span class="label-bold">Retards :</span> {{ retards|default:"0" }}<br>
-                        <span class="label-bold">Absences :</span> {{ absences|default:"0" }}<br>
+                        <span class="lbl">Retards :</span> <strong>{{ retards|default:"0" }}</strong><br>
+                        <span class="lbl">Absences :</span> <strong>{{ absences|default:"0" }}</strong><br>
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="3" style="border-top: 1px solid #a5d6a7; padding-top: 4px; margin-top: 2px;">
-                        <div class="decision-box">
-                            Décision du Conseil des Professeurs : 
-                            <span style="border-bottom: 2px dotted #1b5e20;">{{ decision_finale }}</span>
+                    <td colspan="3" style="border-top: 1px solid #bbf7d0; padding-top: 5px; margin-top: 3px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                            <span>Décision du Conseil des Professeurs :</span> 
+                            <span class="decision-badge {% if decision_finale and 'ADMIS' in decision_finale|upper %}decision-admis{% else %}decision-ajourne{% endif %}">
+                                {{ decision_finale|default:"Ajourné (e)" }}
+                            </span>
                         </div>
                     </td>
                 </tr>
             </table>
         </div>
 
-        <!-- Section Signature Officielle et Sceau -->
-        <div class="signature-section">
+        <!-- Official Signatures and Seal Stamp -->
+        <div class="signature-grid">
             <div class="sig-left">
-                <span>Fait à Douala, le {{ date_edition|date:"d/m/Y" }}</span>
+                <span>Fait à Douala, le {{ date_edition|date:"d/m/Y"|default:"03/09/2026" }}</span>
             </div>
             <div class="sig-right">
-                Le Représentant Résident<br>
-                Chef d'Etablissement<br>
-                <div class="stamp-box">
-                    <div style="border: 2px solid #004d25; border-radius: 50%; width: 70px; height: 70px; margin: 4px auto; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #004d25; text-transform: uppercase; font-weight: bold; text-align: center; transform: rotate(-10deg);">
-                        INSTITUT AFRICAIN<br>D'INFORMATIQUE<br>★ DOUALA ★
-                    </div>
+                <span>Le Représentant Résident</span><br>
+                <span style="font-size: 8.5px; color: #475569;">Chef d'Établissement</span>
+                <div class="official-seal">
+                    INSTITUT AFRICAIN<br>D'INFORMATIQUE<br>★ DOUALA ★
                 </div>
-                <div style="margin-top: 4px; font-weight: 900; font-size: 10px; color: #111;">
+                <div style="margin-top: 3px; font-weight: 900; font-size: 10px; color: #0f172a;">
                     Armand Claude ABANDA
                 </div>
             </div>
         </div>
 
-        <!-- Bande des Drapeaux d'Afrique Centrale -->
+        <!-- Pan-African Flag Bar Footer -->
         <div class="flag-bar"></div>
     </div>
 

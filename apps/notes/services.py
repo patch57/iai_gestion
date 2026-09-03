@@ -367,11 +367,20 @@ def remplir_bordereau_depuis_pv(salle, semestre=1, user=None):
     from .models import ProcesVerbalNotes, Bulletin, DetailBulletin
     from apps.cours.models import Matiere, Cours
 
-    filiere = salle.filiere
-    niveau = salle.niveau
-    annee_academique = salle.annee_academique.code if salle.annee_academique else '2025-2026'
+    filiere = getattr(salle, 'filiere', None)
+    niveau = getattr(salle, 'niveau', None)
+    ann_val = getattr(salle, 'annee_academique', '2025-2026')
+    annee_academique = str(getattr(ann_val, 'code', getattr(ann_val, 'annee', ann_val)))
 
-    matieres = Matiere.objects.filter(semestre=semestre)
+    is_annuel = str(semestre).lower() in ['annuel', 'annual', '3', '0']
+    if is_annuel:
+        matieres = Matiere.objects.all()
+    else:
+        try:
+            sem_int = int(semestre)
+        except (ValueError, TypeError):
+            sem_int = 1
+        matieres = Matiere.objects.filter(semestre=sem_int)
 
     resultats = {
         'remplis': [],

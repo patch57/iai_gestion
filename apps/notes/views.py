@@ -880,14 +880,13 @@ def exporter_releve(request, bulletin_id):
     writer.writerow([f"Année Académique: {bulletin.annee_academique}"])
     writer.writerow([f"Semestre: {bulletin.semestre}"])
     writer.writerow([])
-    writer.writerow(['Matière', 'CC (30%)', 'TP (20%)', 'Examen (50%)', 'Moyenne', 'Crédits', 'Validée'])
+    writer.writerow(['Matière', 'CC (40%)', 'Examen (60%)', 'Moyenne', 'Crédits', 'Validée'])
     writer.writerow(['-' * 80])
     
     for detail in bulletin.details.all():
         writer.writerow([
             detail.matiere.nom,
             detail.note_cc or '-',
-            detail.note_tp or '-',
             detail.note_examen or '-',
             f"{detail.moyenne_matiere:.2f}" if detail.moyenne_matiere else '-',
             detail.credits_obtenus,
@@ -1795,7 +1794,7 @@ def traiter_recours(request, pk):
 
 @login_required
 def mon_bulletin(request):
-    """Espace personnel étudiant : Bulletin semestriel interactif"""
+    """Espace personnel étudiant : Bulletin semestriel ou annuel interactif"""
     try:
         etudiant = Etudiant.objects.get(utilisateur=request.user)
     except Etudiant.DoesNotExist:
@@ -1805,11 +1804,14 @@ def mon_bulletin(request):
     annee = get_annee_academique_active(request)
     bulletins = Bulletin.objects.filter(etudiant=etudiant).order_by('-annee_academique', 'semestre')
     
-    semestre = request.GET.get('semestre', '1')
-    try:
-        semestre_int = int(semestre)
-    except ValueError:
-        semestre_int = 1
+    sem_param = request.GET.get('semestre', '1')
+    if str(sem_param).lower() in ['annuel', 'annual', '3', '0']:
+        semestre_int = 3
+    else:
+        try:
+            semestre_int = int(sem_param)
+        except (ValueError, TypeError):
+            semestre_int = 1
         
     bulletin_actif = bulletins.filter(annee_academique=annee, semestre=semestre_int).first()
     
@@ -1820,7 +1822,7 @@ def mon_bulletin(request):
     
     if bulletin_actif:
         details = bulletin_actif.details.all().select_related('matiere')
-        total_credits = sum(d.credits for d in details)
+        total_credits = sum(d.credits for d in details) or bulletin_actif.credits_totaux
         credits_obtenus = bulletin_actif.credits_obtenus
         progression = round((credits_obtenus / total_credits) * 100, 1) if total_credits > 0 else 0
         
@@ -1834,8 +1836,8 @@ def mon_bulletin(request):
         'credits_obtenus': credits_obtenus,
         'annee': annee,
         'semestre_actif': semestre_int,
-        'titre': 'Mon Bulletin Semestriel'
-      }
+        'titre': 'Mon Bulletin Académique'
+    }
     return render(request, 'notes/bulletin/mon_bulletin.html', context)
 
 
@@ -2537,8 +2539,8 @@ def voir_bulletin_officiel(request, bulletin_id):
     role = getattr(user, 'type_utilisateur', None)
 
     # Vérification des droits d'accès
-    est_proprietaire = hasattr(user, 'etudiant_profile') and user.etudiant_profile.id == bulletin.etudiant.id
-    est_admin_ou_chef = role in ('CHEF_ETUDES', 'ADMIN_SYSTEME', 'CHEF_SCOLARITE') or user.is_superuser
+    est_proprietaire = (getattr(user, 'etudiant_profile', None) == bulletin.etudiant or getattr(user, 'email', '') == bulletin.etudiant.email)
+    est_admin_ou_chef = role in ('CHEF_ETUDES', 'ADMIN_SYSTEME', 'CHEF_SCOLARITE', 'DIRECTEUR') or user.is_superuser
 
     if not est_proprietaire and not est_admin_ou_chef:
         messages.error(request, "❌ Accès refusé à ce bulletin officiel.")
@@ -3203,15 +3205,23 @@ def liste_bordereaux(request):
 def generer_bordereau(request, salle_id):
     """
     Génère le Bordereau de Notes matriciel officiel (conforme au format Excel IAI-Cameroun)
-    pour une classe (salle) et un semestre.
+    pour une classe (salle) et un semestre (1, 2 ou Annuel).
     Permet l'auto-remplissage fiable à partir des PVs transmis.
     """
     from apps.etudiants.models import Classe
+    from .models import Bulletin
     from .services_bordereau import calculer_bordereau_matrice
     from .services import remplir_bordereau_depuis_pv
     
     classe = get_object_or_404(Classe, pk=salle_id)
-    semestre = int(request.GET.get('semestre', 1))
+    sem_param = request.GET.get('semestre', '1')
+    if str(sem_param).lower() in ['annuel', 'annual', '3', '0']:
+        semestre = 'annuel'
+    else:
+        try:
+            semestre = int(sem_param)
+        except (ValueError, TypeError):
+            semestre = 1
     
     if request.method == 'POST' and request.POST.get('action') == 'remplir_bordereau_depuis_pvs':
         res = remplir_bordereau_depuis_pv(classe, semestre=semestre, user=request.user)
@@ -3223,15 +3233,38 @@ def generer_bordereau(request, salle_id):
 
     data_matrice = calculer_bordereau_matrice(classe, semestre=semestre)
     
+    # Statistiques de publication et prérequis
+    s1_publie = Bulletin.objects.filter(etudiant__classe=classe, semestre=1, est_publie=True).exists()
+    s2_publie = Bulletin.objects.filter(etudiant__classe=classe, semestre=2, est_publie=True).exists()
+    annuel_publie = Bulletin.objects.filter(etudiant__classe=classe, semestre=3, est_publie=True).exists()
+
+    peut_publier = True
+    message_prerequis = ""
+
+    if semestre == 2 and not s1_publie:
+        peut_publier = False
+        message_prerequis = "Publication du Semestre 2 verrouillée : Vous devez obligatoirement publier le Semestre 1 au préalable."
+    elif semestre == 'annuel' and not s2_publie:
+        peut_publier = False
+        message_prerequis = "Publication du Bordereau Annuel verrouillée : Vous devez obligatoirement publier le Semestre 2 au préalable."
+
+    sem_title = "ANNUEL (S1 + S2)" if semestre == 'annuel' else f"Semestre {semestre}"
+
     context = {
         'classe': classe,
         'semestre': semestre,
         'header': data_matrice['header'],
         'ues': data_matrice['ues'],
+        'ue_chunks': data_matrice.get('ue_chunks', []),
         'matieres_all': data_matrice['matieres_all'],
         'etudiants_rows': data_matrice['etudiants_rows'],
         'statistiques': data_matrice['statistiques'],
-        'titre': f"Bordereau de Notes {classe.nom} - Semestre {semestre}"
+        's1_publie': s1_publie,
+        's2_publie': s2_publie,
+        'annuel_publie': annuel_publie,
+        'peut_publier': peut_publier,
+        'message_prerequis': message_prerequis,
+        'titre': f"Bordereau de Notes {classe.nom} - {sem_title}"
     }
     return render(request, 'notes/bordereau_notes.html', context)
 
@@ -3239,52 +3272,51 @@ def generer_bordereau(request, salle_id):
 @login_required
 def publier_bulletins_salle(request, salle_id):
     """
-    Publie officiellement les bulletins semestriels de la classe et débloque l'accès individuel étudiant.
+    Publie officiellement les bulletins semestriels ou annuels de la classe.
+    Applique la règle d'enchaînement obligatoire :
+    - S1 -> S2 (S1 requis pour publier S2)
+    - S2 -> Annuel (S2 requis pour publier Annuel)
     """
     from apps.etudiants.models import Classe
+    from .models import Bulletin
     from .services_bordereau import publier_bulletins_classe
     
     classe = get_object_or_404(Classe, pk=salle_id)
-    semestre = int(request.POST.get('semestre', request.GET.get('semestre', 1)))
+    sem_param = request.POST.get('semestre', request.GET.get('semestre', '1'))
+    
+    if str(sem_param).lower() in ['annuel', 'annual', '3', '0']:
+        semestre = 'annuel'
+        sem_label = "Annuel (S1 + S2)"
+        s2_publie = Bulletin.objects.filter(etudiant__classe=classe, semestre=2, est_publie=True).exists()
+        if not s2_publie:
+            messages.error(
+                request,
+                f"❌ Publication Impossible : Le bulletin du Semestre 2 de la classe {classe.nom} doit avoir été obligatoirement publié avant de pouvoir publier les bulletins annuels."
+            )
+            return redirect(reverse('notes:generer_bordereau', kwargs={'salle_id': classe.id}) + "?semestre=annuel")
+    else:
+        try:
+            semestre = int(sem_param)
+            sem_label = f"Semestre {semestre}"
+        except (ValueError, TypeError):
+            semestre = 1
+            sem_label = "Semestre 1"
+            
+        if semestre == 2:
+            s1_publie = Bulletin.objects.filter(etudiant__classe=classe, semestre=1, est_publie=True).exists()
+            if not s1_publie:
+                messages.error(
+                    request,
+                    f"❌ Publication Impossible : Le bulletin du Semestre 1 de la classe {classe.nom} doit avoir été obligatoirement publié avant de pouvoir publier les bulletins du Semestre 2."
+                )
+                return redirect(reverse('notes:generer_bordereau', kwargs={'salle_id': classe.id}) + "?semestre=2")
     
     nb_publies = publier_bulletins_classe(classe, semestre, request.user)
-    messages.success(request, f"✅ {nb_publies} bulletin(s) du Semestre {semestre} ont été publiés avec succès pour la classe {classe.nom}. Les étudiants peuvent désormais consulter leur résultat.")
-    return redirect('notes:generer_bordereau', salle_id=classe.id)
+    messages.success(request, f"✅ {nb_publies} bulletin(s) ({sem_label}) ont été publiés avec succès pour la classe {classe.nom}. Les étudiants peuvent désormais consulter leur résultat.")
+    return redirect(reverse('notes:generer_bordereau', kwargs={'salle_id': classe.id}) + f"?semestre={semestre}")
 
 
-@login_required
-def voir_bulletin_officiel(request, bulletin_id):
-    """Affiche le bulletin officiel certifié d'un étudiant avec QR code."""
-    from .models import Bulletin
-    from apps.etudiants.views_verification import generer_qr_code_base64
-    from django.urls import reverse
-    
-    bulletin = get_object_or_404(Bulletin.objects.select_related('etudiant', 'etudiant__filiere', 'etudiant__niveau'), pk=bulletin_id)
-    
-    user = request.user
-    is_student_owner = (getattr(user, 'etudiant_profile', None) == bulletin.etudiant or getattr(user, 'email', '') == bulletin.etudiant.email)
-    is_staff = user.is_superuser or getattr(user, 'type_utilisateur', None) in ['ADMIN_SYSTEME', 'CHEF_ETUDES', 'DIRECTEUR']
-    
-    if not (is_student_owner or is_staff):
-        messages.error(request, "Accès réservé au titulaire du bulletin ou à l'administration.")
-        return redirect('tableau_bord:tableau_bord')
-        
-    if is_student_owner and not bulletin.est_publie and not is_staff:
-        messages.warning(request, "Le bulletin pour ce semestre n'a pas encore été officiellement publié par l'administration.")
-        return redirect('tableau_bord:tableau_bord')
 
-    url_verif = request.build_absolute_uri(
-        reverse('etudiants:verifier_etudiant_public', kwargs={'token': bulletin.etudiant.verification_token})
-    )
-    qr_code_b64 = generer_qr_code_base64(url_verif)
-
-    context = {
-        'bulletin': bulletin,
-        'etudiant': bulletin.etudiant,
-        'qr_code_b64': qr_code_b64,
-        'titre': f"Bulletin Officiel S{bulletin.semestre} - {bulletin.etudiant.nom}"
-    }
-    return render(request, 'notes/bulletin_etudiant.html', context)
 
 
 @login_required

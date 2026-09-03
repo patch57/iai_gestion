@@ -152,18 +152,18 @@
         </div>
     </div>
 
-    <!-- Semester Bulletins -->
+    <!-- Semester & Annual Bulletins -->
     <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
-        <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-file-invoice mr-2 text-green-600"></i>Bulletins Semestriels</h3>
+        <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-file-invoice mr-2 text-green-600"></i>Bulletins Officiels (Semestriels & Annuel)</h3>
         <div class="divide-y divide-gray-100">
             {% for b in bulletins %}
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-lg">
-                        <i class="fas fa-file-pdf"></i>
+                    <div class="w-10 h-10 {% if b.semestre == 3 %}bg-amber-50 text-amber-600{% else %}bg-green-50 text-green-600{% endif %} rounded-xl flex items-center justify-center text-lg">
+                        <i class="{% if b.semestre == 3 %}fas fa-award{% else %}fas fa-file-pdf{% endif %}"></i>
                     </div>
                     <div>
-                        <p class="font-bold text-gray-800">Semestre {{ b.semestre }}</p>
+                        <p class="font-bold text-gray-800">{% if b.semestre == 3 %}Bulletin Annuel (S1 + S2){% else %}Semestre {{ b.semestre }}{% endif %}</p>
                         <span class="text-xs text-gray-400 font-semibold">Année : {{ b.annee_academique }} | Moyenne : {{ b.moyenne_semestre|floatformat:2 }}/20</span>
                     </div>
                 </div>
