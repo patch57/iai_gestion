@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp space-y-8">
+
+    <!-- En-Tête Exécutif & KPI -->
+    <div class="bg-gradient-to-r from-slate-900 via-rose-950 to-red-900 rounded-3xl p-6 md:p-8 text-white shadow-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20">
+                    <i class="fas fa-gavel text-3xl text-rose-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-black tracking-tight">Gestion des Pénalités de Retard</h1>
+                    <p class="text-rose-200 text-xs md:text-sm mt-1">Espace Caisse & Direction — Suivi des retards, encaissements et exonérations</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{% url 'paiements:exporter_penalites_pdf' %}" class="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-4 py-3 rounded-2xl shadow-lg transition border border-rose-500 flex items-center gap-2">
+                <i class="fas fa-file-pdf text-white text-sm"></i> Exporter Rapport PDF
+            </a>
+            <a href="{% url 'paiements:exporter_penalites_excel' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-4 py-3 rounded-2xl shadow-lg transition border border-emerald-500 flex items-center gap-2">
+                <i class="fas fa-file-excel text-white text-sm"></i> Exporter Rapport Excel
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Cartes KPI de Recouvrement -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center font-black text-xl">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-bold uppercase block">Reste à Recouvrer</span>
+                <span class="text-2xl font-black text-rose-700">{{ total_en_attente|floatformat:0 }} FCFA</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-xl">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-bold uppercase block">Total Recouvré</span>
+                <span class="text-2xl font-black text-emerald-700">{{ total_recouvre|floatformat:0 }} FCFA</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-800 flex items-center justify-center font-black text-xl">
+                <i class="fas fa-calculator"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-bold uppercase block">Cumul Calculé</span>
+                <span class="text-2xl font-black text-slate-900">{{ total_cumule|floatformat:0 }} FCFA</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-black text-xl">
+                <i class="fas fa-user-clock"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-bold uppercase block">Étudiants en Retard</span>
+                <span class="text-2xl font-black text-amber-800">{{ nb_etudiants_retard }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de Recherche et Filtres -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <div class="md:col-span-2">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Rechercher Étudiant</label>
+                <div class="relative">
+                    <input type="text" name="q" value="{{ recherche }}" placeholder="Nom, Prénom ou Matricule..." class="w-full rounded-2xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm focus:ring-rose-500 focus:border-rose-500">
+                    <i class="fas fa-search absolute left-3.5 top-3.5 text-gray-400 text-sm"></i>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Filière</label>
+                <select name="filiere" class="w-full rounded-2xl border border-gray-300 px-4 py-2.5 text-sm focus:ring-rose-500 focus:border-rose-500">
+                    <option value="">Toutes les filières</option>
+                    {% for f in filieres %}
+                    <option value="{{ f.id }}" {% if filiere_id == f.id|stringformat:"s" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Statut Pénalités</label>
+                <select name="statut" class="w-full rounded-2xl border border-gray-300 px-4 py-2.5 text-sm focus:ring-rose-500 focus:border-rose-500">
+                    <option value="">Tous les statuts</option>
+                    <option value="RETARD" {% if statut_filtre == 'RETARD' %}selected{% endif %}>En retard de paiement</option>
+                    <option value="REGLE" {% if statut_filtre == 'REGLE' %}selected{% endif %}>Pénalités réglées</option>
+                </select>
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-rose-900 hover:bg-black text-white font-bold py-2.5 rounded-2xl text-xs transition">
+                    Filtrer
+                </button>
+                <a href="{% url 'paiements:gestion_penalites' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-2xl text-xs transition">
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau de Gestion des Pénalités -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="text-base font-extrabold text-gray-900 flex items-center gap-2">
+                <i class="fas fa-list text-rose-700"></i> Registre des Pénalités
+            </h2>
+            <span class="text-xs text-gray-500 font-semibold">Affichage de {{ page_obj.object_list|length }} étudiant(s)</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="bg-gray-50 text-gray-500 uppercase text-[10px] font-extrabold tracking-wider border-b border-gray-100">
+                        <th class="p-4">Matricule & Étudiant</th>
+                        <th class="p-4">Filière / Niveau</th>
+                        <th class="p-4 text-center">Tranches en Retard</th>
+                        <th class="p-4 text-right">Pénalités Dues</th>
+                        <th class="p-4 text-right">Déjà Encaissé</th>
+                        <th class="p-4 text-center">Statut</th>
+                        <th class="p-4 text-right">Actions Caisse & Direction</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 font-medium">
+                    {% for item in page_obj %}
+                    <tr class="hover:bg-rose-50/30 transition duration-150">
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-slate-100 text-slate-800 font-black flex items-center justify-center text-xs">
+                                    {{ item.etudiant.nom|first|upper }}
+                                </div>
+                                <div>
+                                    <p class="font-extrabold text-gray-900 text-xs">{{ item.etudiant.get_nom_complet }}</p>
+                                    <p class="text-[10px] font-mono text-emerald-700">{{ item.etudiant.matricule|default:"En cours" }}</p>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="p-4 text-gray-600">
+                            <p class="font-bold text-gray-800">{{ item.etudiant.filiere.code|default:"N/A" }}</p>
+                            <p class="text-[10px] text-gray-500">Niveau {{ item.etudiant.niveau.numero|default:"1" }}</p>
+                        </td>
+
+                        <td class="p-4 text-center">
+                            {% if item.nb_tranches_retard > 0 %}
+                            <span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-extrabold text-[10px] border border-rose-200">
+                                {{ item.nb_tranches_retard }} tranche(s)
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400 font-bold">-</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="p-4 text-right">
+                            {% if item.total_du > 0 %}
+                            <span class="font-black text-rose-700 text-sm">{{ item.total_du|floatformat:0 }} FCFA</span>
+                            {% else %}
+                            <span class="font-bold text-gray-400">0 FCFA</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="p-4 text-right">
+                            {% if item.total_regle > 0 %}
+                            <span class="font-bold text-emerald-700">{{ item.total_regle|floatformat:0 }} FCFA</span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="p-4 text-center">
+                            {% if item.statut_penalite == 'EN_RETARD' %}
+                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
+                                En Retard
+                            </span>
+                            {% elif item.statut_penalite == 'REGLE' %}
+                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Quittancé
+                            </span>
+                            {% else %}
+                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gray-100 text-gray-700 border border-gray-200">
+                                À jour
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="p-4 text-right">
+                            <div class="flex items-center justify-end gap-1.5">
+                                {% if item.total_du > 0 %}
+                                <!-- Bouton Encaisser Caisse -->
+                                <button type="button" onclick="ouvrirModalEncaisser('{{ item.etudiant.id }}', '{{ item.etudiant.get_nom_complet|escapejs }}', '{{ item.total_du|floatformat:0 }}')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-2.5 py-1.5 rounded-xl text-[11px] transition shadow-xs flex items-center gap-1">
+                                    <i class="fas fa-cash-register"></i> Encaisser
+                                </button>
+
+                                <!-- Bouton Exonérer -->
+                                <button type="button" onclick="ouvrirModalExonerer('{{ item.etudiant.id }}', '{{ item.etudiant.get_nom_complet|escapejs }}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-2.5 py-1.5 rounded-xl text-[11px] transition shadow-xs flex items-center gap-1">
+                                    <i class="fas fa-hand-holding-heart"></i> Exonérer
+                                </button>
+
+                                <!-- Bouton Relancer -->
+                                <a href="{% url 'paiements:relancer_penalite_etudiant' item.etudiant.id %}" class="bg-rose-900 hover:bg-black text-white font-bold px-2.5 py-1.5 rounded-xl text-[11px] transition shadow-xs flex items-center gap-1" title="Envoyer relance WhatsApp / Email">
+                                    <i class="fas fa-paper-plane"></i> Relancer
+                                </a>
+                                {% else %}
+                                <span class="text-xs text-gray-400 font-semibold italic">Aucune action requise</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-12 text-gray-400">
+                            <i class="fas fa-check-circle text-emerald-500 text-4xl mb-3 block"></i>
+                            <p class="font-bold text-gray-700">Aucun dossier de pénalités trouvé</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="p-4 border-t border-gray-100 flex justify-between items-center text-xs">
+            <span class="text-gray-500 font-semibold">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+            <div class="flex gap-1">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&q={{ recherche }}&filiere={{ filiere_id }}&statut={{ statut_filtre }}" class="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 font-bold">Précédent</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&q={{ recherche }}&filiere={{ filiere_id }}&statut={{ statut_filtre }}" class="px-3 py-1.5 rounded-xl bg-gray-900 text-white hover:bg-black font-bold">Suivant</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Encaisser en Caisse -->
+<div id="modal-encaisser" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100 animate-fadeInUp">
+        <h3 class="text-lg font-black text-gray-900 mb-1 flex items-center gap-2">
+            <i class="fas fa-cash-register text-emerald-600"></i> Encaissement Caisse
+        </h3>
+        <p class="text-xs text-gray-500 mb-4" id="modal-encaisser-nom"></p>
+
+        <form id="form-encaisser" method="POST" action="">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Montant Encaissé (FCFA)</label>
+                    <input type="number" id="modal-encaisser-montant" name="montant_encaisse" required class="w-full rounded-xl border border-gray-300 p-3 text-sm font-bold text-emerald-800">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Mode de Règlement</label>
+                    <select name="mode_reglement" class="w-full rounded-xl border border-gray-300 p-3 text-sm font-bold">
+                        <option value="ESPECES">Espèces à la Caisse IAI</option>
+                        <option value="CHEQUE">Chèque Bancaire Certifié</option>
+                        <option value="VIREMENT">Virement Bancaire Direct</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Remarque / N° Quittance</label>
+                    <input type="text" name="remarque" placeholder="Ex: Quittance N° 2026-089" class="w-full rounded-xl border border-gray-300 p-3 text-sm">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="fermerModalEncaisser()" class="bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs">Annuler</button>
+                <button type="submit" class="bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md">Valider l'Encaissement</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Exonérer -->
+<div id="modal-exonerer" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100 animate-fadeInUp">
+        <h3 class="text-lg font-black text-gray-900 mb-1 flex items-center gap-2">
+            <i class="fas fa-hand-holding-heart text-amber-600"></i> Exonération de Pénalités
+        </h3>
+        <p class="text-xs text-gray-500 mb-4" id="modal-exonerer-nom"></p>
+
+        <form id="form-exonerer" method="POST" action="">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Motif Obligatoire de l'Exonération <span class="text-rose-500">*</span></label>
+                    <textarea name="motif_exoneration" required placeholder="Expliquez la raison de la remise (ex: Décision Direction, Cas de force majeure, Bourse accordée...)" class="w-full rounded-xl border border-gray-300 p-3 text-sm focus:ring-amber-500 focus:border-amber-500" rows="3"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="fermerModalExonerer()" class="bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs">Annuler</button>
+                <button type="submit" class="bg-amber-600 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md">Confirmer l'Exonération</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function ouvrirModalEncaisser(etudiantId, nom, montant) {
+    document.getElementById('modal-encaisser-nom').innerText = 'Étudiant : ' + nom;
+    document.getElementById('modal-encaisser-montant').value = montant;
+    document.getElementById('form-encaisser').action = '/paiements/gestion-penalites/encaisser/' + etudiantId + '/';
+    document.getElementById('modal-encaisser').classList.remove('hidden');
+}
+
+function fermerModalEncaisser() {
+    document.getElementById('modal-encaisser').classList.add('hidden');
+}
+
+function ouvrirModalExonerer(etudiantId, nom) {
+    document.getElementById('modal-exonerer-nom').innerText = 'Étudiant : ' + nom;
+    document.getElementById('form-exonerer').action = '/paiements/gestion-penalites/exonerer/' + etudiantId + '/';
+    document.getElementById('modal-exonerer').classList.remove('hidden');
+}
+
+function fermerModalExonerer() {
+    document.getElementById('modal-exonerer').classList.add('hidden');
+}
+</script>
+{% endblock %}

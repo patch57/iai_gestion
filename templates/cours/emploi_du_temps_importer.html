@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-black text-gray-900 flex items-center gap-2">
+                <i class="fas fa-file-csv text-emerald-600"></i> Importer un Emploi du Temps (CSV)
+            </h1>
+            <p class="text-sm text-gray-500 mt-1">
+                Espace Chef des Études — Importer les créneaux hebdomadaires par Salle, Filière et Niveau
+            </p>
+        </div>
+        <a href="{% url 'cours:emploi_du_temps_officiel' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold px-4 py-2.5 rounded-xl transition">
+            <i class="fas fa-arrow-left mr-1"></i> Annuler
+        </a>
+    </div>
+
+    <!-- Formulaire d'Importation -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8">
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Filière <span class="text-rose-500">*</span></label>
+                    <select name="filiere" required class="w-full rounded-xl border border-gray-300 p-3 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <option value="">-- Sélectionner une filière --</option>
+                        {% for f in filieres %}
+                        <option value="{{ f.id }}">{{ f.code }} - {{ f.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Salle de Cours</label>
+                    <select name="salle" class="w-full rounded-xl border border-gray-300 p-3 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <option value="">-- Aucune / Générale --</option>
+                        {% for s in salles %}
+                        <option value="{{ s.id }}">{{ s.code }} ({{ s.nom }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Niveau <span class="text-rose-500">*</span></label>
+                    <select name="niveau" required class="w-full rounded-xl border border-gray-300 p-3 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        {% for code, label in niveaux %}
+                        <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Titre de la Semaine <span class="text-rose-500">*</span></label>
+                    <input type="text" name="titre_semaine" required placeholder="Ex: SEMAINE DU 18 AU 23 MAI 2026" class="w-full rounded-xl border border-gray-300 p-3 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Date Début (Lundi) <span class="text-rose-500">*</span></label>
+                    <input type="date" name="date_debut_semaine" required class="w-full rounded-xl border border-gray-300 p-3 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Date Fin (Samedi) <span class="text-rose-500">*</span></label>
+                    <input type="date" name="date_fin_semaine" required class="w-full rounded-xl border border-gray-300 p-3 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+            </div>
+
+            <!-- Fichier Emploi du Temps Multi-Format -->
+            <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Fichier d'Emploi du Temps (Multi-Format) <span class="text-rose-500">*</span></label>
+                <div class="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-emerald-500 transition bg-gray-50/50">
+                    <i class="fas fa-file-upload text-3xl text-emerald-600 mb-2"></i>
+                    <p class="text-xs text-gray-700 font-bold mb-1">Glissez votre fichier ou cliquez pour parcourir</p>
+                    <p class="text-[11px] text-gray-500 mb-3">Formats acceptés : <strong>CSV (.csv)</strong>, <strong>Excel (.xlsx, .xls)</strong>, <strong>PDF (.pdf)</strong>, <strong>Image (.png, .jpg)</strong></p>
+                    <input type="file" name="fichier_csv" accept=".csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg" required class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-800 hover:file:bg-emerald-200">
+                </div>
+            </div>
+
+            <!-- Guide Formats Acceptés -->
+            <div class="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 text-xs text-blue-900">
+                <h4 class="font-bold flex items-center gap-1.5 mb-2 text-blue-950">
+                    <i class="fas fa-info-circle text-blue-600"></i> Formats supportés & consignes :
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                    <div class="bg-white p-3 rounded-xl border border-blue-100">
+                        <p class="font-bold text-emerald-800 mb-1"><i class="fas fa-file-csv mr-1"></i> Fichiers CSV & Excel (.xlsx, .xls)</p>
+                        <p class="text-gray-600">Utilisez les en-têtes : <code>Jour, Plage, Intitule, Enseignant, Salle, Progression, Type</code></p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-blue-100">
+                        <p class="font-bold text-indigo-800 mb-1"><i class="fas fa-file-pdf mr-1"></i> PDF & Images (.pdf, .png, .jpg)</p>
+                        <p class="text-gray-600">Extraction automatique du texte et reconnaissance des jours (LUNDI..SAMEDI) et créneaux (P1..P4).</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="flex justify-end gap-3 pt-2">
+                <a href="{% url 'cours:emploi_du_temps_officiel' %}" class="bg-gray-100 text-gray-700 font-bold px-5 py-3 rounded-xl text-xs">
+                    Annuler
+                </a>
+                <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-xl text-xs shadow-md transition flex items-center gap-2">
+                    <i class="fas fa-file-import"></i> Importer et Créer l'Emploi du Temps
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

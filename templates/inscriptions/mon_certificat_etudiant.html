@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mon Certificat de Scolarité | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center space-y-6">
+        <!-- Badge icône -->
+        <div class="w-20 h-20 bg-amber-50 text-amber-600 rounded-full mx-auto flex items-center justify-center text-3xl border border-amber-200 shadow-sm">
+            <i class="fas fa-file-certificate"></i>
+        </div>
+
+        <div class="space-y-2">
+            <h1 class="text-2xl font-black text-gray-800">Certificat de Scolarité Non Disponible</h1>
+            <p class="text-sm text-gray-600 max-w-md mx-auto">
+                Aucun certificat de scolarité n'a encore été délivré pour votre compte pour l'année académique {{ annee_active.code|default:"2025-2026" }}.
+            </p>
+        </div>
+
+        <!-- Fiche d'information -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-left text-sm space-y-3 max-w-lg mx-auto">
+            <div class="flex items-center gap-3 font-semibold text-slate-800 border-b border-slate-200 pb-2">
+                <i class="fas fa-info-circle text-emerald-600"></i> Procédure d'obtention :
+            </div>
+            <ul class="space-y-2 text-xs text-slate-600 list-disc pl-5">
+                <li>Assurez-vous que votre inscription administrative est validée.</li>
+                <li>Vérifiez le règlement de la tranche obligatoire de frais de scolarité.</li>
+                <li>La délivrance est effectuée exclusivement par le <strong>Chef de la Scolarité</strong>.</li>
+            </ul>
+        </div>
+
+        <!-- Action -->
+        <div class="pt-4 flex justify-center gap-3">
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm transition">
+                <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+            </a>
+            <a href="{% url 'requetes:creer_requete' %}" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-paper-plane"></i> Demander à la Scolarité
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

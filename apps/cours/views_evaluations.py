@@ -207,3 +207,102 @@ def synthese_evaluations_professeur(request, professeur_id=None):
         'titre': f'Synthèse d\'évaluation - {professeur.get_nom_complet()}'
     }
     return render(request, 'cours/evaluations/synthese_professeur.html', context)
+
+
+@login_required
+def gestion_evaluations_scolarite(request):
+    """
+    Tableau de bord complet pour le Chef de la Scolarité :
+    - Gestion des campagnes d'évaluation (Création, Ouverture, Clôture).
+    - Suivi global des moyennes et retours des étudiants par professeur.
+    - Banque de questions d'évaluation.
+    """
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    if role not in ('CHEF_SCOLARITE', 'ADMIN_SYSTEME', 'CHEF_ETUDES', 'ADMIN_PEDAGOGIQUE') and not user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de la Scolarité et à la Direction.")
+        return redirect('tableau_bord:tableau_bord')
+
+    campagnes = CampagneEvaluation.objects.all().order_by('-date_debut')
+    campagne_active = campagnes.filter(statut='OUVERTE').first()
+    questions = QuestionEvaluation.objects.all().order_by('ordre')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'creer_campagne':
+            titre_c = request.POST.get('titre')
+            annee_c = request.POST.get('annee_academique', '2025-2026')
+            semestre_c = int(request.POST.get('semestre', 1))
+            date_deb = request.POST.get('date_debut')
+            date_fi = request.POST.get('date_fin')
+
+            CampagneEvaluation.objects.create(
+                titre=titre_c,
+                annee_academique=annee_c,
+                semestre=semestre_c,
+                date_debut=date_deb,
+                date_fin=date_fi,
+                statut='BROUILLON',
+                description=f"Évaluation pédagogique anonyme {annee_c} - Semestre {semestre_c}"
+            )
+            messages.success(request, f"✅ Campagne '{titre_c}' créée en brouillon.")
+            return redirect('cours:gestion_evaluations_scolarite')
+
+        elif action == 'ajouter_question':
+            intitule_q = request.POST.get('intitule')
+            cat_q = request.POST.get('categorie', 'PEDAGOGIE')
+            ordre_q = int(request.POST.get('ordre', 1))
+            if intitule_q:
+                QuestionEvaluation.objects.create(
+                    intitule=intitule_q,
+                    categorie=cat_q,
+                    ordre=ordre_q
+                )
+                messages.success(request, "✅ Question d'évaluation ajoutée.")
+            return redirect('cours:gestion_evaluations_scolarite')
+
+    professeurs = Professeur.objects.all().select_related('utilisateur')
+    stats_professeurs = []
+    for prof in professeurs:
+        cours_prof = Cours.objects.filter(professeur=prof)
+        reponses_prof = ReponseEvaluation.objects.filter(cours__in=cours_prof)
+        total_evals = reponses_prof.values('cours', 'date_creation').distinct().count()
+        avg_note = reponses_prof.aggregate(Avg('note'))['note__avg'] or 0.0
+
+        stats_professeurs.append({
+            'professeur': prof,
+            'nb_cours': cours_prof.count(),
+            'total_evals': total_evals,
+            'moyenne': round(avg_note, 2),
+            'pourcentage': round((avg_note / 5.0) * 100, 1)
+        })
+
+    context = {
+        'campagnes': campagnes,
+        'campagne_active': campagne_active,
+        'questions': questions,
+        'stats_professeurs': stats_professeurs,
+        'titre': 'Gestion des Évaluations Pédagogiques (Chef de la Scolarité)'
+    }
+    return render(request, 'cours/evaluations/gestion_scolarite.html', context)
+
+
+@login_required
+def changer_statut_campagne(request, pk, nouveau_statut):
+    """Permet au Chef de la Scolarité d'ouvrir, fermer ou archiver une campagne d'évaluation"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    if role not in ('CHEF_SCOLARITE', 'ADMIN_SYSTEME', 'CHEF_ETUDES') and not user.is_superuser:
+        messages.error(request, "❌ Accès non autorisé.")
+        return redirect('tableau_bord:tableau_bord')
+
+    campagne = get_object_or_404(CampagneEvaluation, pk=pk)
+    if nouveau_statut == 'OUVERTE':
+        CampagneEvaluation.objects.filter(statut='OUVERTE').update(statut='CLOTUREE')
+        campagne.statut = 'OUVERTE'
+        messages.success(request, f"🚀 La campagne '{campagne.titre}' est désormais OUVERTE aux étudiants !")
+    elif nouveau_statut == 'CLOTUREE':
+        campagne.statut = 'CLOTUREE'
+        messages.info(request, f"🔒 La campagne '{campagne.titre}' a été CLÔTURÉE.")
+    campagne.save()
+    return redirect('cours:gestion_evaluations_scolarite')

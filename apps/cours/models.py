@@ -230,11 +230,15 @@ class RessourceCours(models.Model):
     ]
     
     cours = models.ForeignKey(Cours, on_delete=models.CASCADE, related_name='ressources')
+    salle = models.ForeignKey('cours.Salle', on_delete=models.SET_NULL, null=True, blank=True, related_name='ressources', verbose_name="Salle / Classe")
+    filiere = models.ForeignKey('etudiants.Filiere', on_delete=models.SET_NULL, null=True, blank=True, related_name='ressources', verbose_name="Filière")
+    niveau = models.ForeignKey('etudiants.Niveau', on_delete=models.SET_NULL, null=True, blank=True, related_name='ressources', verbose_name="Niveau")
     type_ressource = models.CharField(max_length=10, choices=TYPE_RESSOURCE_CHOICES)
     titre = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     fichier = models.FileField(upload_to='cours/ressources/', blank=True, null=True)
     lien_externe = models.URLField(blank=True, null=True)
+    date_limite_remise_physique = models.DateField(null=True, blank=True, verbose_name="Date limite de remise physique", help_text="Date limite à laquelle les étudiants doivent remettre leur travail physique (pour TP/TD)")
     est_public = models.BooleanField(default=True)
     date_ajout = models.DateTimeField(auto_now_add=True)
     
@@ -246,6 +250,30 @@ class RessourceCours(models.Model):
     
     def __str__(self):
         return f"{self.titre} - {self.cours}"
+
+    @property
+    def jours_restants_remise(self):
+        """Nombre de jours restants avant l'échéance de remise physique."""
+        if not self.date_limite_remise_physique:
+            return None
+        from django.utils import timezone
+        today = timezone.now().date()
+        return (self.date_limite_remise_physique - today).days
+
+    @property
+    def compte_a_rebours_display(self):
+        """Retourne le compte à rebours sous forme lisible pour l'étudiant."""
+        j = self.jours_restants_remise
+        if j is None:
+            return None
+        if j > 1:
+            return f"J-{j} ({j} jours restants)"
+        elif j == 1:
+            return "Demain (J-1)"
+        elif j == 0:
+            return "Aujourd'hui (Dernier jour !)"
+        else:
+            return f"Échéance dépassée (J+{abs(j)})"
 
 
 class EmploiDuTemps(models.Model):
@@ -310,6 +338,7 @@ class SupportPedagogiqueApprenant(models.Model):
     module_formation = models.CharField(max_length=50, choices=MODULE_CHOICES, default='TOUS', verbose_name="Module de formation")
     niveau_etude = models.CharField(max_length=100, blank=True, verbose_name="Niveau d'étude", help_text="Laisser vide pour tous les niveaux d'apprenants")
     fichier = models.FileField(upload_to='cours/apprenants/', verbose_name="Fichier (PDF, ZIP, DOCX...)")
+    date_limite_remise_physique = models.DateField(null=True, blank=True, verbose_name="Date limite de remise physique", help_text="Date limite pour la remise physique en main propre du travail")
     date_depot = models.DateTimeField(auto_now_add=True, verbose_name="Date de dépôt")
 
     class Meta:
@@ -439,6 +468,7 @@ class FichePresenceHebdomadaire(models.Model):
         verbose_name = "Fiche de Présence Hebdomadaire"
         verbose_name_plural = "Fiches de Présence Hebdomadaires"
         ordering = ['-semaine_du', 'classe']
+        unique_together = ['classe', 'semaine_du']
 
     def __str__(self):
         return f"Liste Présence {self.classe.nom} (Semaine du {self.semaine_du} au {self.semaine_au})"
@@ -561,3 +591,136 @@ class ReponseEvaluation(models.Model):
 
     def __str__(self):
         return f"Évaluation anonyme {self.cours.code} - Note: {self.note}/5"
+
+
+class EmploiDuTempsApprenant(models.Model):
+    """Emplois du temps ciblés pour les apprenants (Formation Continue & Certifiante)"""
+    
+    TYPE_FORMATION_CHOICES = [
+        ('CERTIFICATION', 'Formation de Certification'),
+        ('CONTINUE', 'Formation Continue'),
+        ('TOUS', 'Toutes les Formations'),
+    ]
+    
+    MODULE_CHOICES = [
+        ('SECRETARIAT', 'Secrétariat bureautique et comptable'),
+        ('MARKETING', 'Marketing digital'),
+        ('INFOGRAPHIE', 'Infographie'),
+        ('MAINTENANCE', 'Maintenance informatique'),
+        ('RESEAUX', 'Réseaux informatiques'),
+        ('WEBMASTER', 'Webmaster'),
+        ('MIJEF', 'Formation continue MIJEF 2035'),
+        ('TOUS', 'Tous les Modules'),
+    ]
+    
+    titre = models.CharField(max_length=200, verbose_name="Titre du planning")
+    type_formation = models.CharField(max_length=20, choices=TYPE_FORMATION_CHOICES, default='TOUS', verbose_name="Type de formation")
+    module_formation = models.CharField(max_length=50, choices=MODULE_CHOICES, default='TOUS', verbose_name="Module de formation")
+    niveau_etude = models.CharField(max_length=100, blank=True, verbose_name="Niveau d'étude / Stade", help_text="Laisser vide si applicable à tous les apprenants")
+    date_debut = models.DateField(verbose_name="Date de début")
+    date_fin = models.DateField(verbose_name="Date de fin")
+    fichier_pdf = models.FileField(upload_to='emplois_du_temps_apprenants/', verbose_name="Fichier PDF de l'emploi du temps")
+    est_publie = models.BooleanField(default=True, verbose_name="Publié & Actif")
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='emplois_apprenants_crees',
+        verbose_name="Créé par"
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Emploi du Temps Apprenant"
+        verbose_name_plural = "Emplois du Temps Apprenants"
+        ordering = ['-date_debut', '-date_creation']
+
+    def __str__(self):
+        return f"{self.titre} ({self.get_type_formation_display()} - {self.get_module_formation_display()})"
+
+
+class MatiereFormation(models.Model):
+    """Matières spécifiques aux Formations Continues et Certifiantes"""
+    formation = models.ForeignKey(
+        'etudiants.Formation',
+        on_delete=models.CASCADE,
+        related_name='matieres',
+        verbose_name="Formation rattachée"
+    )
+    nom = models.CharField(max_length=150, verbose_name="Intitulé de la matière")
+    code = models.CharField(max_length=30, blank=True, verbose_name="Code / Réf")
+    coefficient = models.DecimalField(max_digits=3, decimal_places=1, default=1.0, verbose_name="Coefficient")
+    description = models.TextField(blank=True, verbose_name="Description")
+    est_active = models.BooleanField(default=True, verbose_name="Est active")
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Matière de Formation"
+        verbose_name_plural = "Matières de Formation"
+        ordering = ['formation', 'nom']
+        unique_together = ['formation', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} (Coeff {self.coefficient}) - {self.formation.get_nom_display()}"
+
+
+class FichePresenceEnseignantHebdo(models.Model):
+    """
+    Fiche hebdomadaire d'émargement et de suivi de présence des enseignants
+    Remplie, archivée et renouvelée chaque semaine par le Chef de la Scolarité
+    basée sur l'emploi du temps validé par le Chef des Études.
+    """
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('VALIDE', 'Validé & Archivé'),
+    ]
+    
+    semaine_du = models.DateField(verbose_name="Semaine du (Lundi)")
+    semaine_au = models.DateField(verbose_name="Semaine au (Samedi)")
+    annee_academique = models.CharField(max_length=9, default='2025-2026')
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    rempli_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='fiches_enseignants_remplies')
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Fiche Hebdo Présence Enseignant"
+        verbose_name_plural = "Fiches Hebdo Présence Enseignants"
+        ordering = ['-semaine_du']
+        unique_together = ['semaine_du']
+
+    def __str__(self):
+        return f"Émargement Enseignants - Semaine du {self.semaine_du} au {self.semaine_au}"
+
+
+class PointagePresenceEnseignant(models.Model):
+    """
+    Pointage de présence effectif d'un enseignant pour une séance/créneau d'emploi du temps
+    """
+    STATUT_PRESENCE_CHOICES = [
+        ('PRESENT', '✅ Présent (Séance effectuée)'),
+        ('ABSENT', '❌ Absent (Non effectuée)'),
+        ('EXCUSE', '🟡 Excusé / Remplacement'),
+        ('NON_DEFINI', '⏳ En attente de pointage'),
+    ]
+
+    fiche = models.ForeignKey(FichePresenceEnseignantHebdo, on_delete=models.CASCADE, related_name='pointages')
+    enseignant = models.ForeignKey('professeurs.Professeur', on_delete=models.CASCADE, related_name='pointages_presence')
+    creneau = models.ForeignKey(CreneauEmploiDuTemps, on_delete=models.CASCADE, related_name='pointages_enseignant', null=True, blank=True)
+    date_seance = models.DateField()
+    statut = models.CharField(max_length=20, choices=STATUT_PRESENCE_CHOICES, default='NON_DEFINI')
+    heures_effectuees = models.DecimalField(max_digits=4, decimal_places=2, default=2.0)
+    observations = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        app_label = 'cours'
+        verbose_name = "Pointage Présence Enseignant"
+        verbose_name_plural = "Pointages Présence Enseignants"
+        unique_together = ['fiche', 'enseignant', 'creneau', 'date_seance']
+
+    def __str__(self):
+        return f"{self.enseignant} - {self.date_seance} ({self.get_statut_display()})"

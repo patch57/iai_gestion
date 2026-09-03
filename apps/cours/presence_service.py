@@ -19,6 +19,73 @@ def normaliser_chaine(chaine):
     return ' '.join(text.lower().split())
 
 
+def synchroniser_fiche_presence_automatique(fiche):
+    """
+    Synchronise les présences sur la fiche hebdomadaire à partir des séances de cours (Presence),
+    TOUT EN CONSERVANT l'historique et les données déjà saisies ou importées sur la fiche.
+    """
+    if not fiche or not fiche.semaine_du:
+        return
+
+    from datetime import timedelta
+    from apps.cours.models import Presence, LignePresenceHebdomadaire
+    from apps.etudiants.models import Etudiant
+    import json
+
+    date_lundi = fiche.semaine_du
+    jours_map = {0: 'lun', 1: 'mar', 2: 'mer', 3: 'jeu', 4: 'ven', 5: 'sam'}
+
+    etudiants = list(fiche.classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom')) if fiche.classe else []
+    if not etudiants and fiche.filiere and fiche.niveau:
+        etudiants = list(Etudiant.objects.filter(filiere=fiche.filiere, niveau=fiche.niveau, statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom'))
+
+    for etudiant in etudiants:
+        ligne, created = LignePresenceHebdomadaire.objects.get_or_create(
+            fiche=fiche,
+            etudiant=etudiant
+        )
+        
+        # Récupérer les données existantes de la ligne
+        existing_grid = {}
+        if ligne.details_jours_json:
+            try:
+                existing_grid = json.loads(ligne.details_jours_json)
+            except Exception:
+                existing_grid = {}
+
+        grid_data = {}
+        total_absences = 0
+        has_seance_presence = False
+
+        for i in range(6):
+            date_jour = date_lundi + timedelta(days=i)
+            code_jour = jours_map[i]
+            
+            # Vérifier si des séances de cours réelles avec présence existent pour cette date
+            presences_seance = Presence.objects.filter(
+                etudiant=etudiant,
+                seance__date=date_jour
+            )
+            
+            if presences_seance.exists():
+                has_seance_presence = True
+                absences_count = presences_seance.filter(statut='ABSENT').count()
+                slots = ['A' for _ in range(absences_count)]
+                grid_data[code_jour] = slots
+                total_absences += absences_count
+            else:
+                # Conserver les données existantes sur la ligne s'il n'y a pas de séance explicite enregistrée
+                existing_slots = existing_grid.get(code_jour, [])
+                grid_data[code_jour] = existing_slots
+                if isinstance(existing_slots, list):
+                    total_absences += sum(1 for val in existing_slots if str(val).strip().upper() == 'A')
+
+        if has_seance_presence or created or not ligne.nombre_absences:
+            ligne.nombre_absences = total_absences
+            ligne.details_jours_json = json.dumps(grid_data)
+            ligne.save()
+
+
 def matcher_etudiant_presence(matricule_ou_nom, etudiants_classe):
     """
     Recherche automatique et fiable d'un étudiant par son matricule ou son nom/prénom.
@@ -300,4 +367,198 @@ def obtenir_programme_quotidien_enseignant(user, date_cible=None):
         'jour_code': jour_code,
         'creneaux': creneaux_enseignant
     }
+
+
+def calculer_stats_seances_enseignant(user):
+    """
+    Calcule automatiquement et dynamiquement les statistiques de séances d'un enseignant :
+    - seances_hebdo : nombre de séances hebdomadaires d'un enseignant d'après l'emploi du temps hebdomadaire officiel
+    - heures_hebdo : nombre d'heures par semaine (seances_hebdo * 2h)
+    - seances_total : nombre total de séances programmées sur l'année/semestre
+    - seances_effectuees : nombre de séances où l'enseignant a été pointé 'PRESENT' par le Chef de la Scolarité
+    - taux_realisation : % effectif accompli
+    """
+    from apps.cours.models import CreneauEmploiDuTemps, EmploiDuTempsHebdomadaire, PointagePresenceEnseignant, SeanceCours, Cours
+    from apps.professeurs.models import Professeur
+    
+    professeur = None
+    if isinstance(user, Professeur):
+        professeur = user
+        user = professeur.utilisateur
+    elif hasattr(user, 'type_utilisateur'):
+        professeur = Professeur.objects.filter(utilisateur=user).first()
+        
+    if not professeur and not user:
+        return {
+            'seances_hebdo': 0,
+            'heures_hebdo': 0,
+            'seances_total': 0,
+            'seances_effectuees': 0,
+            'taux_realisation': 0.0
+        }
+
+    # 1. Identifier tous les emplois du temps hebdomadaires validés par le Chef des Études
+    emplois_valides = EmploiDuTempsHebdomadaire.objects.filter(statut='VALIDE')
+    if not emplois_valides.exists():
+        emplois_valides = EmploiDuTempsHebdomadaire.objects.all()
+
+    mots_cles = set()
+    if professeur:
+        if professeur.nom:
+            mots_cles.update(normaliser_chaine(professeur.nom).split())
+        if professeur.prenom:
+            mots_cles.update(normaliser_chaine(professeur.prenom).split())
+    if user:
+        if user.last_name:
+            mots_cles.update(normaliser_chaine(user.last_name).split())
+        if user.first_name:
+            mots_cles.update(normaliser_chaine(user.first_name).split())
+        if user.username:
+            mots_cles.update(normaliser_chaine(user.username).split())
+    mots_cles = {m for m in mots_cles if len(m) > 2 and m not in ['mme', 'prof', 'docteur', 'monsieur']}
+
+    cours_assignes = list(Cours.objects.filter(professeur=professeur).select_related('matiere')) if professeur else []
+    intitules_cours = [normaliser_chaine(c.matiere.nom) for c in cours_assignes if c.matiere] + [normaliser_chaine(c.code) for c in cours_assignes if c.code]
+
+    nb_semaines = emplois_valides.values('date_debut_semaine').distinct().count() or 1
+
+    seances_hebdo_set = set()
+    seances_total = 0
+
+    if emplois_valides.exists():
+        tous_creneaux = CreneauEmploiDuTemps.objects.filter(
+            emploi_du_temps__in=emplois_valides
+        ).exclude(type_evenement='PAUSE').select_related('emploi_du_temps', 'emploi_du_temps__filiere')
+        
+        for c in tous_creneaux:
+            str_ens = normaliser_chaine(c.enseignant_nom)
+            str_intitule = normaliser_chaine(c.intitule)
+            match = False
+            if str_ens and mots_cles:
+                if mots_cles.intersection(set(str_ens.split())):
+                    match = True
+            if not match and str_intitule and intitules_cours:
+                for ic in intitules_cours:
+                    if ic in str_intitule or str_intitule in ic:
+                        match = True
+                        break
+            if match:
+                seances_total += 1
+                filiere_code = c.emploi_du_temps.filiere.code if c.emploi_du_temps and c.emploi_du_temps.filiere else ''
+                seances_hebdo_set.add((filiere_code, c.jour, c.plage, str_intitule))
+
+    seances_hebdo = len(seances_hebdo_set)
+
+    # Fallback si pas de créneaux dans l'emploi du temps hebdomadaire
+    if seances_hebdo == 0 and professeur:
+        cours_qs = Cours.objects.filter(professeur=professeur)
+        seances_hebdo = cours_qs.count()
+        if seances_total == 0:
+            seances_total = sum(c.volume_horaire // 2 for c in cours_qs if hasattr(c, 'volume_horaire') and c.volume_horaire) or (seances_hebdo * 15)
+
+    if seances_total == 0:
+        seances_total = seances_hebdo * max(1, nb_semaines)
+
+    heures_hebdo = seances_hebdo * 2
+
+    # 2. Séances effectuées (pointages "PRESENT" du Chef de la Scolarité ou SeanceCours.est_effectuee)
+    seances_effectuees = 0
+    if professeur:
+        seances_effectuees = PointagePresenceEnseignant.objects.filter(
+            enseignant=professeur,
+            statut='PRESENT'
+        ).count()
+        
+        if seances_effectuees == 0:
+            cours_qs = Cours.objects.filter(professeur=professeur)
+            seances_effectuees = SeanceCours.objects.filter(cours__in=cours_qs, est_effectuee=True).count()
+    elif user:
+        seances_effectuees = PointagePresenceEnseignant.objects.filter(
+            enseignant__utilisateur=user,
+            statut='PRESENT'
+        ).count()
+
+    taux = round((seances_effectuees / seances_total * 100), 1) if seances_total > 0 else 0.0
+
+    return {
+        'seances_hebdo': seances_hebdo,
+        'heures_hebdo': heures_hebdo,
+        'seances_total': seances_total,
+        'seances_effectuees': seances_effectuees,
+        'taux_realisation': float(taux),
+    }
+
+
+def synchroniser_fiche_presence_enseignant_auto(emploi_du_temps=None, user=None):
+    """
+    Création/Synchronisation automatique d'une Fiche Hebdo Émargement & Présence Enseignants
+    déclenchée dès que le Chef des Études soumet, publie ou importe un nouvel emploi du temps.
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+    from apps.cours.models import FichePresenceEnseignantHebdo, PointagePresenceEnseignant, CreneauEmploiDuTemps, EmploiDuTempsHebdomadaire
+    from apps.professeurs.models import Professeur
+    from apps.etudiants.models import AnneeAcademique
+    from apps.inscriptions.utils import get_current_academic_year_code
+
+    if emploi_du_temps:
+        semaine_du = emploi_du_temps.date_debut_semaine
+        semaine_au = emploi_du_temps.date_fin_semaine
+    else:
+        today = timezone.now().date()
+        semaine_du = today - timedelta(days=today.weekday())
+        semaine_au = semaine_du + timedelta(days=5)
+
+    annee_active = AnneeAcademique.get_active()
+    annee_code = annee_active.code if annee_active else get_current_academic_year_code()
+
+    fiche, created = FichePresenceEnseignantHebdo.objects.get_or_create(
+        semaine_du=semaine_du,
+        defaults={
+            'semaine_au': semaine_au,
+            'annee_academique': annee_code,
+            'rempli_par': user,
+            'statut': 'BROUILLON'
+        }
+    )
+
+    if not created and fiche.annee_academique != annee_code:
+        fiche.annee_academique = annee_code
+        fiche.save(update_fields=['annee_academique'])
+
+    # Récupérer les emplois du temps de cette semaine
+    if emploi_du_temps:
+        emplois = EmploiDuTempsHebdomadaire.objects.filter(
+            date_debut_semaine=semaine_du
+        )
+    else:
+        emplois = EmploiDuTempsHebdomadaire.objects.filter(statut='VALIDE')
+        if not emplois.exists():
+            emplois = EmploiDuTempsHebdomadaire.objects.all()
+
+    creneaux = CreneauEmploiDuTemps.objects.filter(emploi_du_temps__in=emplois).exclude(type_evenement='PAUSE')
+    professeurs = Professeur.objects.filter(est_actif=True)
+
+    pointages_crees = 0
+    for prof in professeurs:
+        mots_cles = set()
+        if prof.nom: mots_cles.update(normaliser_chaine(prof.nom).split())
+        if prof.prenom: mots_cles.update(normaliser_chaine(prof.prenom).split())
+        mots_cles = {m for m in mots_cles if len(m) > 2 and m not in ['mme', 'prof', 'docteur', 'monsieur']}
+
+        for c in creneaux:
+            str_ens = normaliser_chaine(c.enseignant_nom)
+            if str_ens and mots_cles and mots_cles.intersection(set(str_ens.split())):
+                p, p_created = PointagePresenceEnseignant.objects.get_or_create(
+                    fiche=fiche,
+                    enseignant=prof,
+                    creneau=c,
+                    date_seance=semaine_du,
+                    defaults={'statut': 'PRESENT'}
+                )
+                if p_created:
+                    pointages_crees += 1
+
+    return fiche, created, pointages_crees
+
 

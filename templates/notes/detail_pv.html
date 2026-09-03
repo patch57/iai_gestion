@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
+
+{% block content %}
+<style>
+@page {
+    margin: 0;
+    size: auto;
+}
+@media print {
+    /* Isolation stricte d'impression : Masquer tout sauf #printable-pv */
+    body * {
+        visibility: hidden !important;
+    }
+    .no-print, nav, header, footer, aside, .sidebar, #sidebar, button, a {
+        display: none !important;
+    }
+    #printable-pv, #printable-pv * {
+        visibility: visible !important;
+    }
+    #printable-pv {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 12mm 15mm !important;
+        box-shadow: none !important;
+        border: none !important;
+        background: white !important;
+    }
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 4px 6px !important;
+        font-size: 11px !important;
+    }
+    th {
+        background-color: #f0f0f0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+</style>
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- Actions Bar (Masquée à l'impression) -->
+    <div class="no-print mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'notes:liste_proces_verbaux' %}" class="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-semibold transition">
+                <i class="fas fa-arrow-left"></i> Retour aux PVs
+            </a>
+            <div>
+                <h1 class="text-lg font-bold text-slate-900">Procès-Verbal Officiel de Matière</h1>
+                <p class="text-xs text-slate-500">{{ pv.matiere.code }} - {{ pv.matiere.nom }}</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            {% if pv.est_transmis %}
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                    <i class="fas fa-check-circle"></i> Transmis au Chef des Études
+                </span>
+            {% else %}
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                    <i class="fas fa-clock"></i> En cours de validation
+                </span>
+            {% endif %}
+
+            <button onclick="window.print()" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition">
+                <i class="fas fa-print"></i> Imprimer / Enregistrer PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Feuille/Fiche Officielle IAI (Printable Sheet) -->
+    <div class="print-container bg-white rounded-2xl shadow-xl border border-slate-300 p-6 md:p-10 text-slate-900" id="printable-pv">
+
+        <!-- Entête Institutionnel Paul Biya (Exactement selon le document physique officiel) -->
+        <div class="text-center border-b-2 border-slate-900 pb-3 mb-6 relative">
+            <div class="flex justify-center mb-2">
+                <img src="{% static 'images/logo_iai.png' %}" alt="Logo IAI" class="h-16 w-auto object-contain" onerror="this.src='{% static 'images/logo.png' %}'">
+            </div>
+            <div class="text-center max-w-3xl mx-auto">
+                <h2 class="text-sm font-black text-slate-900 tracking-wider uppercase">Établissement Inter – États d'Enseignement Supérieur</h2>
+                <p class="text-xs font-bold text-emerald-800 uppercase mt-0.5">Représentation du Cameroun</p>
+                <p class="text-xs font-extrabold text-slate-800 uppercase mt-0.5">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</p>
+                <p class="text-[11px] text-slate-600 mt-1 font-medium">
+                    BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 58 / 691 902 120
+                </p>
+                <p class="text-[10px] text-slate-500 font-medium">
+                    Site web: www.iaicameroun.com &bull; E-mail: contact@iaicameroun.com
+                </p>
+            </div>
+        </div>
+
+        <!-- Titre Officiel du Document -->
+        <div class="text-center mb-6">
+            <h1 class="text-xl md:text-2xl font-black text-slate-900 tracking-wider uppercase underline underline-offset-4">
+                FICHE DE NOTES / PROCÈS-VERBAL DE NOTES
+            </h1>
+            <p class="text-base font-extrabold text-emerald-800 uppercase mt-1">
+                Classe : <span class="text-slate-900 font-black">{% if pv.salle %}{{ pv.salle.code }}{% else %}{{ pv.filiere.code }}{% endif %}</span>
+            </p>
+        </div>
+
+        <!-- Grille des Métadonnées (Format exact du formulaire manuscrit officiel) -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-300 mb-6 text-xs md:text-sm font-semibold text-slate-800 grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-6">
+            <div>
+                <span class="text-slate-500 font-medium">Année Académique :</span> 
+                <span class="text-slate-900 font-bold ml-1">{{ pv.annee_academique|default:"2025-2026" }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 font-medium">Centre de formation :</span> 
+                <span class="text-slate-900 font-bold ml-1">Douala</span>
+            </div>
+            <div>
+                <span class="text-slate-500 font-medium">Niveau :</span> 
+                <span class="text-slate-900 font-bold ml-1">{% if pv.niveau %}{{ pv.niveau.numero }}{% else %}1{% endif %}</span>
+            </div>
+
+            <div class="md:col-span-2">
+                <span class="text-slate-500 font-medium">Nom de l'Enseignant (e) :</span> 
+                <span class="text-slate-900 font-bold underline ml-1">
+                    {% if pv.fiche_anonymat and pv.fiche_anonymat.enseignant_nom %}
+                        {{ pv.fiche_anonymat.enseignant_nom|upper }}
+                    {% elif pv.cree_par %}
+                        {{ pv.cree_par.get_full_name|upper }}
+                    {% else %}
+                        ENSEIGNANT TITULAIRE
+                    {% endif %}
+                </span>
+            </div>
+            <div>
+                <span class="text-slate-500 font-medium">Coefficient / Crédit :</span> 
+                <span class="text-slate-900 font-bold ml-1">{% if pv.matiere %}{{ pv.matiere.credit|default:pv.matiere.credits|default:3 }}{% else %}3{% endif %}</span>
+            </div>
+
+            <div class="md:col-span-3 border-t border-slate-200 pt-2 flex flex-wrap justify-between items-center">
+                <div>
+                    <span class="text-slate-500 font-medium">Matière :</span> 
+                    <span class="text-emerald-900 font-black text-sm ml-1 uppercase">{{ pv.matiere.code }} - {{ pv.matiere.nom }}</span>
+                </div>
+                <div class="text-slate-600 text-xs">
+                    <span class="inline-block bg-blue-100 text-blue-900 px-2 py-0.5 rounded font-bold mr-2">CC: 40%</span>
+                    <span class="inline-block bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded font-bold">Examen/Rattrapage: 60%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableau Officiel des Notes (Reprenant la structure complète de l'exemplaire physique) -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse border border-slate-900 text-xs">
+                <thead>
+                    <!-- Ligne 1 d'entête -->
+                    <tr class="bg-slate-200 text-slate-900 font-black uppercase text-[11px] text-center border-b border-slate-900">
+                        <th class="border border-slate-900 py-2.5 px-2 w-8" rowspan="2">N°</th>
+                        <th class="border border-slate-900 py-2.5 px-3 text-left w-36" rowspan="2">NOMS</th>
+                        <th class="border border-slate-900 py-2.5 px-3 text-left w-36" rowspan="2">PRÉNOMS</th>
+                        <th class="border border-slate-900 py-2.5 px-3 w-32" rowspan="2">MATRICULE</th>
+                        <th class="border border-slate-900 py-1.5 px-2 bg-blue-100/80" colspan="6">CONTRÔLES CONTINUS (40%)</th>
+                        <th class="border border-slate-900 py-2.5 px-3 bg-indigo-100/80 w-24" rowspan="2">Notes d'Examen</th>
+                        <th class="border border-slate-900 py-2.5 px-3 bg-purple-100/80 w-24" rowspan="2">Rattrapage</th>
+                        <th class="border border-slate-900 py-2.5 px-3 bg-emerald-200 text-emerald-950 w-24" rowspan="2">Notes finales</th>
+                        <th class="border border-slate-900 py-2.5 px-2 w-20" rowspan="2">Décision</th>
+                    </tr>
+                    <!-- Ligne 2 d'entête (Sous-colonnes du CC) -->
+                    <tr class="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] text-center border-b border-slate-900">
+                        <th class="border border-slate-900 py-1 px-1.5 w-12 bg-blue-50">Note 1</th>
+                        <th class="border border-slate-900 py-1 px-1.5 w-12 bg-blue-50">Note 2</th>
+                        <th class="border border-slate-900 py-1 px-1.5 w-12 bg-blue-50">Note 3</th>
+                        <th class="border border-slate-900 py-1 px-1.5 w-12 bg-blue-50">Note 4</th>
+                        <th class="border border-slate-900 py-1 px-1.5 w-12 bg-blue-50">Note 5</th>
+                        <th class="border border-slate-900 py-1 px-2 w-16 font-extrabold bg-blue-200 text-blue-950">Moyenne CC</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-400 font-medium">
+                    {% for lg in lignes %}
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-300">
+                        <!-- N° -->
+                        <td class="border border-slate-900 py-2 px-2 text-center font-mono font-bold text-slate-600">{{ forloop.counter }}</td>
+                        
+                        <!-- NOM -->
+                        <td class="border border-slate-900 py-2 px-3 font-black text-slate-900 uppercase">{{ lg.etudiant.nom }}</td>
+                        
+                        <!-- PRÉNOM -->
+                        <td class="border border-slate-900 py-2 px-3 font-semibold text-slate-800 capitalize">{{ lg.etudiant.prenom }}</td>
+                        
+                        <!-- MATRICULE -->
+                        <td class="border border-slate-900 py-2 px-3 font-mono font-bold text-slate-800 text-center">{{ lg.etudiant.matricule }}</td>
+                        
+                        <!-- Note 1..5 (CC individuel si présent) -->
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
+                        <td class="border border-slate-900 py-2 px-1.5 text-center text-slate-400 bg-blue-50/20">-</td>
+                        
+                        <!-- Moyenne CC -->
+                        <td class="border border-slate-900 py-2 px-2 text-center font-black text-slate-900 bg-blue-100/50 text-sm">
+                            {% if lg.note_cc is not None %}
+                                {{ lg.note_cc|floatformat:2 }}
+                            {% else %}
+                                {% if pv.est_transmis %}
+                                    <span class="text-red-600 font-bold">0.00</span>
+                                {% else %}
+                                    <span class="text-slate-400 italic text-[10px]">N/A</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+
+                        <!-- Note Examen -->
+                        <td class="border border-slate-900 py-2 px-3 text-center font-black text-slate-900 bg-indigo-100/50 text-sm">
+                            {% if lg.note_examen is not None %}
+                                {{ lg.note_examen|floatformat:2 }}
+                            {% else %}
+                                {% if pv.est_transmis and lg.note_rattrapage is None %}
+                                    <span class="text-red-600 font-bold">0.00</span>
+                                {% else %}
+                                    <span class="text-slate-400 italic text-[10px]">N/A</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+
+                        <!-- Rattrapage -->
+                        <td class="border border-slate-900 py-2 px-3 text-center font-black text-purple-900 bg-purple-100/50 text-sm">
+                            {% if lg.note_rattrapage is not None %}
+                                {{ lg.note_rattrapage|floatformat:2 }}
+                            {% else %}
+                                <span class="text-slate-300">-</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Note Finale (Calculée: 40% CC + 60% Examen/Rattrapage) -->
+                        <td class="border border-slate-900 py-2 px-3 text-center font-black text-base bg-emerald-100 text-emerald-950">
+                            {% if lg.note_finale is not None %}
+                                {{ lg.note_finale|floatformat:2 }}
+                            {% else %}
+                                <span class="text-slate-400 text-xs italic">En attente</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Décision -->
+                        <td class="border border-slate-900 py-2 px-2 text-center font-black">
+                            {% if lg.note_finale is not None %}
+                                {% if lg.note_finale >= 10 %}
+                                    <span class="text-emerald-700">V</span>
+                                {% else %}
+                                    <span class="text-red-600">NV</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-slate-300">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="14" class="border border-slate-900 py-8 text-center text-slate-500 font-bold">
+                            Aucun étudiant inscrit sur ce Procès-Verbal.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Bloc des Signatures Officiel IAI-Cameroun -->
+        <div class="mt-10 pt-6 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-center text-xs font-bold text-slate-800">
+            <div>
+                <p class="uppercase font-black text-slate-900">Le Chef de l'Anonymat</p>
+                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 italic text-[11px]">
+                    Signature & Cachet
+                </div>
+            </div>
+
+            <div>
+                <p class="uppercase font-black text-slate-900">Le Chef des Études</p>
+                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 italic text-[11px]">
+                    Signature & Cachet
+                </div>
+            </div>
+
+            <div>
+                <p class="uppercase font-black text-slate-900">Le Directeur du Centre</p>
+                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 italic text-[11px]">
+                    Signature & Cachet
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

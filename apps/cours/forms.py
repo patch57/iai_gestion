@@ -195,13 +195,14 @@ class SeanceCoursForm(forms.ModelForm):
 
 
 class RessourceCoursForm(forms.ModelForm):
-    """Formulaire pour ajouter une ressource à un cours"""
+    """Formulaire pour ajouter une ressource à un cours (avec date limite de remise physique)"""
     
     class Meta:
         model = RessourceCours
-        fields = ['type_ressource', 'titre', 'description', 'fichier', 'lien_externe', 'est_public']
+        fields = ['type_ressource', 'titre', 'description', 'fichier', 'lien_externe', 'date_limite_remise_physique', 'est_public']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
+            'date_limite_remise_physique': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -215,6 +216,7 @@ class RessourceCoursForm(forms.ModelForm):
             'description',
             'fichier',
             'lien_externe',
+            'date_limite_remise_physique',
             'est_public',
             ButtonHolder(
                 Submit('submit', 'Ajouter la ressource', css_class='btn btn-primary'),
@@ -230,9 +232,10 @@ class SupportPedagogiqueApprenantForm(forms.ModelForm):
     
     class Meta:
         model = SupportPedagogiqueApprenant
-        fields = ['titre', 'type_document', 'type_formation', 'module_formation', 'niveau_etude', 'fichier']
+        fields = ['titre', 'type_document', 'type_formation', 'module_formation', 'niveau_etude', 'fichier', 'date_limite_remise_physique']
         widgets = {
             'niveau_etude': forms.TextInput(attrs={'placeholder': 'Ex: DQP, Secrétaire Comptable...'}),
+            'date_limite_remise_physique': forms.DateInput(attrs={'type': 'date', 'class': 'w-full rounded-xl border-gray-300 focus:border-green-500 focus:ring-green-500 shadow-sm px-4 py-2.5 text-sm'}),
         }
         
     def __init__(self, *args, **kwargs):
@@ -251,7 +254,48 @@ class SupportPedagogiqueApprenantForm(forms.ModelForm):
                 Column('niveau_etude', css_class='col-md-6'),
             ),
             'fichier',
+            'date_limite_remise_physique',
             ButtonHolder(
                 Submit('submit', 'Ajouter le document', css_class='bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-2.5 rounded-xl shadow-md cursor-pointer transition'),
+            )
+        )
+
+
+from .models import EmploiDuTempsApprenant
+
+
+class EmploiDuTempsApprenantForm(forms.ModelForm):
+    """Formulaire pour établir et publier un emploi du temps ciblé pour les apprenants"""
+    
+    class Meta:
+        model = EmploiDuTempsApprenant
+        fields = ['titre', 'type_formation', 'module_formation', 'niveau_etude', 'date_debut', 'date_fin', 'fichier_pdf', 'est_publie']
+        widgets = {
+            'titre': forms.TextInput(attrs={'placeholder': 'Ex: Planning Hebdomadaire - Session Avril 2026'}),
+            'niveau_etude': forms.TextInput(attrs={'placeholder': 'Ex: DQP, Secrétaire Comptable... (Vide = Tous)'}),
+            'date_debut': forms.DateInput(attrs={'type': 'date'}),
+            'date_fin': forms.DateInput(attrs={'type': 'date'}),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_method = 'post'
+        self.helper.enctype = 'multipart/form-data'
+        self.helper.layout = Layout(
+            'titre',
+            Row(
+                Column('type_formation', css_class='col-md-6'),
+                Column('module_formation', css_class='col-md-6'),
+            ),
+            Row(
+                Column('date_debut', css_class='col-md-6'),
+                Column('date_fin', css_class='col-md-6'),
+            ),
+            'niveau_etude',
+            'fichier_pdf',
+            'est_publie',
+            ButtonHolder(
+                Submit('submit', 'Publier l\'emploi du temps', css_class='bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-2.5 rounded-xl shadow-md cursor-pointer transition'),
             )
         )

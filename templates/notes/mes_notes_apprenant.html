@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block title %}Mes Notes - Formation Continue & Certifications{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- En-tête / Carte Profil Apprenant -->
+    <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+            <i class="fas fa-graduation-cap text-9xl"></i>
+        </div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-3xl font-black text-emerald-300 shadow-inner">
+                    {{ apprenant.nom_complet|first|upper }}
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">
+                        {{ apprenant.nom_complet }}
+                    </h1>
+                    <p class="text-emerald-200 text-xs md:text-sm mt-1 flex items-center gap-2">
+                        <i class="fas fa-envelope text-emerald-400"></i> {{ apprenant.email }}
+                        <span class="opacity-50">•</span>
+                        <i class="fas fa-phone text-emerald-400"></i> {{ apprenant.contact|default:"-" }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex items-center gap-6">
+                <div>
+                    <span class="block text-[10px] uppercase font-bold text-emerald-300 tracking-wider">Formations Inscrites</span>
+                    <span class="text-xl font-black">{{ formations_data|length }}</span>
+                </div>
+                <div class="w-px h-8 bg-white/20"></div>
+                <div>
+                    <span class="block text-[10px] uppercase font-bold text-emerald-300 tracking-wider">Statut Général</span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                        <i class="fas fa-check-circle mr-1 text-emerald-400"></i> Actif
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relevé des Notes par Formation -->
+    {% if formations_data %}
+    <div class="space-y-8">
+        {% for item in formations_data %}
+        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden transition hover:shadow-2xl">
+            <!-- Entête de la Formation -->
+            <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xl shadow-xs">
+                        <i class="fas fa-certificate"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                {{ item.formation.get_type_formation_display }}
+                            </span>
+                            {% if item.formation.niveau_etude %}
+                            <span class="text-[10px] font-bold text-gray-500 bg-gray-200/60 px-2 py-0.5 rounded-full">
+                                {{ item.formation.niveau_etude }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <h2 class="text-xl font-black text-gray-900 mt-1">
+                            {{ item.formation.get_nom_display }}
+                        </h2>
+                    </div>
+                </div>
+
+                <!-- Score global & Décision -->
+                <div class="flex items-center gap-3">
+                    {% if item.moyenne is not None %}
+                    <div class="text-right">
+                        <span class="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">Moyenne Générale</span>
+                        <span class="text-2xl font-black text-gray-900">{{ item.moyenne }} <span class="text-xs text-gray-500 font-semibold">/20</span></span>
+                    </div>
+                    <span class="px-4 py-2 rounded-2xl text-xs font-black border shadow-xs {{ item.decision_color }}">
+                        {{ item.decision }}
+                    </span>
+                    {% else %}
+                    <span class="px-4 py-2 rounded-2xl text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                        <i class="fas fa-clock mr-1 text-gray-400"></i> Notes en cours de saisie
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Grille des matières évaluées -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 uppercase text-[10px] font-black tracking-wider border-b">
+                            <th class="p-4 min-w-[220px]">Matière / Module</th>
+                            <th class="p-4 text-center min-w-[90px]">Coefficient</th>
+                            <th class="p-4 text-center min-w-[110px]">Note / 20</th>
+                            <th class="p-4 min-w-[200px]">Appréciation du Formateur</th>
+                            <th class="p-4 text-center min-w-[130px]">Formateur</th>
+                            <th class="p-4 text-center min-w-[110px]">Date Evaluation</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 font-medium">
+                        {% for mat_item in item.matieres_data %}
+                        <tr class="hover:bg-emerald-50/20 transition">
+                            <td class="p-4">
+                                <span class="font-extrabold text-gray-900 text-sm block">{{ mat_item.matiere.nom }}</span>
+                                {% if mat_item.matiere.description %}
+                                <span class="text-[10px] text-gray-500 italic block mt-0.5">{{ mat_item.matiere.description|truncatewords:10 }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-center font-bold text-gray-700">
+                                {{ mat_item.matiere.coefficient|floatformat:1 }}
+                            </td>
+                            <td class="p-4 text-center">
+                                {% if mat_item.note is not None %}
+                                <span class="inline-block px-3 py-1.5 rounded-xl font-black text-sm shadow-2xs {% if mat_item.note >= 10 %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-rose-50 text-rose-700 border border-rose-200{% endif %}">
+                                    {{ mat_item.note }} / 20
+                                </span>
+                                {% else %}
+                                <span class="text-gray-400 italic text-xs">Non noté</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-gray-600 italic">
+                                {% if mat_item.commentaire %}
+                                « {{ mat_item.commentaire }} »
+                                {% else %}
+                                <span class="text-gray-400 font-normal">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-center text-gray-700 text-xs">
+                                {% if mat_item.formateur %}
+                                <span class="font-semibold">{{ mat_item.formateur.get_full_name|default:mat_item.formateur.username }}</span>
+                                {% else %}
+                                <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-center text-gray-500 text-xs">
+                                {{ mat_item.date_eval|date:"d/m/Y"|default:"-" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="p-8 text-center text-gray-400">
+                                Aucune matière définie pour cette formation.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-xl space-y-4">
+        <div class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-inner">
+            <i class="fas fa-folder-open"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800">Aucune note enregistrée pour le moment</h3>
+        <p class="text-sm text-gray-500 max-w-md mx-auto">
+            Vos notes d'évaluation par matière apparaîtront sur cette page dès leur publication par vos formateurs.
+        </p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

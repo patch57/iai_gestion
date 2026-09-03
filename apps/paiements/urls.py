@@ -47,14 +47,27 @@ urlpatterns = [
     
     # API
     path('api/recus-attente/', views.api_recus_attente, name='api_recus_attente'),
+    path('api/pre-scan-recu/', views.api_prescan_recu, name='api_prescan_recu'),
     
     # Exportation PDF et Vérification QR Code
     path('exporter/carte-pdf/<int:etudiant_id>/', views.exporter_carte_etudiant_pdf, name='exporter_carte_etudiant_pdf'),
     path('exporter/recu-pdf/<int:recu_id>/', views.exporter_recu_pdf, name='exporter_recu_pdf'),
     path('verifier-document/', views.verifier_document, name='verifier_document'),
 
-    # Paiement mobile money (CinetPay)
+    # Pénalités et Paiement Mobile Money (CinetPay)
+    path('penalites/', views.mes_penalites, name='penalites'),
+    path('mes-penalites/', views.mes_penalites, name='mes_penalites'),
+    path('gestion-penalites/', views.gestion_penalites, name='gestion_penalites'),
+    path('gestion-penalites/encaisser/<int:etudiant_id>/', views.encaisser_penalite_caisse, name='encaisser_penalite_caisse'),
+    path('gestion-penalites/exonerer/<int:etudiant_id>/', views.exonerer_penalite, name='exonerer_penalite'),
+    path('gestion-penalites/relancer/<int:etudiant_id>/', views.relancer_penalite_etudiant, name='relancer_penalite_etudiant'),
+    path('gestion-penalites/exporter-csv/', views.exporter_penalites_csv, name='exporter_penalites_csv'),
+    path('gestion-penalites/exporter-excel/', views.exporter_penalites_excel, name='exporter_penalites_excel'),
+    path('gestion-penalites/exporter-pdf/', views.exporter_penalites_pdf, name='exporter_penalites_pdf'),
+
     path('payer-penalites/', views.payer_penalites, name='payer_penalites'),
+
+
     path('api/momo/initier/', views.initier_paiement_momo, name='initier_paiement_momo'),
     path('api/momo/verifier/', views.verifier_paiement_momo, name='verifier_paiement_momo'),
     path('api/cinetpay/webhook/', views.webhook_cinetpay, name='webhook_cinetpay'),

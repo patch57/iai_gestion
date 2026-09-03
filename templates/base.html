@@ -148,14 +148,14 @@
         
         /* Sidebar active link */
         .sidebar-link.active {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
-            color: #10B981;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%) !important;
+            color: #10B981 !important;
             font-weight: 500;
             border-right: 3px solid #10B981;
         }
         
         .sidebar-link.active i {
-            color: #10B981;
+            color: #10B981 !important;
         }
         
         /* Tooltip */
@@ -275,7 +275,34 @@
                         <span>Charger Support</span>
                     </a>
                 </li>
+                <li>
+                    <a href="{% url 'cours:liste_emplois_du_temps_apprenant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-calendar-alt w-5 h-5 mr-3 group-hover:text-green-600 text-amber-500"></i>
+                        <span>Emplois du Temps</span>
+                    </a>
+                </li>
                 {% endif %}
+
+                <!-- Liens exclusifs Apprenant (Formation Continue & Certifications) -->
+                {% if user.type_utilisateur == 'APPRENANT' %}
+
+                <li>
+                    <a href="{% url 'cours:liste_emplois_du_temps_apprenant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-emerald-800 font-bold rounded-lg hover:bg-emerald-50 hover:text-emerald-900 transition-all group">
+                        <i class="fas fa-calendar-alt w-5 h-5 mr-3 text-emerald-600 group-hover:text-emerald-700"></i>
+                        <span>Mon Emploi du Temps</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'cours:liste_supports_apprenant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
+                        <i class="fas fa-file-download w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>Supports de Cours</span>
+                    </a>
+                </li>
+                {% endif %}
+
                 
                 <!-- Géolocalisation (Masqué pour la Comptabilité, Anonymat, Formation Continue et Apprenants) -->
                 {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
@@ -288,8 +315,8 @@
                 </li>
                 {% endif %}
                 
-                <!-- Étudiants (Masqué pour l'Anonymat, Formation Continue et Apprenants) -->
-                {% if not user.est_etudiant and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
+                <!-- Étudiants (Masqué pour l'Anonymat, Formation Continue, Apprenants, Chef des Études et Enseignants) -->
+                {% if not user.est_etudiant and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' and user.type_utilisateur != 'CHEF_ETUDES' and user.type_utilisateur != 'ENSEIGNANT' and user.type_utilisateur != 'PROFESSEUR' and user.type_utilisateur != 'FORMATEUR' %}
                 <li>
                     <a href="/etudiants/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -299,8 +326,8 @@
                 </li>
                 {% endif %}
                 
-                <!-- Professeurs (Masqué pour la Comptabilité, Anonymat, Formation Continue et Apprenants) -->
-                {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' and not user.est_etudiant %}
+                <!-- Professeurs (Masqué pour la Comptabilité, Anonymat, Formation Continue, Apprenants, Chef des Études et Enseignants) -->
+                {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' and user.type_utilisateur != 'CHEF_ETUDES' and not user.est_etudiant and user.type_utilisateur != 'ENSEIGNANT' and user.type_utilisateur != 'PROFESSEUR' and user.type_utilisateur != 'FORMATEUR' %}
                 <li>
                     <a href="/professeurs/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -315,20 +342,61 @@
                 <li>
                     <a href="/cours/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
-                        <i class="fas fa-book w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
-                        <span>Cours</span>
+                        <i class="fas fa-book-open w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
+                        <span>{% if user.est_etudiant or user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}Programme Hebdo & Cours{% else %}Programme Hebdomadaire{% endif %}</span>
                     </a>
                 </li>
+                {% if user.type_utilisateur in 'DIRECTEUR ADMIN_SYSTEME ADMIN_PEDAGOGIQUE' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'cours:liste_matieres' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-all group">
+                        <i class="fas fa-layer-group w-5 h-5 mr-3 group-hover:text-emerald-600 text-gray-500"></i>
+                        <span>Matières & Unités d'Enseignement</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if user.type_utilisateur in 'CHEF_SCOLARITE SCOLARITE ADMIN_SYSTEME ADMIN_PEDAGOGIQUE' or user.is_superuser %}
+                {% if user.type_utilisateur != 'CHEF_ETUDES' %}
                 <li>
                     <a href="{% url 'cours:liste_fiches_presence' %}" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-all group">
                         <i class="fas fa-clipboard-check w-5 h-5 mr-3 group-hover:text-emerald-600 text-emerald-600"></i>
-                        <span>Présences & Discipline</span>
+                        <span>Présences Étudiants & Discipline</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'cours:liste_fiches_presence_enseignant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-emerald-800 font-bold rounded-lg hover:bg-emerald-50 hover:text-emerald-900 transition-all group">
+                        <i class="fas fa-user-check w-5 h-5 mr-3 text-emerald-600 group-hover:text-emerald-700"></i>
+                        <span>Émargement Hebdo Enseignants</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% endif %}
+                {% if user.type_utilisateur in 'CHEF_SCOLARITE SCOLARITE ADMIN_SYSTEME ADMIN_PEDAGOGIQUE' or user.is_superuser %}
+                {% if user.type_utilisateur != 'CHEF_ETUDES' %}
+                <li>
+                    <a href="{% url 'cours:gestion_evaluations_scolarite' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-purple-700 font-medium rounded-lg hover:bg-purple-50 transition-all group">
+                        <i class="fas fa-poll-h w-5 h-5 mr-3 group-hover:text-purple-600 text-purple-600"></i>
+                        <span>Évaluation Enseignants</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% endif %}
+                {% endif %}
+                
+                <!-- Notes & Évaluations -->
+                {% if user.type_utilisateur == 'APPRENANT' %}
+                <li>
+                    <a href="{% url 'notes:mes_notes' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-emerald-700 font-bold rounded-lg hover:bg-emerald-50 transition-all group">
+                        <i class="fas fa-graduation-cap w-5 h-5 mr-3 text-emerald-600"></i>
+                        <span>Mes Notes</span>
                     </a>
                 </li>
                 {% endif %}
                 
-                <!-- Notes & Évaluations (Masqué pour la Comptabilité, Formation Continue et Apprenants) -->
                 {% if user.type_utilisateur != 'CHEF_COMPTABILITE' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
                 {% if user.est_etudiant %}
                 <li>
@@ -346,13 +414,14 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'notes:liste_recours' %}" 
-                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
-                        <i class="fas fa-balance-scale w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
-                        <span>Mes Recours</span>
+                    <a href="{% url 'cours:liste_evaluations_etudiant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-purple-700 font-medium rounded-lg hover:bg-purple-50 transition-all group">
+                        <i class="fas fa-poll-h w-5 h-5 mr-3 text-purple-600"></i>
+                        <span>Évaluer mes Enseignants</span>
                     </a>
                 </li>
                 {% else %}
+                {% if user.type_utilisateur != 'CHEF_ETUDES' and user.type_utilisateur != 'CHEF_SCOLARITE' and user.type_utilisateur != 'SCOLARITE' and user.type_utilisateur != 'CHEF_ANONYMAT' %}
                 <li>
                     <a href="/notes/evaluations/" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
@@ -360,12 +429,35 @@
                         <span>Notes & Évaluations</span>
                     </a>
                 </li>
-                {% if user.type_utilisateur != 'CHEF_ANONYMAT' %}
+                {% endif %}
+
+                <!-- WORKFLOW CONFIDENTIEL FICHES D'ANONYMAT -->
+                {% if user.type_utilisateur in 'PROFESSEUR ENSEIGNANT ADMIN_SYSTEME' or user.is_superuser %}
                 <li>
-                    <a href="{% url 'notes:liste_recours' %}" 
-                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
-                        <i class="fas fa-balance-scale w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
-                        <span>Recours Académiques</span>
+                    <a href="{% url 'notes:dashboard_anonymat_enseignant' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-indigo-700 font-medium rounded-lg hover:bg-indigo-50 transition-all group">
+                        <i class="fas fa-user-secret w-5 h-5 mr-3 text-indigo-600"></i>
+                        <span>Anonymat Enseignant</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if user.type_utilisateur in 'CHEF_ANONYMAT ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'notes:dashboard_chef_anonymat' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-purple-700 font-medium rounded-lg hover:bg-purple-50 transition-all group">
+                        <i class="fas fa-user-ninja w-5 h-5 mr-3 text-purple-600"></i>
+                        <span>Anonymat Chef Anonymat</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if user.type_utilisateur in 'CHEF_ETUDES CHEF_ANONYMAT ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'notes:liste_proces_verbaux' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-indigo-700 font-bold rounded-lg hover:bg-indigo-50 transition-all group">
+                        <i class="fas fa-file-contract w-5 h-5 mr-3 text-indigo-600"></i>
+                        <span>Procès-Verbaux</span>
                     </a>
                 </li>
                 {% endif %}
@@ -373,7 +465,7 @@
                 {% endif %}
                 
                 <!-- Inscriptions & Paiements -->
-                {% if user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_ETUDES' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
+                {% if user.type_utilisateur != 'CHEF_ANONYMAT' and user.type_utilisateur != 'CHEF_ETUDES' and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' and user.type_utilisateur != 'ENSEIGNANT' and user.type_utilisateur != 'PROFESSEUR' and user.type_utilisateur != 'FORMATEUR' and user.type_utilisateur != 'CHEF_SCOLARITE' and user.type_utilisateur != 'SCOLARITE' %}
                 <li>
                     {% if user.est_etudiant %}
                     <a href="{% url 'inscriptions:fiche_renseignement_etudiant' %}" 
@@ -390,6 +482,26 @@
                     {% endif %}
                 </li>
                 {% endif %}
+                {% if user.est_etudiant %}
+                <li>
+                    <a href="{% url 'paiements:mes_penalites' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-rose-700 font-medium rounded-lg hover:bg-rose-50 transition-all group">
+                        <i class="fas fa-exclamation-triangle w-5 h-5 mr-3 text-rose-600"></i>
+                        <span>Mes Pénalités</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                <!-- Certificats de Scolarité (Chef de la Scolarité & Admin Système uniquement - Masqué pour l'Étudiant) -->
+                {% if user.type_utilisateur == 'CHEF_SCOLARITE' or user.type_utilisateur == 'ADMIN_SYSTEME' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'inscriptions:liste_certificats' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-all group">
+                        <i class="fas fa-file-contract w-5 h-5 mr-3 text-emerald-600 group-hover:text-emerald-700"></i>
+                        <span>Certificats de Scolarité</span>
+                    </a>
+                </li>
+                {% endif %}
 
                 <!-- Paiements Apprenants (Dédié Chef Comptabilité, Admin Financier, Formation Continue et Admin Système) -->
                 {% if user.type_utilisateur == 'CHEF_COMPTABILITE' or user.type_utilisateur == 'ADMIN_FINANCIER' or user.type_utilisateur == 'CHEF_FORMATION_CONTINUE' or user.type_utilisateur == 'ADMIN_SYSTEME' or user.is_superuser %}
@@ -401,6 +513,18 @@
                     </a>
                 </li>
                 {% endif %}
+
+                <!-- Gestion des Pénalités (Chef Comptabilité, Admin Financier, Directeur, Admin Système) -->
+                {% if user.type_utilisateur in 'CHEF_COMPTABILITE ADMIN_FINANCIER DIRECTEUR ADMIN_SYSTEME' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'paiements:gestion_penalites' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-rose-700 font-medium rounded-lg hover:bg-rose-50 hover:text-rose-800 transition-all group">
+                        <i class="fas fa-gavel w-5 h-5 mr-3 group-hover:text-rose-600 text-rose-600"></i>
+                        <span>Gestion des Pénalités</span>
+                    </a>
+                </li>
+                {% endif %}
+
                 
                 <!-- Statistiques (Masqué pour l'étudiant, Formation Continue et Apprenants) -->
                 {% if not user.est_etudiant and user.type_utilisateur != 'CHEF_FORMATION_CONTINUE' and user.type_utilisateur != 'APPRENANT' %}
@@ -542,15 +666,40 @@
                                class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 w-64 text-sm">
                     </div>
                     
-                    <!-- Notifications -->
-                    <a href="/tableau-de-bord/notifications/" 
-                       class="relative p-2 text-gray-500 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50">
-                        <i class="fas fa-bell text-xl"></i>
-                        <span id="notifications-count" 
-                              class="notification-badge absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center hidden">
-                            0
-                        </span>
-                    </a>
+                    <!-- Notifications Dropdown -->
+                    <div class="relative">
+                        <button id="notif-dropdown-btn" 
+                                class="relative p-2 text-gray-500 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50 focus:outline-none">
+                            <i class="fas fa-bell text-xl"></i>
+                            <span id="notifications-count" 
+                                  class="notification-badge absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center hidden">
+                                0
+                            </span>
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div id="notif-dropdown-menu" 
+                             class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden transform transition-all duration-200">
+                            <div class="p-3 bg-gradient-to-r from-green-700 to-green-600 text-white flex items-center justify-between">
+                                <span class="font-semibold text-sm flex items-center space-x-2">
+                                    <i class="fas fa-bell"></i>
+                                    <span>Notifications Ciblées</span>
+                                </span>
+                                <a href="{% url 'tableau_bord:marquer_toutes_lues' %}" 
+                                   class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition text-white">
+                                    Tout marquer lu
+                                </a>
+                            </div>
+                            <div id="notif-list-container" class="max-h-80 overflow-y-auto divide-y divide-gray-100">
+                                <div class="p-4 text-center text-gray-400 text-sm">Chargement des notifications...</div>
+                            </div>
+                            <div class="p-2 bg-gray-50 text-center border-t border-gray-100">
+                                <a href="{% url 'tableau_bord:notifications' %}" class="text-xs font-semibold text-green-700 hover:text-green-800">
+                                    Voir le centre complet de notifications &rarr;
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Tâches -->
                     <a href="/tableau-de-bord/taches/" 
@@ -671,12 +820,26 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Sidebar active link
             const currentPath = window.location.pathname;
+            let bestMatchLink = null;
+            let maxHrefLength = -1;
+
             document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.classList.remove('active');
                 const href = link.getAttribute('href');
-                if (href && href !== '/' && currentPath.startsWith(href)) {
-                    link.classList.add('active');
+                if (href) {
+                    if (currentPath === href) {
+                        bestMatchLink = link;
+                        maxHrefLength = href.length + 1000;
+                    } else if (href !== '/' && currentPath.startsWith(href) && href.length > maxHrefLength) {
+                        bestMatchLink = link;
+                        maxHrefLength = href.length;
+                    }
                 }
             });
+
+            if (bestMatchLink) {
+                bestMatchLink.classList.add('active');
+            }
             
             // Mobile menu toggle
             const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -713,29 +876,75 @@
             }
             
             {% if user.is_authenticated %}
-            // Charger le nombre de notifications non lues
-            fetch('/tableau-de-bord/api/notifications-non-lues/')
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
+            // Gestion du Dropdown et du chargement des notifications
+            const notifBtn = document.getElementById('notif-dropdown-btn');
+            const notifMenu = document.getElementById('notif-dropdown-menu');
+            const notifContainer = document.getElementById('notif-list-container');
+            const countBadge = document.getElementById('notifications-count');
+            const sidebarBadge = document.getElementById('sidebar-notif-count');
+
+            if (notifBtn && notifMenu) {
+                notifBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    notifMenu.classList.toggle('hidden');
+                });
+                
+                document.addEventListener('click', (e) => {
+                    if (!notifMenu.contains(e.target) && e.target !== notifBtn) {
+                        notifMenu.classList.add('hidden');
                     }
-                    throw new Error('Non autorisé');
-                })
-                .then(data => {
-                    const countBadge = document.getElementById('notifications-count');
-                    const sidebarBadge = document.getElementById('sidebar-notif-count');
-                    if (data.count > 0) {
-                        if (countBadge) {
-                            countBadge.style.display = 'flex';
-                            countBadge.textContent = data.count > 9 ? '9+' : data.count;
+                });
+            }
+
+            function chargerNotifications() {
+                fetch('/tableau-de-bord/api/notifications-non-lues/')
+                    .then(response => response.ok ? response.json() : Promise.reject())
+                    .then(data => {
+                        if (data.count > 0) {
+                            if (countBadge) {
+                                countBadge.style.display = 'flex';
+                                countBadge.textContent = data.count > 9 ? '9+' : data.count;
+                            }
+                            if (sidebarBadge) {
+                                sidebarBadge.style.display = 'inline-block';
+                                sidebarBadge.textContent = data.count > 9 ? '9+' : data.count;
+                            }
+                        } else {
+                            if (countBadge) countBadge.style.display = 'none';
+                            if (sidebarBadge) sidebarBadge.style.display = 'none';
                         }
-                        if (sidebarBadge) {
-                            sidebarBadge.style.display = 'inline-block';
-                            sidebarBadge.textContent = data.count > 9 ? '9+' : data.count;
+
+                        if (notifContainer) {
+                            if (!data.notifications || data.notifications.length === 0) {
+                                notifContainer.innerHTML = '<div class="p-6 text-center text-gray-400 text-sm"><i class="fas fa-check-circle text-green-500 text-2xl mb-1 block"></i>Aucune notification non lue</div>';
+                            } else {
+                                notifContainer.innerHTML = data.notifications.map(n => {
+                                    let badgeColor = 'bg-blue-100 text-blue-800';
+                                    let icon = 'fa-info-circle';
+                                    if (n.type === 'SUCCESS') { badgeColor = 'bg-green-100 text-green-800'; icon = 'fa-check-circle'; }
+                                    else if (n.type === 'WARNING') { badgeColor = 'bg-amber-100 text-amber-800'; icon = 'fa-exclamation-triangle'; }
+                                    else if (n.type === 'ERROR') { badgeColor = 'bg-red-100 text-red-800'; icon = 'fa-times-circle'; }
+
+                                    return `
+                                        <a href="/tableau-de-bord/notifications/${n.id}/lue/" class="block p-3 hover:bg-gray-50 transition">
+                                            <div class="flex items-start justify-between">
+                                                <span class="text-xs font-bold px-2 py-0.5 rounded ${badgeColor} inline-flex items-center space-x-1">
+                                                    <i class="fas ${icon}"></i>
+                                                    <span>${n.titre}</span>
+                                                </span>
+                                                <span class="text-[10px] text-gray-400 font-mono">${n.date}</span>
+                                            </div>
+                                            <p class="text-xs text-gray-600 mt-1 line-clamp-2">${n.message}</p>
+                                        </a>
+                                    `;
+                                }).join('');
+                            }
                         }
-                    }
-                })
-                .catch(error => console.error('Erreur chargement notifications:', error));
+                    })
+                    .catch(error => console.error('Erreur chargement notifications:', error));
+            }
+
+            chargerNotifications();
             {% endif %}
             
             // Fermer les messages

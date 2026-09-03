@@ -18,22 +18,157 @@
         {% endif %}
     </div>
 
-    <!-- Filters Panel -->
+    {% if not is_etudiant or user.is_staff or user.is_superuser or is_professeur %}
+    <!-- Filters Panel (Personnel & Administrateurs) -->
     <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
-        <form method="GET" class="flex flex-col md:flex-row gap-4 items-end justify-between">
-            <div class="flex-1 w-full">
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Sélectionner la Filière</label>
-                <select name="filiere" class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-semibold text-gray-700">
-                    {% for f in filieres %}
-                    <option value="{{ f.id }}" {% if filiere_selectionnee.id == f.id %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
-                    {% endfor %}
-                </select>
+        <form method="GET" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Filtre Jour -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1">
+                        <i class="fas fa-clock text-emerald-600"></i> Jour du Programme
+                    </label>
+                    <select name="jour" onchange="this.form.submit()" class="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-bold text-gray-800 bg-gray-50">
+                        <option value="" {% if not request.GET.jour %}selected{% endif %}>⚡ Aujourd'hui (Bascule Minuit)</option>
+                        <option value="LUNDI" {% if request.GET.jour == 'LUNDI' %}selected{% endif %}>📅 Lundi</option>
+                        <option value="MARDI" {% if request.GET.jour == 'MARDI' %}selected{% endif %}>📅 Mardi</option>
+                        <option value="MERCREDI" {% if request.GET.jour == 'MERCREDI' %}selected{% endif %}>📅 Mercredi</option>
+                        <option value="JEUDI" {% if request.GET.jour == 'JEUDI' %}selected{% endif %}>📅 Jeudi</option>
+                        <option value="VENDREDI" {% if request.GET.jour == 'VENDREDI' %}selected{% endif %}>📅 Vendredi</option>
+                        <option value="SAMEDI" {% if request.GET.jour == 'SAMEDI' %}selected{% endif %}>📅 Samedi</option>
+                    </select>
+                </div>
+
+                <!-- Filtre Salle / Classe -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1">
+                        <i class="fas fa-door-open text-emerald-600"></i> Salle / Classe
+                    </label>
+                    <select name="salle" onchange="this.form.submit()" class="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-bold text-gray-800 bg-gray-50">
+                        <option value="" {% if not salle_selectionnee %}selected{% endif %}>🏛️ Toutes les Salles</option>
+                        {% for s in salles %}
+                        <option value="{{ s.id }}" {% if salle_selectionnee.id == s.id %}selected{% endif %}>{{ s.nom }} ({{ s.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtre Filière -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1">
+                        <i class="fas fa-graduation-cap text-emerald-600"></i> Filière
+                    </label>
+                    <select name="filiere" onchange="this.form.submit()" class="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-bold text-gray-800 bg-gray-50">
+                        <option value="" {% if not filiere_selectionnee %}selected{% endif %}>🌐 Toutes les filières</option>
+                        {% for f in filieres %}
+                        <option value="{{ f.id }}" {% if filiere_selectionnee.id == f.id %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtre Niveau -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1">
+                        <i class="fas fa-layer-group text-emerald-600"></i> Niveau
+                    </label>
+                    <select name="niveau" onchange="this.form.submit()" class="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-bold text-gray-800 bg-gray-50">
+                        <option value="" {% if not niveau_selectionne %}selected{% endif %}>🎓 Tous les niveaux</option>
+                        {% for n in niveaux %}
+                        <option value="{{ n.id }}" {% if niveau_selectionne.id == n.id %}selected{% endif %}>Niveau {{ n.numero }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
-            <button type="submit" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition">
-                Afficher le Programme
-            </button>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                {% if request.GET.filiere or request.GET.niveau or request.GET.salle or request.GET.jour %}
+                <a href="{% url 'cours:liste_cours' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-xl text-xs transition flex items-center gap-1">
+                    <i class="fas fa-undo"></i> Réinitialiser
+                </a>
+                {% endif %}
+                <button type="submit" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-2 px-6 rounded-xl text-xs transition flex items-center gap-1.5 shadow">
+                    <i class="fas fa-filter"></i> Appliquer les filtres
+                </button>
+            </div>
         </form>
     </div>
+    {% endif %}
+
+    {% if user.est_etudiant or user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}
+    <!-- Supports Pédagogiques (Cours, TP, TD) - Uniquement espace Étudiant -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-emerald-800 to-emerald-700 p-5 text-white flex justify-between items-center">
+            <h3 class="font-black text-lg flex items-center gap-2">
+                <i class="fas fa-graduation-cap"></i>
+                Supports Pédagogiques (Cours, TP, TD)
+            </h3>
+            <span class="bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                {{ ressources|length }} support(s) disponible(s)
+            </span>
+        </div>
+        <div class="p-6">
+            {% if ressources %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for ressource in ressources %}
+                <div class="bg-gray-50/80 rounded-2xl p-4 border border-gray-200/70 hover:border-emerald-300 transition duration-200 flex flex-col justify-between space-y-3">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
+                                {{ ressource.get_type_ressource_display }}
+                            </span>
+                            <span class="text-[11px] text-gray-400 font-medium">
+                                {{ ressource.date_ajout|date:"d/m/Y" }}
+                            </span>
+                        </div>
+                        <h4 class="font-bold text-gray-900 text-sm leading-snug">{{ ressource.titre }}</h4>
+                        {% if ressource.cours and ressource.cours.matiere %}
+                        <p class="text-xs font-semibold text-emerald-700 mt-1">
+                            Matière : {{ ressource.cours.matiere.nom }}
+                        </p>
+                        {% endif %}
+                        {% if ressource.description %}
+                        <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ ressource.description }}</p>
+                        {% endif %}
+                    </div>
+                    {% if ressource.fichier %}
+                    <div class="pt-2 border-t border-gray-200/60 flex justify-end">
+                        <a href="{{ ressource.fichier.url }}" download class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                            <i class="fas fa-download"></i> Télécharger
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-folder-open text-4xl mb-2 opacity-50"></i>
+                <p class="text-sm font-medium">Aucun support de cours n'a été publié pour le moment.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if is_etudiant and not user.is_staff and not user.is_superuser %}
+    <!-- Bandeau automatique pour l'espace étudiant -->
+    <div class="bg-gradient-to-r from-emerald-800 to-emerald-700 rounded-3xl shadow-lg p-6 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-2xl font-black">
+                <i class="fas fa-door-open text-emerald-300"></i>
+            </div>
+            <div>
+                <h2 class="text-lg font-black">Votre Programme Quotidien du Jour</h2>
+                <p class="text-xs text-emerald-100 font-semibold mt-0.5">
+                    Salle : <span class="font-bold text-white">{% if etudiant.salle %}{{ etudiant.salle.nom }} ({{ etudiant.salle.code }}){% elif etudiant.filiere %}{{ etudiant.filiere.nom }}{% else %}Votre Salle attribuée{% endif %}</span>
+                    | <i class="fas fa-calendar-alt ml-1 mr-0.5"></i> Journée du <span class="font-bold text-white">{{ nom_jour_actuel }}</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-bold bg-white/10 px-4 py-2.5 rounded-xl border border-white/20 shadow-xs">
+            <i class="fas fa-check-circle text-emerald-300 text-sm"></i> Programme personnalisé pour votre salle
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Programme Quotidien du Jour -->
     <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 space-y-6">
@@ -43,7 +178,13 @@
                 Programme Quotidien — <span class="text-emerald-700 font-extrabold">{{ nom_jour_actuel }}</span>
             </h2>
             <span class="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full uppercase">
-                {{ filiere_selectionnee.code|default:"GL" }}
+                {% if is_etudiant and etudiant %}
+                    {% if etudiant.salle %}{{ etudiant.salle.nom }} ({{ etudiant.salle.code }}){% elif etudiant.filiere %}{{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }}){% else %}Votre Classe{% endif %}
+                {% elif filiere_selectionnee %}
+                    {{ filiere_selectionnee.code }}
+                {% else %}
+                    Toutes Filières
+                {% endif %}
             </span>
         </div>
 
@@ -64,8 +205,15 @@
                 <!-- Intitulé & Filière -->
                 <div>
                     <h3 class="text-lg font-black text-gray-900 leading-snug">{{ creneau.intitule }}</h3>
-                    <p class="text-xs font-bold text-gray-500 mt-1">
-                        {{ filiere_selectionnee.nom }} ({{ filiere_selectionnee.code }}) | Semestre {{ etudiant.niveau.numero|default:1 }}
+                    <p class="text-xs font-bold text-emerald-700 mt-1">
+                        <i class="fas fa-graduation-cap mr-1"></i>
+                        {% if creneau.emploi_du_temps and creneau.emploi_du_temps.filiere %}
+                            {{ creneau.emploi_du_temps.filiere.nom }} ({{ creneau.emploi_du_temps.filiere.code }})
+                        {% elif filiere_selectionnee %}
+                            {{ filiere_selectionnee.nom }} ({{ filiere_selectionnee.code }})
+                        {% else %}
+                            Filière non spécifiée
+                        {% endif %}
                     </p>
                 </div>
 
@@ -98,9 +246,19 @@
             <div class="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-3xl shadow-inner">
                 <i class="fas fa-calendar-times"></i>
             </div>
-            <h3 class="font-bold text-gray-800 text-lg">Aucun cours au programme aujourd'hui ({{ nom_jour_actuel }})</h3>
+            <h3 class="font-bold text-gray-800 text-lg">
+                {% if is_etudiant and etudiant %}
+                    Aucun cours au programme aujourd'hui ({{ nom_jour_actuel }}) pour la classe <span class="text-emerald-700 font-extrabold">{% if etudiant.salle %}{{ etudiant.salle.nom }} ({{ etudiant.salle.code }}){% elif etudiant.filiere %}{{ etudiant.filiere.nom }}{% else %}de votre classe{% endif %}</span>
+                {% else %}
+                    Aucun cours au programme aujourd'hui ({{ nom_jour_actuel }})
+                {% endif %}
+            </h3>
             <p class="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
-                Aujourd'hui est un jour sans cours (Férié, Repos ou Dimanche). Le programme de la journée suivante sera automatiquement chargé ici dès minuit.
+                {% if is_etudiant and etudiant %}
+                    Aucune séance de cours n'est planifiée aujourd'hui pour votre salle de classe <strong>{% if etudiant.salle %}{{ etudiant.salle.nom }}{% else %}attribuée{% endif %}</strong>. Le programme de la journée suivante sera automatiquement chargé ici dès minuit.
+                {% else %}
+                    Aujourd'hui est un jour sans cours (Férié, Repos ou Dimanche). Le programme de la journée suivante sera automatiquement chargé ici dès minuit.
+                {% endif %}
             </p>
         </div>
         {% endif %}

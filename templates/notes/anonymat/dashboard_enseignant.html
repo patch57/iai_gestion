@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
+
+    <!-- HEADER GENERAL -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-gray-200 dark:border-gray-700 pb-5">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                <i class="fa-solid fa-user-secret text-indigo-600 dark:text-indigo-400"></i>
+                Espace Anonymat & Procès-Verbaux (Enseignant)
+            </h1>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                Deux sections dédiées : 1) Procès-Verbaux de CC (Exposés/TP/TD) et 2) Procès-Verbaux d'Examen & Rattrapage (Devoir sur Table - Anonymat 3 Colonnes).
+            </p>
+        </div>
+        <button onclick="document.getElementById('modalCreerFiche').classList.remove('hidden')" 
+                class="inline-flex items-center justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm transition">
+            <i class="fa-solid fa-plus mr-2"></i> Nouveau PV / Fiche
+        </button>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- SECTION 1 (EN HAUT) : PROCÈS-VERBAUX DE CC (EXPOSÉS, TP & TD)                   -->
+    <!-- ============================================================================== -->
+    <section class="space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-sm font-black">1</span>
+                Procès-Verbaux de CC par Salle & Filière (Multi-Notes CC : Exposés, TP, TD)
+            </h2>
+            <span class="text-xs bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 px-3 py-1 rounded-full font-semibold">
+                Noms & Matricules Identifiés
+            </span>
+        </div>
+
+        <!-- ONGLETS D'ORGANISATION DES PVS DE CC -->
+        <div class="border-b border-gray-200 dark:border-gray-700">
+            <nav class="flex space-x-6" aria-label="Tabs PV CC">
+                <button onclick="showTabCC('brouillons')" id="tab-cc-brouillons" class="tab-btn-cc pb-3 px-1 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                    <i class="fa-solid fa-file-pen"></i>
+                    Brouillons & Saisies en Cours
+                    <span class="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {{ fiches_cc_brouillons.count }}
+                    </span>
+                </button>
+                <button onclick="showTabCC('transmises')" id="tab-cc-transmises" class="tab-btn-cc pb-3 px-1 text-sm font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 border-b-2 border-transparent flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Transmis au Chef Anonymat
+                    <span class="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {{ fiches_cc_transmises.count }}
+                    </span>
+                </button>
+                <button onclick="showTabCC('archives')" id="tab-cc-archives" class="tab-btn-cc pb-3 px-1 text-sm font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 border-b-2 border-transparent flex items-center gap-2">
+                    <i class="fa-solid fa-box-archive"></i>
+                    Archives & Traités
+                    <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {{ fiches_cc_archives.count }}
+                    </span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- TAB CC 1 : BROUILLONS & SAISIES EN COURS -->
+        <div id="content-cc-brouillons" class="tab-content-cc">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-edit text-indigo-500"></i>
+                        Brouillons de Procès-Verbaux de CC
+                    </h3>
+                </div>
+                {% include 'notes/anonymat/table_fiches.html' with fiches_list=fiches_cc_brouillons is_brouillon=True %}
+            </div>
+        </div>
+
+        <!-- TAB CC 2 : TRANSMISES AU CHEF ANONYMAT -->
+        <div id="content-cc-transmises" class="tab-content-cc hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-paper-plane text-blue-500"></i>
+                        PV de CC Transmis au Chef de l'Anonymat
+                    </h3>
+                </div>
+                {% include 'notes/anonymat/table_fiches.html' with fiches_list=fiches_cc_transmises is_brouillon=False %}
+            </div>
+        </div>
+
+        <!-- TAB CC 3 : ARCHIVES ET TRAITES -->
+        <div id="content-cc-archives" class="tab-content-cc hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-box-archive text-emerald-500"></i>
+                        Archives & PV de CC Transmis au Chef des Études
+                    </h3>
+                </div>
+                {% include 'notes/anonymat/table_fiches.html' with fiches_list=fiches_cc_archives is_brouillon=False %}
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================================== -->
+    <!-- SECTION 2 (EN DESSOUS) : PROCÈS-VERBAUX D'EXAMEN & RATTRAPAGE (3 COLONNES)      -->
+    <!-- ============================================================================== -->
+    <section class="space-y-4 pt-6 border-t-2 border-dashed border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 flex items-center justify-center text-sm font-black">2</span>
+                    Procès-Verbaux d'Examen & Rattrapage par Salle & Filière (Devoir sur Table - Anonymat 3 Colonnes)
+                </h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Anonymat garanti (3 colonnes : N°, Code Anonymat, Note/20). Transmission au Chef de l'Anonymat pour levée d'anonymat/matching.
+                </p>
+            </div>
+            <span class="text-xs bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 px-3 py-1 rounded-full font-semibold">
+                Anonymat 3 Colonnes
+            </span>
+        </div>
+
+        <!-- ONGLETS D'ORGANISATION DES PVS D'EXAMEN -->
+        <div class="border-b border-gray-200 dark:border-gray-700">
+            <nav class="flex space-x-6" aria-label="Tabs PV Examen">
+                <button onclick="showTabExam('brouillons')" id="tab-exam-brouillons" class="tab-btn-exam pb-3 px-1 text-sm font-bold border-b-2 border-purple-600 text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                    <i class="fa-solid fa-file-pen"></i>
+                    Brouillons & Saisies en Cours
+                    <span class="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {{ fiches_exam_brouillons.count }}
+                    </span>
+                </button>
+                <button onclick="showTabExam('transmises')" id="tab-exam-transmises" class="tab-btn-exam pb-3 px-1 text-sm font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 border-b-2 border-transparent flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Transmis au Chef Anonymat
+                    <span class="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {{ fiches_exam_transmises.count }}
+                    </span>
+                </button>
+                <button onclick="showTabExam('archives')" id="tab-exam-archives" class="tab-btn-exam pb-3 px-1 text-sm font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 border-b-2 border-transparent flex items-center gap-2">
+                    <i class="fa-solid fa-box-archive"></i>
+                    Archives & Traités
+                    <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                        {{ fiches_exam_archives.count }}
+                    </span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- TAB EXAM 1 : BROUILLONS & SAISIES EN COURS -->
+        <div id="content-exam-brouillons" class="tab-content-exam">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-edit text-purple-500"></i>
+                        Brouillons de Fiches d'Examen (3 Colonnes)
+                    </h3>
+                </div>
+                {% include 'notes/anonymat/table_fiches.html' with fiches_list=fiches_exam_brouillons is_brouillon=True %}
+            </div>
+        </div>
+
+        <!-- TAB EXAM 2 : TRANSMISES AU CHEF ANONYMAT -->
+        <div id="content-exam-transmises" class="tab-content-exam hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-paper-plane text-blue-500"></i>
+                        Fiches d'Examen Transmises au Chef de l'Anonymat
+                    </h3>
+                </div>
+                {% include 'notes/anonymat/table_fiches.html' with fiches_list=fiches_exam_transmises is_brouillon=False %}
+            </div>
+        </div>
+
+        <!-- TAB EXAM 3 : ARCHIVES ET TRAITES -->
+        <div id="content-exam-archives" class="tab-content-exam hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-box-archive text-emerald-500"></i>
+                        Archives & Fiches d'Examen Traitées
+                    </h3>
+                </div>
+                {% include 'notes/anonymat/table_fiches.html' with fiches_list=fiches_exam_archives is_brouillon=False %}
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- MODAL CREER FICHE -->
+<div id="modalCreerFiche" class="fixed inset-0 z-50 hidden overflow-y-auto bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full p-6 border border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between items-center mb-5 pb-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-plus-circle text-indigo-600"></i> Nouveau Procès-Verbal / Fiche
+            </h3>
+            <button onclick="document.getElementById('modalCreerFiche').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="creer_fiche">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1">Matière *</label>
+                    <select name="matiere_id" required class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 text-sm">
+                        {% for m in matieres %}
+                            <option value="{{ m.id }}">{{ m.code }} - {{ m.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1">Filière *</label>
+                        <select name="filiere_id" required class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 text-sm">
+                            {% for f in filieres %}
+                                <option value="{{ f.id }}">{{ f.code }} - {{ f.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1">Niveau *</label>
+                        <select name="niveau_id" required class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 text-sm">
+                            {% for n in niveaux %}
+                                <option value="{{ n.id }}">Niveau {{ n.numero }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1">Salle Physique *</label>
+                        <select name="salle_id" required class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 text-sm">
+                            <option value="">-- Choisir une Salle * --</option>
+                            {% for s in salles %}
+                                <option value="{{ s.id }}">{{ s.nom }} ({{ s.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1">Type d'Évaluation *</label>
+                        <select name="type_eval_id" id="type_eval_select" onchange="adapterModeFiche()" required class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 text-sm">
+                            {% for t in types_eval %}
+                                <option value="{{ t.id }}" data-code="{{ t.code }}">{{ t.nom }} ({{ t.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1">Nature / Mode de la Fiche *</label>
+                    <select name="mode_fiche" id="mode_fiche_select" required class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                        <option value="EXPOSE_TP_TD">📋 Exposés, TP, TD & CC Continu (Avec Matricule, Noms, Prénoms & Notes CC 1..5)</option>
+                        <option value="DEVOIR_SUR_TABLE">🔒 Devoir sur Table / Examen / Rattrapage (Anonymat 3 colonnes : N°, Code Anonymat, Note/20)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1">Année Académique *</label>
+                    <select name="annee_academique" required class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 text-sm font-semibold">
+                        {% for a in annees_academiques %}
+                            <option value="{{ a.code }}" {% if a.code == annee_courante %}selected{% endif %}>{{ a.code }} {% if a.est_active %}(En cours){% endif %}</option>
+                        {% empty %}
+                            <option value="{{ annee_courante }}" selected>{{ annee_courante }} (En cours)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('modalCreerFiche').classList.add('hidden')" 
+                        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium">
+                    Annuler
+                </button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-sm">
+                    Créer la Fiche
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function adapterModeFiche() {
+    const selectEval = document.getElementById('type_eval_select');
+    const selectMode = document.getElementById('mode_fiche_select');
+    if (!selectEval || !selectMode) return;
+
+    const optSelected = selectEval.options[selectEval.selectedIndex];
+    const codeEval = optSelected ? (optSelected.getAttribute('data-code') || '').toUpperCase() : '';
+
+    if (['EXAM', 'EXAMEN', 'RATT'].includes(codeEval)) {
+        selectMode.value = 'DEVOIR_SUR_TABLE';
+    } else if (codeEval === 'CC') {
+        selectMode.value = 'EXPOSE_TP_TD';
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    adapterModeFiche();
+});
+
+function showTabCC(tabName) {
+    document.querySelectorAll('.tab-content-cc').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn-cc').forEach(btn => {
+        btn.classList.remove('border-indigo-600', 'text-indigo-600', 'font-bold');
+        btn.classList.add('border-transparent', 'text-gray-500', 'font-semibold');
+    });
+
+    const activeContent = document.getElementById(`content-cc-${tabName}`);
+    const activeTab = document.getElementById(`tab-cc-${tabName}`);
+
+    if (activeContent) activeContent.classList.remove('hidden');
+    if (activeTab) {
+        activeTab.classList.remove('border-transparent', 'text-gray-500', 'font-semibold');
+        activeTab.classList.add('border-indigo-600', 'text-indigo-600', 'font-bold');
+    }
+}
+
+function showTabExam(tabName) {
+    document.querySelectorAll('.tab-content-exam').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn-exam').forEach(btn => {
+        btn.classList.remove('border-purple-600', 'text-purple-600', 'font-bold');
+        btn.classList.add('border-transparent', 'text-gray-500', 'font-semibold');
+    });
+
+    const activeContent = document.getElementById(`content-exam-${tabName}`);
+    const activeTab = document.getElementById(`tab-exam-${tabName}`);
+
+    if (activeContent) activeContent.classList.remove('hidden');
+    if (activeTab) {
+        activeTab.classList.remove('border-transparent', 'text-gray-500', 'font-semibold');
+        activeTab.classList.add('border-purple-600', 'text-purple-600', 'font-bold');
+    }
+}
+</script>
+{% endblock %}

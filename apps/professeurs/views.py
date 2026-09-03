@@ -18,6 +18,10 @@ from apps.cours.models import Cours, SeanceCours
 @login_required
 def liste_professeurs(request):
     """Liste des professeurs avec recherche et filtrage"""
+    if request.user.type_utilisateur == 'CHEF_ETUDES':
+        messages.error(request, "Accès refusé. Le Chef des Études n'a pas accès à la gestion des professeurs.")
+        return redirect('tableau_bord:tableau_bord')
+
     queryset = Professeur.objects.filter(est_actif=True).select_related('departement')
     
     # Recherche

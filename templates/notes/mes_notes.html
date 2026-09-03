@@ -62,44 +62,89 @@
 
     <!-- Active Grades Table -->
     <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden mb-8">
-        <div class="p-6 border-b border-gray-100">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
             <h3 class="font-bold text-gray-800 text-lg"><i class="fas fa-list-ol mr-2 text-green-600"></i>Relevé de notes individuelles</h3>
+            <span class="text-xs text-gray-500 font-semibold bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+                <i class="fas fa-balance-scale mr-1 text-green-600"></i> Pondération : CC (40%) | Examen (60%)
+            </span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        <th class="p-5">Matière</th>
-                        <th class="p-5">Évaluation</th>
-                        <th class="p-5">Note (/20)</th>
-                        <th class="p-5">Coefficient</th>
-                        <th class="p-5">Mention / Observation</th>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-extrabold text-gray-600 uppercase tracking-wider text-center">
+                        <th class="p-4 text-left">Matière</th>
+                        <th class="p-4">Coef</th>
+                        <th class="p-4 bg-blue-50/70 text-blue-900 border-x border-blue-100">CONTRÔLES CONTINUS (40%)</th>
+                        <th class="p-4 bg-purple-50/70 text-purple-900 border-r border-purple-100">Notes d'Examen (60%)</th>
+                        <th class="p-4 bg-amber-50/70 text-amber-900 border-r border-amber-100">Rattrapage</th>
+                        <th class="p-4 bg-emerald-50/70 text-emerald-900 border-r border-emerald-100">Notes finales</th>
+                        <th class="p-4 text-center">Mention / Observation</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 text-sm">
-                    {% for note in notes %}
-                    <tr class="hover:bg-gray-50/50 transition">
-                        <td class="p-5 font-bold text-gray-800">
-                            {{ note.evaluation.cours.matiere.nom }}
+                <tbody class="divide-y divide-gray-100 text-sm text-center">
+                    {% for m in releve_matieres %}
+                    <tr class="hover:bg-gray-50/60 transition">
+                        <td class="p-4 text-left font-bold text-gray-800">
+                            {{ m.matiere.nom }}
+                            <span class="block text-[11px] text-gray-400 font-normal">{{ m.matiere.code }}</span>
                         </td>
-                        <td class="p-5 text-gray-500 font-semibold">
-                            {{ note.evaluation.type_evaluation.nom }}
+                        <td class="p-4 font-medium text-gray-600">
+                            {{ m.coefficient|floatformat:1 }}
                         </td>
-                        <td class="p-5 font-extrabold {% if note.valeur >= 10 %}text-green-600{% else %}text-red-500{% endif %}">
-                            {{ note.valeur|floatformat:2 }}
+                        <!-- CC (40%) -->
+                        <td class="p-4 font-bold bg-blue-50/20 border-x border-blue-50">
+                            {% if m.val_cc != None %}
+                                {% if m.is_cc_manquante %}
+                                    <span class="text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full text-xs border border-amber-200 shadow-xs" title="Absence imputée à 0.00">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i> 0,00 (Imputé)
+                                    </span>
+                                {% else %}
+                                    <span class="{% if m.val_cc >= 10 %}text-emerald-700{% else %}text-rose-600{% endif %} text-base font-extrabold">{{ m.val_cc|floatformat:2 }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-gray-300 font-bold text-lg">-</span>
+                            {% endif %}
                         </td>
-                        <td class="p-5 font-medium text-gray-600">
-                            Coef {{ note.evaluation.coefficient }}
+                        <!-- Examen (60%) -->
+                        <td class="p-4 font-bold bg-purple-50/20 border-r border-purple-50">
+                            {% if m.val_exam != None %}
+                                {% if m.is_exam_manquante %}
+                                    <span class="text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full text-xs border border-amber-200 shadow-xs" title="Absence imputée à 0.00">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i> 0,00 (Imputé)
+                                    </span>
+                                {% else %}
+                                    <span class="{% if m.val_exam >= 10 %}text-emerald-700{% else %}text-rose-600{% endif %} text-base font-extrabold">{{ m.val_exam|floatformat:2 }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-gray-300 font-bold text-lg">-</span>
+                            {% endif %}
                         </td>
-                        <td class="p-5">
-                            <span class="text-xs font-bold px-2.5 py-1 rounded-full {% if note.valeur >= 12 %}bg-green-50 text-green-700{% elif note.valeur >= 10 %}bg-blue-50 text-blue-700{% else %}bg-red-50 text-red-700{% endif %}">
-                                {% if note.valeur >= 16 %}Très Bien{% elif note.valeur >= 14 %}Bien{% elif note.valeur >= 12 %}Assez Bien{% elif note.valeur >= 10 %}Passable{% else %}Échec{% endif %}
+                        <!-- Rattrapage -->
+                        <td class="p-4 font-bold bg-amber-50/20 border-r border-amber-50">
+                            {% if m.val_ratt != None %}
+                                <span class="text-amber-700 text-base font-extrabold">{{ m.val_ratt|floatformat:2 }}</span>
+                            {% else %}
+                                <span class="text-gray-300 font-bold text-lg">-</span>
+                            {% endif %}
+                        </td>
+                        <!-- Note Finale -->
+                        <td class="p-4 font-black bg-emerald-50/30 text-base border-r border-emerald-50">
+                            {% if m.les_deux_transmis %}
+                                <span class="{% if m.note_finale >= 10 %}text-emerald-700{% else %}text-rose-600{% endif %} text-lg font-black">{{ m.note_finale|floatformat:2 }}</span>
+                            {% else %}
+                                <span class="text-gray-400 text-sm font-semibold">0,00</span>
+                            {% endif %}
+                        </td>
+                        <!-- Mention / Observation -->
+                        <td class="p-4 text-center">
+                            <span class="text-xs font-extrabold px-3 py-1.5 rounded-full border shadow-xs {{ m.badge_style }}">
+                                {{ m.mention }}
                             </span>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="p-10 text-center text-gray-400">Aucune note publiée pour le moment.</td>
+                        <td colspan="7" class="p-10 text-center text-gray-400">Aucune note publiée pour le moment.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

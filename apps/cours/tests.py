@@ -94,16 +94,20 @@ class ApprenantsPedagogieTestCase(TestCase):
         response = self.client.get(reverse('cours:saisir_notes_apprenants'), {'formation_id': self.formation.id})
         self.assertEqual(response.status_code, 200)
         
+        from apps.cours.models import MatiereFormation
+        matiere = MatiereFormation.objects.filter(formation=self.formation).first()
+        self.assertIsNotNone(matiere)
+
         # Enregistrer une note de 18.5/20 pour notre apprenant
         data = {
-            f'note_{self.apprenant.id}': '18.5',
-            f'commentaire_{self.apprenant.id}': 'Excellent apprenant'
+            f'note_{self.apprenant.id}_{matiere.id}': '18.5',
+            f'commentaire_{self.apprenant.id}_{matiere.id}': 'Excellent apprenant'
         }
         response = self.client.post(f"{reverse('cours:saisir_notes_apprenants')}?formation_id={self.formation.id}", data)
         self.assertEqual(response.status_code, 302) # Redirection après succès
         
         # Vérifier en BD
-        note_obj = NoteApprenant.objects.filter(apprenant=self.apprenant, formation=self.formation).first()
+        note_obj = NoteApprenant.objects.filter(apprenant=self.apprenant, formation=self.formation, matiere=matiere).first()
         self.assertIsNotNone(note_obj)
         self.assertEqual(note_obj.note, 18.5)
         self.assertEqual(note_obj.commentaire, 'Excellent apprenant')
@@ -344,6 +348,143 @@ class PresenceHebdomadaireTestCase(TestCase):
         # Vérifier l'ordre chronologique (P1 avant P2)
         self.assertEqual(resultat['creneaux'][0].plage, 'P1')
         self.assertEqual(resultat['creneaux'][1].plage, 'P2')
+
+
+class ImportServiceTestCase(TestCase):
+    def test_extraire_creneaux_csv(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.cours.import_service import extraire_creneaux_multi_format
+
+        csv_content = (
+            "Jour,Plage,Intitule,Enseignant,Salle,Type\n"
+            "LUNDI,P1,Python Avancé,M. TCHAMOU,GL1,COURS\n"
+            "MARDI,P2,Réseaux CISCO,M. NDOMBE,SR2,COURS\n"
+        ).encode('utf-8')
+
+        file_obj = SimpleUploadedFile("emploi_test.csv", csv_content, content_type="text/csv")
+        result = extraire_creneaux_multi_format(file_obj)
+
+        self.assertEqual(result['stats']['valid'], 2)
+        self.assertEqual(result['stats']['errors'], 0)
+        self.assertEqual(result['stats']['conflits'], 0)
+        self.assertEqual(result['valid_items'][0]['intitule'], "Python Avancé")
+
+    def test_detection_conflits_creneaux(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.cours.import_service import extraire_creneaux_multi_format
+
+        csv_content = (
+            "Jour,Plage,Intitule,Enseignant,Salle,Type\n"
+            "LUNDI,P1,Python Avancé,M. TCHAMOU,GL1,COURS\n"
+            "LUNDI,P1,Base de données,M. KENGNE,GL1,COURS\n"
+        ).encode('utf-8')
+
+        file_obj = SimpleUploadedFile("conflit_test.csv", csv_content, content_type="text/csv")
+        result = extraire_creneaux_multi_format(file_obj)
+
+        self.assertEqual(result['stats']['valid'], 2)
+        self.assertEqual(result['stats']['conflits'], 1)
+        self.assertTrue(any("Conflit de créneau" in c for c in result['conflits']))
+
+
+class RessourceEcheanceTestCase(TestCase):
+    def setUp(self):
+        self.prof_user = User.objects.create_user(
+            username='prof_echeance', email='prof@test.com',
+            password='password123', type_utilisateur='ENSEIGNANT',
+            matricule='ENS.CMR.D555.2026.A'
+        )
+        from apps.professeurs.models import Professeur, Departement
+        dept = Departement.objects.create(code='MATH', nom='Mathématiques')
+        self.prof = Professeur.objects.create(
+            utilisateur=self.prof_user, matricule='P555', nom='KOUAM', prenom='Jean',
+            email='prof@test.com', telephone='699000000', adresse='Douala',
+            date_naissance='1985-01-01', date_embauche='2020-01-01', grade='TITULAIRE',
+            specialite='Algèbre', departement=dept
+        )
+        from apps.cours.models import Matiere, Cours, RessourceCours
+        self.filiere = Filiere.objects.create(code='GL', nom='Génie Logiciel', duree_ans=2)
+        self.matiere = Matiere.objects.create(code='PY101', nom='Python', credits=4, heures_cours=30)
+        self.cours = Cours.objects.create(
+            code='C-PY101', matiere=self.matiere, professeur=self.prof, filiere=self.filiere,
+            annee_academique='2025-2026', jour='Lundi', heure_debut='08:00', heure_fin='10:00',
+            date_debut='2025-09-01', date_fin='2026-06-30'
+        )
+        self.client = Client()
+
+    def test_gestion_et_compte_a_rebours_echeance(self):
+        """Vérifie la création, la mise à jour, la suppression d'échéance physique et le compte à rebours"""
+        from apps.cours.models import RessourceCours
+        import datetime
+
+        today = timezone.now().date()
+        date_futur = today + datetime.timedelta(days=3)
+
+        # 1. Créer ressource avec date limite
+        res = RessourceCours.objects.create(
+            cours=self.cours, type_ressource='TP', titre='TP Chapitre 1',
+            date_limite_remise_physique=date_futur
+        )
+
+        self.assertEqual(res.jours_restants_remise, 3)
+        self.assertIn("J-3", res.compte_a_rebours_display)
+
+        # 2. Se connecter et modifier l'échéance à +7 jours via la vue
+        self.client.login(username='prof_echeance', password='password123')
+        date_7j = (today + datetime.timedelta(days=7)).strftime('%Y-%m-%d')
+        
+        response = self.client.post(
+            reverse('cours:modifier_echeance_ressource', args=[res.pk]),
+            {'date_limite_remise_physique': date_7j}
+        )
+        self.assertEqual(response.status_code, 302)
+        res.refresh_from_db()
+        self.assertEqual(res.jours_restants_remise, 7)
+        self.assertIn("J-7", res.compte_a_rebours_display)
+
+        # 3. Supprimer l'échéance via la vue
+        response = self.client.post(reverse('cours:supprimer_echeance_ressource', args=[res.pk]))
+        self.assertEqual(response.status_code, 302)
+        res.refresh_from_db()
+        self.assertIsNone(res.date_limite_remise_physique)
+        self.assertIsNone(res.jours_restants_remise)
+        self.assertIsNone(res.compte_a_rebours_display)
+
+        # 4. Supprimer la ressource elle-même par l'enseignant auteur
+        response_del = self.client.post(reverse('cours:supprimer_ressource', args=[res.pk]))
+        self.assertEqual(response_del.status_code, 302)
+        self.client.logout()
+
+    def test_presence_enseignant_auto_sync_and_pdf(self):
+        """Test de la synchronisation automatique des fiches hebdo enseignants et de l'export PDF"""
+        import datetime
+        from apps.cours.models import FichePresenceEnseignantHebdo
+        from apps.cours.presence_service import synchroniser_fiche_presence_enseignant_auto
+
+        # 1. Tester la synchronisation automatique
+        today = datetime.date.today()
+        lundi = today - datetime.timedelta(days=today.weekday())
+        samedi = lundi + datetime.timedelta(days=5)
+
+        from apps.authentification.models import Utilisateur
+        scol_user = Utilisateur.objects.create_user(
+            username='scol_user_test', password='password123', type_utilisateur='CHEF_SCOLARITE'
+        )
+
+        fiche, created, count = synchroniser_fiche_presence_enseignant_auto(user=scol_user)
+        self.assertIsNotNone(fiche)
+        self.assertEqual(fiche.semaine_du, lundi)
+        self.assertEqual(fiche.semaine_au, samedi)
+
+        # 2. Tester la vue d'export PDF
+        self.client.login(username='scol_user_test', password='password123')
+        response = self.client.get(reverse('cours:exporter_fiche_presence_enseignant_pdf', args=[fiche.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.client.logout()
+
+
+
 
 
 

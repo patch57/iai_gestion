@@ -4,7 +4,7 @@ import openpyxl
 from django.utils import timezone
 from apps.etudiants.models import Etudiant, Filiere, AnneeAcademique, Classe
 from apps.authentification.models import Utilisateur
-from apps.paiements.ocr_service import extraire_texte
+from apps.paiements.ocr_service import extraire_texte_depuis_image as extraire_texte
 
 class EtudiantImportService:
     """

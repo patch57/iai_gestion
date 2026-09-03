@@ -87,6 +87,10 @@ def tableau_de_bord(request):
 @login_required
 def liste_etudiants(request):
     """Liste des étudiants avec recherche avancée et filtres interactifs"""
+    if request.user.type_utilisateur == 'CHEF_ETUDES':
+        messages.error(request, "Accès refusé. Le Chef des Études n'a pas accès à la gestion des étudiants.")
+        return redirect('tableau_bord:tableau_bord')
+
     queryset = Etudiant.objects.select_related('filiere', 'classe', 'utilisateur')
     
     # Formulaire de recherche
@@ -154,6 +158,10 @@ def liste_etudiants(request):
 @login_required
 def detail_etudiant(request, pk):
     """Détail complet d'un étudiant avec onglets modernes"""
+    if request.user.type_utilisateur == 'CHEF_ETUDES':
+        messages.error(request, "Accès refusé. Le Chef des Études n'a pas accès à la gestion des étudiants.")
+        return redirect('tableau_bord:tableau_bord')
+
     etudiant = get_object_or_404(
         Etudiant.objects.select_related('filiere', 'classe', 'utilisateur', 'annee_academique'), 
         pk=pk
@@ -306,18 +314,33 @@ def supprimer_etudiant(request, pk):
 @login_required
 def carte_etudiant(request, pk):
     """Générer la carte d'étudiant (vue imprimable)"""
+    from django.urls import reverse
+    from .views_verification import generer_qr_code_base64
+    import uuid
+
     etudiant = get_object_or_404(Etudiant, pk=pk)
     
     if not etudiant.carte_etudiant_delivree:
         etudiant.carte_etudiant_delivree = True
         etudiant.date_delivrance_carte = timezone.now().date()
         etudiant.save()
+
+    if not etudiant.verification_token:
+        etudiant.verification_token = uuid.uuid4()
+        etudiant.save(update_fields=['verification_token'])
+
+    url_verif = request.build_absolute_uri(
+        reverse('etudiants:verifier_etudiant_public', kwargs={'token': etudiant.verification_token})
+    )
+    qr_code_b64 = generer_qr_code_base64(url_verif)
     
     context = {
         'etudiant': etudiant,
         'date_aujourdhui': timezone.now(),
         'annee_active': AnneeAcademique.get_active(),
-        'titre': f'Carte Étudiant - {etudiant.get_nom_complet()}'
+        'qr_code_b64': qr_code_b64,
+        'url_verification': url_verif,
+        'titre': f'Carte Étudiant - {etudiant.get_nom_complet() if hasattr(etudiant, "get_nom_complet") else etudiant.nom}'
     }
     return render(request, 'etudiants/carte.html', context)
 
@@ -1003,7 +1026,7 @@ def statistiques_etudiants(request):
 
 @login_required
 def exporter_etudiants(request):
-    """Exporter les étudiants en CSV / Excel"""
+    """Exporter les étudiants en CSV / Excel / PDF par Filière et Niveau"""
     format_export = request.GET.get('format', 'csv')
     filiere_id = request.GET.get('filiere')
     niveau_num = request.GET.get('niveau')
@@ -1011,19 +1034,31 @@ def exporter_etudiants(request):
     
     queryset = Etudiant.objects.select_related('filiere', 'classe', 'niveau')
     
+    filiere_obj = None
     if filiere_id:
-        queryset = queryset.filter(filiere_id=filiere_id)
+        filiere_obj = Filiere.objects.filter(pk=filiere_id).first()
+        if filiere_obj:
+            queryset = queryset.filter(Q(filiere=filiere_obj) | Q(classe__filiere=filiere_obj))
+            
     if niveau_num:
-        queryset = queryset.filter(niveau__numero=niveau_num)
+        try:
+            niv_int = int(niveau_num)
+            queryset = queryset.filter(Q(niveau__numero=niv_int) | Q(classe__niveau__numero=niv_int))
+        except (ValueError, TypeError):
+            pass
+            
     if statut:
         queryset = queryset.filter(statut=statut)
+    else:
+        # Par défaut, inclure les étudiants inscrits et actifs
+        queryset = queryset.filter(statut__in=['INSCRIT', 'ACTIF', 'PREINSCRIT'])
     
     if format_export == 'csv':
         return _exporter_csv(queryset)
     elif format_export == 'excel':
-        return _exporter_excel(queryset)
+        return _exporter_excel(queryset, filiere_obj=filiere_obj, niveau_num=niveau_num)
     elif format_export == 'pdf':
-        return _exporter_pdf(queryset)
+        return _exporter_pdf(queryset, filiere_obj=filiere_obj, niveau_num=niveau_num)
     
     return redirect('etudiants:liste_etudiants')
 
@@ -1440,36 +1475,43 @@ def _exporter_csv(queryset):
     return response
 
 
-def _exporter_excel(queryset):
-    """Export Excel"""
+def _exporter_excel(queryset, filiere_obj=None, niveau_num=None):
+    """Export Excel de la liste officielle des étudiants inscrits"""
     try:
         import xlwt
         response = HttpResponse(content_type='application/vnd.ms-excel')
-        response['Content-Disposition'] = 'attachment; filename="etudiants.xls"'
+        filiere_code = filiere_obj.code if filiere_obj else 'TOUTES'
+        niveau_code = f"N{niveau_num}" if niveau_num else 'TOUS'
+        filename = f"Liste_Etudiants_{filiere_code}_{niveau_code}.xls"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
         wb = xlwt.Workbook(encoding='utf-8')
-        ws = wb.add_sheet('Étudiants')
+        ws = wb.add_sheet('Liste Étudiants')
         
-        style_header = xlwt.XFStyle()
-        font_header = xlwt.Font()
-        font_header.bold = True
-        style_header.font = font_header
+        style_title = xlwt.easyxf('font: bold on, color dark_green, height 240; align: horiz center')
+        style_header = xlwt.easyxf('font: bold on, color white; pattern: pattern solid, fore_colour dark_green; align: horiz center')
+        style_data = xlwt.easyxf('align: horiz left')
+        style_data_center = xlwt.easyxf('align: horiz center')
         
-        headers = ['Matricule', 'Nom', 'Prénom', 'Date Naissance', 'Sexe', 'Nationalité', 'Téléphone', 'Email', 'Filière']
+        ws.write_merge(0, 0, 0, 8, f"IAI-CAMEROUN CENTRE DE DOUALA - LISTE DES ÉTUDIANTS ({filiere_code} - {niveau_code})", style_title)
+        
+        headers = ['N°', 'Matricule', 'Nom', 'Prénom', 'Sexe', 'Téléphone', 'Email', 'Filière', 'Statut']
         for col, header in enumerate(headers):
-            ws.write(0, col, header, style_header)
+            ws.write(2, col, header, style_header)
         
-        for row, e in enumerate(queryset, 1):
-            ws.write(row, 0, e.matricule)
-            ws.write(row, 1, e.nom)
-            ws.write(row, 2, e.prenom)
-            ws.write(row, 3, e.date_naissance.strftime('%d/%m/%Y'))
-            ws.write(row, 4, e.get_sexe_display())
-            ws.write(row, 5, e.get_nationalite_display())
-            ws.write(row, 6, e.telephone)
-            ws.write(row, 7, e.email)
-            ws.write(row, 8, e.filiere.nom if e.filiere else '')
-        
+        etudiants_list = list(queryset.order_by('nom', 'prenom'))
+        for idx, e in enumerate(etudiants_list, start=1):
+            row = idx + 2
+            ws.write(row, 0, idx, style_data_center)
+            ws.write(row, 1, e.matricule or '', style_data_center)
+            ws.write(row, 2, e.nom, style_data)
+            ws.write(row, 3, e.prenom, style_data)
+            ws.write(row, 4, e.get_sexe_display(), style_data_center)
+            ws.write(row, 5, e.telephone or '', style_data_center)
+            ws.write(row, 6, e.email or '', style_data)
+            ws.write(row, 7, e.filiere.code if e.filiere else (e.classe.filiere.code if e.classe and e.classe.filiere else ''), style_data_center)
+            ws.write(row, 8, e.get_statut_display(), style_data_center)
+            
         wb.save(response)
         return response
     except ImportError:
@@ -1493,53 +1535,204 @@ def exporter_fiche_etudiant_pdf(request, pk):
     return response
 
 
-def _exporter_pdf(queryset):
+def _exporter_pdf(queryset, filiere_obj=None, niveau_num=None):
     """
-    Export PDF officiel sous forme de Fiche de Renseignement dûment remplie par l'étudiant
-    Textuellement conforme au document officiel IAI-Cameroun.
+    Export PDF officiel sous forme de Liste des Étudiants Inscrits par Filière et Niveau.
+    Style institutionnel IAI-Cameroun (Centre de Douala).
     """
     try:
-        from apps.inscriptions.pdf_services import generer_fiche_renseignement_pdf
-        
-        # S'il s'agit d'un seul étudiant, retourner sa Fiche de Renseignement directement
-        if queryset.count() == 1:
-            etudiant = queryset.first()
-            pdf_bytes = generer_fiche_renseignement_pdf(etudiant)
-            response = HttpResponse(pdf_bytes, content_type='application/pdf')
-            filename = f"Fiche_Renseignement_{etudiant.matricule or etudiant.id}.pdf"
-            response['Content-Disposition'] = f'inline; filename="{filename}"'
-            return response
-            
-        # S'il s'agit de plusieurs étudiants, combiner les fiches avec PageBreak
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import mm
-        from reportlab.platypus import SimpleDocTemplate, PageBreak
         import io
-        
+        import os
+        from django.conf import settings
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm, cm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image as RLImage
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from apps.etudiants.models import AnneeAcademique
+
+        annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+        annee_code = annee_active.code if annee_active else '2025-2026'
+
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            leftMargin=15 * mm,
-            rightMargin=15 * mm,
-            topMargin=12 * mm,
-            bottomMargin=12 * mm
+            leftMargin=12 * mm,
+            rightMargin=12 * mm,
+            topMargin=10 * mm,
+            bottomMargin=10 * mm
         )
         
-        # Pour une sélection multiple, générer pour le premier étudiant
-        etudiant = queryset.first()
-        if etudiant:
-            pdf_bytes = generer_fiche_renseignement_pdf(etudiant)
-            response = HttpResponse(pdf_bytes, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="Fiches_Renseignement_Etudiants.pdf"'
-            return response
+        styles = getSampleStyleSheet()
+        
+        style_header_republic = ParagraphStyle(
+            'HeaderRepublic',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=8,
+            leading=10,
+            alignment=1,
+            textColor=colors.HexColor('#1E293B')
+        )
+        
+        style_title = ParagraphStyle(
+            'MainTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=13,
+            leading=16,
+            alignment=1,
+            textColor=colors.HexColor('#065F46')
+        )
 
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="liste_etudiants.pdf"'
+        style_subtitle = ParagraphStyle(
+            'SubTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9.5,
+            leading=13,
+            alignment=1,
+            textColor=colors.HexColor('#1F2937')
+        )
+
+        style_cell = ParagraphStyle(
+            'TableCell',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            leading=10,
+            textColor=colors.HexColor('#111827')
+        )
+        
+        style_cell_bold = ParagraphStyle(
+            'TableCellBold',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=8,
+            leading=10,
+            textColor=colors.HexColor('#111827')
+        )
+
+        style_th = ParagraphStyle(
+            'TableTH',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=8.5,
+            leading=11,
+            alignment=1,
+            textColor=colors.white
+        )
+
+        elements = []
+
+        # 1. En-tête officiel IAI 3 colonnes (République | Logo Centré | Institution)
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.jpg')
+
+        logo_element = RLImage(logo_path, width=2.2 * cm, height=2.2 * cm) if os.path.exists(logo_path) else Paragraph("", style_cell)
+
+        left_text = "<b>RÉPUBLIQUE DU CAMEROUN</b><br/><font size=6.5 color='#64748B'>Paix - Travail - Patrie</font><br/><font size=7 color='#1E293B'>MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR</font>"
+        right_text = "<b>INSTITUT AFRICAIN D'INFORMATIQUE</b><br/><font size=6.5 color='#64748B'>Établissement Inter-États d'Enseignement Supérieur</font><br/><b>IAI-CAMEROUN — CENTRE DE DOUALA</b>"
+
+        header_table_data = [
+            [
+                Paragraph(left_text, ParagraphStyle('HLeft', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, alignment=1)),
+                logo_element,
+                Paragraph(right_text, ParagraphStyle('HRight', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, alignment=1)),
+            ]
+        ]
+
+        header_table = Table(header_table_data, colWidths=[70 * mm, 46 * mm, 70 * mm])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 2 * mm))
+        elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#065F46'), spaceAfter=3*mm))
+
+        # Titre et Filtres avec Année Académique en cours
+        filiere_nom = filiere_obj.nom if filiere_obj else "Toutes Filières"
+        filiere_code = filiere_obj.code if filiere_obj else "Toutes"
+        niveau_str = f"Niveau {niveau_num}" if niveau_num else "Tous Niveaux"
+        
+        elements.append(Paragraph("LISTE OFFICIELLE DES ÉTUDIANTS INSCRITS", style_title))
+        elements.append(Spacer(1, 1.5 * mm))
+        elements.append(Paragraph(f"<b>Filière :</b> {filiere_nom} ({filiere_code}) &nbsp;&nbsp;|&nbsp;&nbsp; <b>Niveau :</b> {niveau_str} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Année Académique :</b> {annee_code}", style_subtitle))
+        elements.append(Spacer(1, 4 * mm))
+
+        # Tableau des étudiants
+        data = [
+            [
+                Paragraph("N°", style_th),
+                Paragraph("Matricule", style_th),
+                Paragraph("Nom & Prénom(s)", style_th),
+                Paragraph("Sexe", style_th),
+                Paragraph("Téléphone", style_th),
+                Paragraph("Statut", style_th),
+            ]
+        ]
+
+        etudiants_list = list(queryset.order_by('nom', 'prenom'))
+        for idx, e in enumerate(etudiants_list, start=1):
+            data.append([
+                Paragraph(str(idx), style_cell),
+                Paragraph(e.matricule or '-', style_cell_bold),
+                Paragraph(f"{e.nom.upper()} {e.prenom}", style_cell),
+                Paragraph(e.get_sexe_display(), style_cell),
+                Paragraph(e.telephone or '-', style_cell),
+                Paragraph(e.get_statut_display(), style_cell_bold),
+            ])
+
+        if len(data) == 1:
+            data.append([
+                Paragraph("Aucun étudiant inscrit dans cette catégorie.", style_cell),
+                Paragraph("", style_cell),
+                Paragraph("", style_cell),
+                Paragraph("", style_cell),
+                Paragraph("", style_cell),
+                Paragraph("", style_cell),
+            ])
+
+        col_widths = [10 * mm, 36 * mm, 66 * mm, 20 * mm, 27 * mm, 27 * mm]
+        
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        t_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065F46')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+            ('ALIGN', (3, 0), (3, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]
+
+        for i in range(1, len(data)):
+            if i % 2 == 0:
+                t_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
+
+        t.setStyle(TableStyle(t_style))
+        elements.append(t)
+
+        # Total
+        elements.append(Spacer(1, 5 * mm))
+        total_str = f"<b>Total Effectif Inscription :</b> {len(etudiants_list)} étudiant(s)"
+        elements.append(Paragraph(total_str, ParagraphStyle('FooterTotal', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.HexColor('#065F46'))))
+
+        doc.build(elements)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f"Liste_Etudiants_{filiere_code}_{niveau_str.replace(' ', '_')}.pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
         return response
     except Exception as e:
-        return _exporter_csv(queryset)
-        print(f"Erreur export PDF: {str(e)}")
         return _exporter_csv(queryset)
     
 # ==================== EXPORT DES FILIÈRES ====================

@@ -4,6 +4,14 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Bouton Retour -->
+    <div class="mb-6 flex items-center justify-between">
+        <a href="javascript:history.back()" onclick="if(document.referrer) { window.location.href = document.referrer; return false; }" class="inline-flex items-center space-x-2 text-sm font-semibold text-gray-700 hover:text-indigo-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all duration-200 group">
+            <i class="fas fa-arrow-left text-gray-400 group-hover:text-indigo-600 transition-colors"></i>
+            <span>Retour au précédent</span>
+        </a>
+    </div>
+
     <!-- Header -->
     <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div class="flex items-center space-x-4">

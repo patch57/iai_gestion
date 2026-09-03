@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fadeInUp">
+
+    <!-- HEADER -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 border border-gray-200 rounded-3xl shadow-sm">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800 flex items-center gap-3">
+                <i class="fas fa-poll-h text-purple-700"></i> Gestion des Évaluations Pédagogiques
+            </h1>
+            <p class="text-xs text-gray-500 mt-1">Supervision des campagnes d'évaluation anonyme des enseignants par les étudiants (Chef de la Scolarité)</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="document.getElementById('modalCreerCampagne').classList.remove('hidden')" class="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-2xl text-xs font-bold shadow transition flex items-center gap-2">
+                <i class="fas fa-plus"></i> Nouvelle Campagne
+            </button>
+        </div>
+    </div>
+
+    <!-- STATUT CAMPAGNE ACTUELLE -->
+    <div class="bg-gradient-to-r from-purple-900 to-indigo-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+        <div>
+            <span class="text-xs uppercase font-extrabold tracking-wider bg-purple-800/80 px-3 py-1 rounded-full text-purple-200">
+                Statut Campagne en cours
+            </span>
+            {% if campagne_active %}
+            <h2 class="text-xl font-black mt-2 flex items-center gap-2">
+                <i class="fas fa-circle text-emerald-400 animate-pulse text-xs"></i> {{ campagne_active.titre }}
+            </h2>
+            <p class="text-xs text-purple-200 mt-1">
+                Année Académique {{ campagne_active.annee_academique }} | Semestre {{ campagne_active.semestre }} | Du {{ campagne_active.date_debut|date:"d/m/Y" }} au {{ campagne_active.date_fin|date:"d/m/Y" }}
+            </p>
+            {% else %}
+            <h2 class="text-xl font-black mt-2 text-yellow-300">
+                Aucune campagne ouverte actuellement
+            </h2>
+            <p class="text-xs text-purple-200 mt-1">
+                Les étudiants ne peuvent pas évaluer leurs cours tant qu'aucune campagne n'est activée.
+            </p>
+            {% endif %}
+        </div>
+        
+        {% if campagne_active %}
+        <a href="{% url 'cours:changer_statut_campagne' pk=campagne_active.pk nouveau_statut='CLOTUREE' %}" 
+           onclick="return confirm('Voulez-vous vraiment clôturer la campagne d\'évaluation actuelle ?');"
+           class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-bold shadow-lg transition flex items-center gap-2 shrink-0">
+            <i class="fas fa-lock"></i> Clôturer la Campagne
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- TABLEAU SYNTHETIQUE PAR ENSEIGNANT -->
+    <div class="bg-white border border-gray-200 rounded-3xl shadow-sm overflow-hidden p-6 space-y-4">
+        <div class="flex justify-between items-center border-b border-gray-100 pb-4">
+            <h3 class="font-black text-lg text-gray-800 flex items-center gap-2">
+                <i class="fas fa-star text-amber-500"></i> Synthèse Globale des Évaluations par Professeur
+            </h3>
+            <span class="text-xs text-gray-500 font-semibold">{{ stats_professeurs|length }} Professeur(s)</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                        <th class="px-6 py-4">Enseignant</th>
+                        <th class="px-6 py-4 text-center">Cours Attribués</th>
+                        <th class="px-6 py-4 text-center">Évaluations Reçues</th>
+                        <th class="px-6 py-4 text-center">Note Moyenne</th>
+                        <th class="px-6 py-4 text-center">Taux de Satisfaction</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-150 text-xs font-medium text-gray-700">
+                    {% for sp in stats_professeurs %}
+                    <tr class="hover:bg-gray-50/80 transition">
+                        <td class="px-6 py-4 font-bold text-gray-900 flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-black">
+                                {{ sp.professeur.utilisateur.first_name|slice:":1" }}{{ sp.professeur.utilisateur.last_name|slice:":1" }}
+                            </div>
+                            <div>
+                                <span>{{ sp.professeur.get_nom_complet }}</span>
+                                <span class="block text-[11px] text-gray-400 font-normal">{{ sp.professeur.specialite|default:"Enseignant IAI" }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center font-bold">
+                            {{ sp.nb_cours }} cours
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-full font-bold border border-purple-200">
+                                {{ sp.total_evals }} évaluation(s)
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center font-black text-sm text-amber-600">
+                            {{ sp.moyenne }} / 5 ⭐
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 max-w-[120px] mx-auto overflow-hidden">
+                                <div class="bg-emerald-500 h-2.5 rounded-full" style="width: {{ sp.pourcentage }}%"></div>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-500 mt-1 block">{{ sp.pourcentage }}%</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'cours:synthese_evaluations_professeur_detail' professeur_id=sp.professeur.id %}" 
+                               class="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl font-bold transition inline-flex items-center gap-1">
+                                <i class="fas fa-eye"></i> Rapport Détaillé
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-gray-400">
+                            Aucun enseignant enregistré.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL CREER CAMPAGNE -->
+<div id="modalCreerCampagne" class="fixed inset-0 z-50 hidden overflow-y-auto bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-xl max-w-md w-full p-6 border border-gray-200">
+        <div class="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+            <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <i class="fas fa-calendar-plus text-purple-600"></i> Nouvelle Campagne d'Évaluation
+            </h3>
+            <button onclick="document.getElementById('modalCreerCampagne').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="creer_campagne">
+
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-1">Titre de la Campagne *</label>
+                    <input type="text" name="titre" required placeholder="Ex: Évaluation Pédagogique Semestre 2" class="w-full px-3 py-2 border rounded-xl font-medium">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">Année Académique</label>
+                        <input type="text" name="annee_academique" value="2025-2026" class="w-full px-3 py-2 border rounded-xl font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">Semestre</label>
+                        <select name="semestre" class="w-full px-3 py-2 border rounded-xl font-medium">
+                            <option value="1">Semestre 1</option>
+                            <option value="2">Semestre 2</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">Date Début *</label>
+                        <input type="date" name="date_debut" required class="w-full px-3 py-2 border rounded-xl font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">Date Fin *</label>
+                        <input type="date" name="date_fin" required class="w-full px-3 py-2 border rounded-xl font-medium">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('modalCreerCampagne').classList.add('hidden')" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold">
+                    Annuler
+                </button>
+                <button type="submit" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow">
+                    Créer la Campagne
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

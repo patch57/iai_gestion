@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- HEADER & FILTRES PAR FILIERE ET NIVEAU -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                <i class="fa-solid fa-user-ninja text-purple-600 dark:text-purple-400"></i>
+                Dashboard - Chef de l'Anonymat
+            </h1>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                Réception des fiches transmises, matching des codes anonymes (A1..An) avec la liste des étudiants et génération des Procès-Verbaux.
+            </p>
+        </div>
+    </div>
+
+    <!-- BARRE DE FILTRES -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 mb-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Filière</label>
+                <select name="filiere" onchange="this.form.submit()" class="px-3 py-1.5 border rounded-lg text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                    <option value="">Toutes les filières</option>
+                    {% for f in filieres %}
+                    <option value="{{ f.id }}" {% if request.GET.filiere == f.id|stringformat:"i" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Niveau</label>
+                <select name="niveau" onchange="this.form.submit()" class="px-3 py-1.5 border rounded-lg text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                    <option value="">Tous les niveaux</option>
+                    {% for n in niveaux %}
+                    <option value="{{ n.id }}" {% if request.GET.niveau == n.id|stringformat:"i" %}selected{% endif %}>Niveau {{ n.numero }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <!-- TABLEAU DE BORD DE SUIVI DES FICHES -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
+            <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-inbox text-purple-600"></i>
+                Fiches d'Anonymat Recues
+            </h3>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded-full">
+                {{ fiches.count }} Fiche(s)
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                <thead class="bg-gray-100 dark:bg-gray-700 text-xs uppercase font-semibold text-gray-500 dark:text-gray-400">
+                    <tr>
+                        <th class="px-6 py-3.5">Matière & Enseignant</th>
+                        <th class="px-6 py-3.5">Filière / Niveau / Salle</th>
+                        <th class="px-6 py-3.5">Évaluation</th>
+                        <th class="px-6 py-3.5 text-center">Statut Workflow</th>
+                        <th class="px-6 py-3.5 text-right">Actions / Levée Anonymat</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for fiche in fiches %}
+                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
+                        <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">
+                            {{ fiche.matiere.nom }}
+                            <span class="block text-xs font-normal text-gray-500">
+                                👨‍🏫 {{ fiche.enseignant_nom }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 mr-1">
+                                {{ fiche.filiere.code }} L{{ fiche.niveau.numero }}
+                            </span>
+                            <span class="text-xs text-gray-500">
+                                {% if fiche.salle %}({{ fiche.salle.nom }}){% endif %}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-medium">
+                            {{ fiche.type_evaluation.nom }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if fiche.statut == 'TRANSMIS_CHEF_ANONYMAT' %}
+                                <span class="px-3 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 rounded-full text-xs font-bold">
+                                    ⏳ À traiter (Levée d'anonymat)
+                                </span>
+                            {% elif fiche.statut == 'MATCH_EFFECTUE' %}
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 rounded-full text-xs font-bold">
+                                    🔍 Matching Effectué
+                                </span>
+                            {% elif fiche.statut == 'TRANSMIS_CHEF_ETUDES' %}
+                                <span class="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-full text-xs font-bold">
+                                    📩 Transmis au Chef des Études
+                                </span>
+                            {% else %}
+                                <span class="px-3 py-1 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded-full text-xs font-bold">
+                                    {{ fiche.get_statut_display }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                            <a href="{% url 'notes:matching_anonymat_chef' fiche.id %}" 
+                               class="inline-flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium shadow-sm transition">
+                                <i class="fa-solid fa-list-check mr-1.5"></i> Matching & PV
+                            </a>
+                            <form method="POST" action="{% url 'notes:supprimer_fiche_chef_anonymat' fiche.id %}" class="inline" onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer définitivement cette fiche / PV ? Elle sera automatiquement retirée chez le Chef des Études.');">
+                                {% csrf_token %}
+                                <button type="submit" class="p-1.5 text-gray-400 hover:text-red-600 transition" title="Supprimer le PV / Fiche">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                            Aucune fiche d'anonymat en attente de traitement.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

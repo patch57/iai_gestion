@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Registre des Certificats de Scolarité | Chef de la Scolarité{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- Banner Header avec Badge Chef de la Scolarité -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+                <i class="fas fa-file-certificate text-9xl"></i>
+            </div>
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-3">
+                        <span class="px-3 py-1 bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-semibold rounded-full flex items-center gap-1.5 backdrop-blur-md">
+                            <i class="fas fa-user-shield text-amber-400"></i> Accès Réglé : Chef de la Scolarité
+                        </span>
+                        <span class="text-xs text-slate-400 font-mono">Année Académique {{ annee_active.code|default:"2025-2026" }}</span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                        <i class="fas fa-certificate text-emerald-400"></i> Registre des Certificats de Scolarité
+                    </h1>
+                    <p class="text-slate-300 text-sm max-w-2xl">
+                        Gestion officielle, vérification d'authenticité et impression groupée des certificats de scolarité de l'IAI-Cameroun (Centre de Douala).
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    <a href="{% url 'inscriptions:delivrer_certificat_scolarite_choix' %}" 
+                       class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+                        <i class="fas fa-plus-circle"></i> Émettre un Certificat
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cartes Statistiques (Stat Cards) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total certificats -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Certificats</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ total_certificats|default:"0" }}</h3>
+                    <p class="text-xs text-slate-500 mt-1"><i class="fas fa-archive text-slate-400 mr-1"></i>Registre complet</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-xl shadow-sm">
+                    <i class="fas fa-file-contract"></i>
+                </div>
+            </div>
+
+            <!-- Valides -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Certificats Valides</p>
+                    <h3 class="text-2xl font-bold text-emerald-700 mt-1">{{ total_valides|default:"0" }}</h3>
+                    <p class="text-xs text-emerald-600/80 mt-1"><i class="fas fa-check-circle text-emerald-500 mr-1"></i>Conformes et actifs</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 text-xl shadow-sm">
+                    <i class="fas fa-shield-check"></i>
+                </div>
+            </div>
+
+            <!-- Dérogations -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Avec Dérogation</p>
+                    <h3 class="text-2xl font-bold text-amber-700 mt-1">{{ total_derogations|default:"0" }}</h3>
+                    <p class="text-xs text-amber-600/80 mt-1"><i class="fas fa-balance-scale-right text-amber-500 mr-1"></i>Accord exceptionnel</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 text-xl shadow-sm">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+
+            <!-- Impressions / Consultations -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider">Consultations PDF</p>
+                    <h3 class="text-2xl font-bold text-purple-700 mt-1">{{ total_impressions|default:"0" }}</h3>
+                    <p class="text-xs text-purple-600/80 mt-1"><i class="fas fa-print text-purple-500 mr-1"></i>Impression / Scans QR</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 text-xl shadow-sm">
+                    <i class="fas fa-print"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Filtres & Barre d'Actions Groupées -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+            <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Recherche -->
+                <div class="lg:col-span-2 relative">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Recherche globale</label>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                        <input type="text" name="q" value="{{ query }}" 
+                               placeholder="Référence, matricule, nom ou prénom d'étudiant..." 
+                               class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
+                    </div>
+                </div>
+
+                <!-- Filtre Statut -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Statut du certificat</label>
+                    <select name="statut" class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
+                        <option value="">Tous les statuts</option>
+                        <option value="VALIDE" {% if statut_filter == 'VALIDE' %}selected{% endif %}>🟢 Actifs / Valides</option>
+                        <option value="ANNULE" {% if statut_filter == 'ANNULE' %}selected{% endif %}>🔴 Annulés / Révoqués</option>
+                    </select>
+                </div>
+
+                <!-- Filtre Filière -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Filière</label>
+                    <select name="filiere" class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
+                        <option value="">Toutes les filières</option>
+                        {% for f in filieres %}
+                        <option value="{{ f.id }}" {% if filiere_filter == f.id|stringformat:"i" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Boutons d'action Filtre -->
+                <div class="lg:col-span-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm">
+                            <i class="fas fa-filter"></i> Appliquer les filtres
+                        </button>
+                        {% if query or statut_filter or filiere_filter %}
+                        <a href="{% url 'inscriptions:liste_certificats' %}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition">
+                            <i class="fas fa-undo"></i> Réinitialiser
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <!-- Impression Groupée (Selection Multiple) -->
+                    <button type="button" id="btn-print-batch" onclick="imprimerCertificatsSelectionnes()" 
+                            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition flex items-center gap-2" disabled>
+                        <i class="fas fa-print"></i> Imprimer la Sélection (<span id="count-selected">0</span>)
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tableau Principal du Registre -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100/70 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                            <th class="p-4 w-10 text-center">
+                                <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            </th>
+                            <th class="p-4">N° Référence</th>
+                            <th class="p-4">Étudiant & Matricule</th>
+                            <th class="p-4">Filière</th>
+                            <th class="p-4">Émis Le</th>
+                            <th class="p-4">Délivré Par</th>
+                            <th class="p-4 text-center">Scans PDF</th>
+                            <th class="p-4">Statut</th>
+                            <th class="p-4 text-right">Actions Officieuses</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        {% for certif in certificats %}
+                        <tr class="hover:bg-slate-50/80 transition group">
+                            <td class="p-4 text-center">
+                                {% if certif.statut == 'VALIDE' %}
+                                <input type="checkbox" name="cert_checkbox" value="{{ certif.token_verification }}" onchange="updateSelectionCount()" class="cert-checkbox rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                                {% else %}
+                                <span class="text-slate-300">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 font-mono font-bold text-slate-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200/60">{{ certif.numero_reference }}</span>
+                                    {% if certif.derogation_accordee %}
+                                    <span class="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-sans text-[10px] font-bold" title="Dérogation : {{ certif.motif_derogation }}">
+                                        ⚠️ Dérogation
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs">
+                                        {{ certif.etudiant.prenom|slice:":1" }}{{ certif.etudiant.nom|slice:":1" }}
+                                    </div>
+                                    <div>
+                                        <a href="{% url 'etudiants:detail_etudiant' certif.etudiant.pk %}" class="font-bold text-slate-900 hover:text-emerald-600 transition">
+                                            {{ certif.etudiant.get_nom_complet }}
+                                        </a>
+                                        <div class="font-mono text-[11px] text-slate-400">{{ certif.etudiant.matricule }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg border border-slate-200">
+                                    {{ certif.etudiant.filiere.code|default:"GL" }}
+                                </span>
+                            </td>
+                            <td class="p-4 text-slate-600 font-medium">
+                                {{ certif.date_delivrance|date:"d/m/Y H:i" }}
+                            </td>
+                            <td class="p-4 text-slate-600">
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fas fa-user-check text-slate-400"></i>
+                                    <span>{{ certif.emetteur.get_full_name|default:certif.emetteur.username|default:"Chef Scolarité" }}</span>
+                                </div>
+                            </td>
+                            <td class="p-4 text-center">
+                                <span class="px-2 py-0.5 bg-purple-50 text-purple-700 font-bold rounded-full text-[11px] border border-purple-100">
+                                    {{ certif.telechargements_count }}
+                                </span>
+                            </td>
+                            <td class="p-4">
+                                {% if certif.statut == 'VALIDE' %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold rounded-full">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Valide
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold rounded-full">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Annulé
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    <!-- Bouton Imprimer / Aperçu A4 -->
+                                    <a href="{% url 'inscriptions:apercu_certificat_scolarite' token=certif.token_verification %}" 
+                                       target="_blank" 
+                                       class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5">
+                                        <i class="fas fa-print"></i> Imprimer A4
+                                    </a>
+
+                                    {% if certif.statut == 'VALIDE' %}
+                                    <form method="POST" action="{% url 'inscriptions:annuler_certificat_scolarite' token=certif.token_verification %}" 
+                                          onsubmit="return confirm('Êtes-vous sûr de vouloir révoquer administrativement le certificat N° {{ certif.numero_reference }} ?');" 
+                                          class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" title="Révoquer le certificat" class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition border border-rose-200">
+                                            <i class="fas fa-ban"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="p-12 text-center text-slate-400">
+                                <div class="max-w-xs mx-auto space-y-3">
+                                    <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-300 text-2xl">
+                                        <i class="fas fa-folder-open"></i>
+                                    </div>
+                                    <p class="font-semibold text-slate-600 text-sm">Aucun certificat de scolarité répertorié.</p>
+                                    <p class="text-xs text-slate-400">Utilisez le bouton ci-dessus pour émettre un nouveau certificat pour un étudiant éligible.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Navigation de Pagination -->
+            {% if certificats.has_other_pages %}
+            <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <span class="text-slate-500 font-medium">Affichage de la page {{ certificats.number }} sur {{ certificats.paginator.num_pages }}</span>
+                <div class="flex items-center gap-1">
+                    {% if certificats.has_previous %}
+                    <a href="?page={{ certificats.previous_page_number }}&q={{ query }}&statut={{ statut_filter }}&filiere={{ filiere_filter }}" 
+                       class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold shadow-sm transition">
+                        <i class="fas fa-chevron-left mr-1"></i> Précédent
+                    </a>
+                    {% endif %}
+
+                    {% if certificats.has_next %}
+                    <a href="?page={{ certificats.next_page_number }}&q={{ query }}&statut={{ statut_filter }}&filiere={{ filiere_filter }}" 
+                       class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold shadow-sm transition">
+                        Suivant <i class="fas fa-chevron-right ml-1"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function toggleSelectAll(master) {
+        const checkboxes = document.querySelectorAll('.cert-checkbox');
+        checkboxes.forEach(cb => cb.checked = master.checked);
+        updateSelectionCount();
+    }
+
+    function updateSelectionCount() {
+        const checked = document.querySelectorAll('.cert-checkbox:checked');
+        const countSpan = document.getElementById('count-selected');
+        const btnPrint = document.getElementById('btn-print-batch');
+        
+        countSpan.textContent = checked.length;
+        btnPrint.disabled = (checked.length === 0);
+    }
+
+    function imprimerCertificatsSelectionnes() {
+        const checked = document.querySelectorAll('.cert-checkbox:checked');
+        if (checked.length === 0) return;
+
+        const tokens = Array.from(checked).map(cb => cb.value).join(',');
+        const url = "{% url 'inscriptions:imprimer_certificats_masse' %}?tokens=" + encodeURIComponent(tokens);
+        window.open(url, '_blank');
+    }
+</script>
+{% endblock %}

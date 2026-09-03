@@ -42,16 +42,23 @@ La tâche s'exécutera désormais de manière 100% autonome en tâche de fond.
 
 ---
 
-## Méthode 2 : Planification par script PowerShell (Alternative)
+## Méthode 2 : Enregistrement Automatique via PowerShell (Recommandé & Rapide)
 
-Si vous préférez exécuter et gérer l'automatisation en tant que service léger directement en ligne de commande administrative :
+Un script dédié [`register_task.ps1`](file:///c:/iai_gestion/register_task.ps1) est fourni à la racine du projet pour installer, tester ou désinstaller automatiquement la tâche planifiée sous Windows :
 
-### Script PowerShell de planification (`schedule_rappels.ps1`)
-Exécutez PowerShell en tant qu'administrateur et lancez ces commandes pour programmer le script :
-
+### 1. Enregistrer la tâche planifiée (exécute tous les lundis à 08h00)
+Ouvrez PowerShell en administrateur à la racine du projet et lancez :
 ```powershell
-$Action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c c:\iai_gestion\run_rappels.bat"
-$Trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At 8am
-$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Register-ScheduledTask -TaskName "IAI_Envoyer_Rappels_Paiements" -Action $Action -Trigger $Trigger -Settings $Settings -Description "Envoi hebdomadaire automatique des rappels d'échéances et de pénalités"
+.\register_task.ps1
 ```
+
+### 2. Tester l'exécution immédiatement en mode manuel
+```powershell
+.\register_task.ps1 -RunNow
+```
+
+### 3. Désinstaller la tâche planifiée
+```powershell
+.\register_task.ps1 -Uninstall
+```
+

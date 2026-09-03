@@ -77,9 +77,9 @@ class TranchePaiement(models.Model):
     
     def clean(self):
         """Validation des montants selon les nouvelles tranches IAI-Cameroun"""
-        if self.numero == 1 and self.montant not in [71000, 84000, 50000]:
+        if self.numero == 1 and self.montant not in [84000, 71000]:
             raise ValidationError({
-                'montant': 'La pré-inscription doit être de 71 000 FCFA pour le Niveau 2'
+                'montant': 'La pré-inscription s\'élève à 84 000 FCFA pour le Niveau 1 et 71 000 FCFA pour les Niveaux supérieurs.'
             })
 
         elif self.numero == 2 and self.montant != 175000:
@@ -292,17 +292,96 @@ class RecuPaiement(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
         
-        # Si le reçu est validé, mettre à jour le statut de l'étudiant
+        # Si le reçu est validé, mettre à jour le statut de l'étudiant et de l'inscription
         if self.statut == 'VALIDE':
-            if self.tranche and self.tranche.numero == 1:  # Pré-inscription
-                self.etudiant.recu_preinscription_valide = True
-                if self.etudiant.statut == 'PREINSCRIT':
-                    self.etudiant.statut = 'INSCRIT'
-                self.etudiant.save(update_fields=['recu_preinscription_valide', 'statut'])
-                if self.etudiant.utilisateur:
-                    self.etudiant.utilisateur.statut_inscription = 'COMPTE_ACTIF'
-                    self.etudiant.utilisateur.is_active = True
-                    self.etudiant.utilisateur.save(update_fields=['statut_inscription', 'is_active'])
+            try:
+                from apps.inscriptions.models import Inscription
+                inscription = self.etudiant.inscriptions.first()
+                
+                if self.tranche:
+                    if self.tranche.numero == 1:  # Pré-inscription
+                        self.etudiant.recu_preinscription_valide = True
+                        if self.etudiant.statut == 'PREINSCRIT':
+                            self.etudiant.statut = 'INSCRIT'
+                        self.etudiant.save(update_fields=['recu_preinscription_valide', 'statut'])
+                        if inscription:
+                            inscription.recu_preinscription_valide = True
+                            inscription.save(update_fields=['recu_preinscription_valide'])
+                        if self.etudiant.utilisateur:
+                            self.etudiant.utilisateur.statut_inscription = 'COMPTE_ACTIF'
+                            self.etudiant.utilisateur.is_active = True
+                            self.etudiant.utilisateur.save(update_fields=['statut_inscription', 'is_active'])
+                    elif inscription:
+                        if self.tranche.numero == 2:
+                            inscription.recu_tranche_1_valide = True
+                            inscription.save(update_fields=['recu_tranche_1_valide'])
+                        elif self.tranche.numero == 3:
+                            inscription.recu_tranche_2_valide = True
+                            inscription.save(update_fields=['recu_tranche_2_valide'])
+                        elif self.tranche.numero == 4:
+                            inscription.recu_tranche_3_valide = True
+                            inscription.save(update_fields=['recu_tranche_3_valide'])
+                
+                # Synchronisation bi-directionnelle automatique avec le tableau du Concours
+                self.synchroniser_resultat_concours()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Erreur lors de la mise à jour post-validation du reçu: {e}")
+
+    def synchroniser_resultat_concours(self):
+        """
+        Synchronise automatiquement le statut de paiement de cette tranche (1, 2, 3 ou 4) 
+        sur le tableau des résultats d'admission du Concours (ResultatConcours).
+        """
+        if not self.etudiant:
+            return
+
+        from .models import ResultatConcours
+        
+        # 1. Chercher par le lien direct etudiant_cree
+        res = ResultatConcours.objects.filter(etudiant_cree=self.etudiant).first()
+        
+        # 2. Si pas encore rattaché, chercher par nom et prénom
+        if not res:
+            res = ResultatConcours.objects.filter(
+                nom__iexact=self.etudiant.nom,
+                prenom__iexact=self.etudiant.prenom
+            ).first()
+
+        if not res:
+            return
+
+        # Déduire le numéro de tranche
+        t_num = self.tranche.numero if self.tranche else None
+        if not t_num and self.montant_mentionne:
+            m = float(self.montant_mentionne)
+            if m in [84000, 71000, 50000]:
+                t_num = 1
+            elif m == 175000:
+                t_num = 2
+            elif m == 115000:
+                t_num = 3
+            elif m == 100000:
+                t_num = 4
+
+        if not t_num:
+            return
+
+        statut_val = 'PAYE' if self.statut == 'VALIDE' else 'NON_PAYE'
+
+        if t_num == 1:
+            res.statut_preinscription = statut_val
+        elif t_num == 2:
+            res.statut_tranche2 = statut_val
+        elif t_num == 3:
+            res.statut_tranche3 = statut_val
+        elif t_num == 4:
+            res.statut_tranche4 = statut_val
+
+        if not res.etudiant_cree:
+            res.etudiant_cree = self.etudiant
+
+        res.save()
     
     # ========== MÉTHODES MÉTIER ==========
     
@@ -425,7 +504,23 @@ class RecuPaiement(models.Model):
             except (ValueError, TypeError):
                 pass
 
-        # Décision basée sur le score (Option C)
+        # Contrôle anti-fraude : Détection de réutilisation de bordereau (Doublon)
+        if self.reference_recu and len(self.reference_recu) > 3:
+            doublon = RecuPaiement.objects.filter(
+                reference_recu__iexact=self.reference_recu,
+                statut='VALIDE'
+            ).exclude(pk=self.pk).first()
+            
+            if doublon:
+                self.score_confiance = min(self.score_confiance or 0.30, 0.20)
+                anomalies = self.anomalies_detectees.get('anomalies', []) if isinstance(self.anomalies_detectees, dict) else []
+                anomalies.append(f"⛔ Tentative de réutilisation : Le bordereau N° {self.reference_recu} a déjà été validé pour l'étudiant {doublon.etudiant.get_nom_complet()}.")
+                self.anomalies_detectees = {'anomalies': anomalies}
+                self.statut = 'REJETE'
+                self.motif_rejet = f"Bordereau déjà utilisé sur le reçu N° {doublon.id}."
+                return
+
+        # Décision basée sur le score
         if self.score_confiance and self.score_confiance >= 0.90:
             self.statut = 'VALIDE'  # Passer à VALIDE directement pour que ce soit pris en compte
             self.commentaires = f"Vérifié automatiquement par OCR (score: {self.score_confiance:.0%})"
@@ -687,6 +782,17 @@ class ResultatConcours(models.Model):
         related_name='resultat_concours',
         verbose_name="Profil Étudiant Associé"
     )
+    mot_de_passe_temp = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        verbose_name="Mot de passe temporaire généré"
+    )
+    date_generation_acces = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Date de génération des accès"
+    )
     date_importation = models.DateTimeField(auto_now_add=True, verbose_name="Date d'importation")
     importe_par = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -705,6 +811,28 @@ class ResultatConcours(models.Model):
 
     def __str__(self):
         return f"{self.numero_table} - {self.nom} {self.prenom} ({self.get_statut_admission_display()})"
+
+    def acces_encore_visibles_compta(self):
+        """Vérifie si le mot de passe temporaire est encore visible (dans la fenêtre des 24h)"""
+        if not self.date_generation_acces or not self.mot_de_passe_temp:
+            return False
+        from django.utils import timezone
+        from datetime import timedelta
+        return (timezone.now() - self.date_generation_acces) <= timedelta(hours=24)
+
+    def temps_restant_visibilite_str(self):
+        """Retourne le temps de visibilité restant au format lisible (ex: 18h 42m)"""
+        if not self.acces_encore_visibles_compta():
+            return None
+        from django.utils import timezone
+        from datetime import timedelta
+        diff = timedelta(hours=24) - (timezone.now() - self.date_generation_acces)
+        total_seconds = int(diff.total_seconds())
+        if total_seconds <= 0:
+            return None
+        heures = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        return f"{heures}h {minutes:02d}m"
 
 
 class TransactionPaiement(models.Model):

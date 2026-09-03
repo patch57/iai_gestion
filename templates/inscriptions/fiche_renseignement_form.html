@@ -157,8 +157,26 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Filière d'études <span class="text-red-500">*</span></label>
-                        {{ form.filiere }}
+                        <label class="block text-sm font-bold text-gray-700 mb-1 flex items-center justify-between">
+                            <span>Filière d'études <span class="text-red-500">*</span></span>
+                            {% if filiere_auto or etudiant.filiere %}
+                            <span class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs" title="Filière d'affectation verrouillée automatiquement depuis les admissions au Concours">
+                                🤖 IA Détecté (Admis)
+                            </span>
+                            {% endif %}
+                        </label>
+                        {% if filiere_auto or etudiant.filiere %}
+                            <div class="relative">
+                                <input type="text" readonly value="{% if filiere_auto %}{{ filiere_auto.nom }} ({{ filiere_auto.code }}){% else %}{{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }}){% endif %}" class="w-full rounded-xl border border-emerald-300 bg-emerald-50/80 text-emerald-950 font-black text-xs px-3.5 py-2.5 shadow-2xs cursor-not-allowed pointer-events-none select-none">
+                                <input type="hidden" name="filiere" value="{% if filiere_auto %}{{ filiere_auto.id }}{% else %}{{ etudiant.filiere.id }}{% endif %}">
+                            </div>
+                            <p class="text-[11px] text-emerald-700 font-medium mt-1 flex items-center space-x-1">
+                                <i class="fas fa-lock text-emerald-600 text-[10px]"></i>
+                                <span>Filière d'admission affectée automatiquement. Modification impossible par l'étudiant.</span>
+                            </p>
+                        {% else %}
+                            {{ form.filiere }}
+                        {% endif %}
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">BACC (Série / Type) <span class="text-red-500">*</span></label>
@@ -177,8 +195,26 @@
                         {{ form.statut_etudiant_fiche }}
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Date du concours</label>
-                        {{ form.date_concours }}
+                        <label class="block text-sm font-bold text-gray-700 mb-1 flex items-center justify-between">
+                            <span>Date du concours</span>
+                            {% if date_concours_auto %}
+                            <span class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs" title="Auto-détecté depuis la liste des candidats admis importée par la Comptabilité">
+                                🤖 IA Détecté (Admis)
+                            </span>
+                            {% endif %}
+                        </label>
+                        {% if date_concours_auto %}
+                            <div class="relative">
+                                <input type="text" readonly value="{{ date_concours_auto|date:'d/m/Y' }}" class="w-full rounded-xl border border-emerald-300 bg-emerald-50/80 text-emerald-950 font-black text-xs px-3.5 py-2.5 shadow-2xs cursor-not-allowed pointer-events-none select-none">
+                                <input type="hidden" name="date_concours" value="{{ date_concours_auto|date:'Y-m-d' }}">
+                            </div>
+                            <p class="text-[11px] text-emerald-700 font-medium mt-1 flex items-center space-x-1">
+                                <i class="fas fa-check-circle text-emerald-600"></i>
+                                <span>Retrouvé dans les listes d'admission du concours{% if session_concours_match %} : <strong>{{ session_concours_match.nom }}</strong>{% endif %}. Modification impossible par l'étudiant.</span>
+                            </p>
+                        {% else %}
+                            {{ form.date_concours }}
+                        {% endif %}
                     </div>
                     <div class="md:col-span-3">
                         <label class="block text-sm font-bold text-gray-700 mb-1">Matricule IAI (si déjà attribué)</label>
@@ -240,7 +276,106 @@
             </div>
         </div>
     </form>
+
+    <!-- MODULE DE TÉLÉVERSEMENT DE REÇU PAR TRANCHE (Espace Inscription & Paiement) -->
+    <div class="mt-8 bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-8">
+        <div class="flex items-center space-x-3 pb-4 border-b border-gray-200 mb-6">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-md">
+                <i class="fas fa-file-upload text-lg"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">Téléverser un Reçu de Paiement (Par Tranche)</h2>
+                <p class="text-xs text-gray-500">Transmettez vos reçus de versement bancaire pour validation automatique par l'Agent IA OCR</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{% url 'paiements:televerser_recu' etudiant.id %}" enctype="multipart/form-data" class="space-y-6" id="fiche-upload-form">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                        <i class="fas fa-layer-group text-emerald-600"></i> Sélectionner la tranche <span class="text-red-500">*</span>
+                    </label>
+                    <select name="tranche" id="fiche-tranche-select" required class="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-bold text-sm text-gray-800 bg-gray-50/50">
+                        <option value="" data-montant="0">-- Sélectionner la tranche concernée --</option>
+                        {% if tranches %}
+                            {% for t in tranches %}
+                            <option value="{{ t.id }}" data-montant="{{ t.montant|floatformat:0 }}">{{ t.get_numero_display }} ({{ t.montant|floatformat:0 }} FCFA)</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="3" data-montant="115000">2ème Tranche (115 000 FCFA)</option>
+                            <option value="4" data-montant="100000">3ème Tranche (100 000 FCFA)</option>
+                        {% endif %}
+                        <option value="autre" data-montant="0" data-libre="true">Autre (Paiement libre / complémentaire)</option>
+                    </select>
+                    <p class="text-[11px] text-gray-500 mt-1.5 font-medium">
+                        <i class="fas fa-info-circle text-emerald-600 mr-1"></i> La pré-inscription/1ère tranche ou totalité s'effectue dans le premier bloc ci-dessus.
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i class="fas fa-file-invoice text-blue-600"></i> Fichier du reçu (PDF, JPG, PNG) <span class="text-red-500">*</span></span>
+                    </label>
+                    <input type="file" name="recu_fichier" id="fiche-file-input" required accept="image/*,application/pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-gray-300 rounded-xl p-1 bg-gray-50/50">
+                    <div id="fiche-ai-prescan-status" class="hidden mt-2 inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3.5 py-1.5 rounded-full shadow-sm">
+                        <i class="fas fa-spinner fa-spin text-emerald-600"></i>
+                        <span>Agent IA : Analyse instantanée du reçu...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Amount and Reference -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i class="fas fa-coins text-emerald-600"></i> Montant mentionné (FCFA) <span class="text-red-500">*</span></span>
+                        <span id="fiche-badge-ai-montant" class="hidden text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                            🤖 IA Détecté
+                        </span>
+                    </label>
+                    <input type="number" name="montant_mentionne" id="fiche-montant-input" required min="1000" placeholder="Ex: 71000" class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i class="fas fa-barcode text-emerald-600"></i> N° Référence Bordereau <span class="text-red-500">*</span></span>
+                        <span id="fiche-badge-ai-ref" class="hidden text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                            🤖 IA Détecté
+                        </span>
+                    </label>
+                    <input type="text" name="reference_recu" id="fiche-reference-input" required placeholder="Ex: SCB-2025-09812" class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 uppercase">
+                </div>
+            </div>
+
+            <!-- Banner de comparaison de tranche -->
+            <div id="fiche-tranche-comparison-banner" class="hidden rounded-2xl p-4 text-xs font-semibold flex items-center gap-3 transition-all duration-300">
+                <i id="fiche-tranche-comparison-icon" class="text-lg"></i>
+                <span id="fiche-tranche-comparison-text"></span>
+            </div>
+
+            <div class="bg-blue-50/70 border border-blue-200/80 rounded-xl p-4 flex items-start space-x-3">
+                <i class="fas fa-robot text-blue-600 text-lg mt-0.5"></i>
+                <p class="text-xs text-blue-900 leading-relaxed font-medium">
+                    <strong>Analyse OCR & Authenticité IA :</strong> Dès la sélection du reçu, l'Agent IA extrait automatiquement le montant et le numéro de référence. Si le score est supérieur à 90%, votre reçu et votre tranche sont directement validés.
+                </p>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="w-full md:w-auto inline-flex items-center justify-center px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold rounded-xl shadow-lg hover:shadow-emerald-500/20 transition transform hover:-translate-y-0.5">
+                    <i class="fas fa-cloud-upload-alt mr-2"></i> Soumettre le Reçu à l'IA
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<style>
+    .highlight-flash {
+        transition: all 0.5s ease-in-out;
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.4);
+        background-color: #ecfdf5 !important;
+    }
+</style>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -253,6 +388,110 @@
                 input.className += ' w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 text-sm transition uppercase';
             }
         });
+
+        // Script pour l'Agent IA & Contrôle de Conformité du reçu
+        const ficheFileInput = document.getElementById('fiche-file-input');
+        const ficheTrancheSelect = document.getElementById('fiche-tranche-select');
+        const ficheMontantInput = document.getElementById('fiche-montant-input');
+        const ficheReferenceInput = document.getElementById('fiche-reference-input');
+        const ficheAiStatus = document.getElementById('fiche-ai-prescan-status');
+        const ficheBadgeMontant = document.getElementById('fiche-badge-ai-montant');
+        const ficheBadgeRef = document.getElementById('fiche-badge-ai-ref');
+
+        const ficheBanner = document.getElementById('fiche-tranche-comparison-banner');
+        const ficheIcon = document.getElementById('fiche-tranche-comparison-icon');
+        const ficheText = document.getElementById('fiche-tranche-comparison-text');
+
+        function verifierConformiteFicheTranche() {
+            if (!ficheTrancheSelect || !ficheBanner) return;
+            const selectedOpt = ficheTrancheSelect.options[ficheTrancheSelect.selectedIndex];
+            if (!selectedOpt || !selectedOpt.value) {
+                ficheBanner.classList.add('hidden');
+                return;
+            }
+
+            const isLibre = selectedOpt.getAttribute('data-libre') === 'true';
+            const expectedMontant = parseFloat(selectedOpt.getAttribute('data-montant') || '0');
+            const enteredMontant = parseFloat(ficheMontantInput.value || '0');
+
+            ficheBanner.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'bg-amber-50', 'text-amber-800', 'border-amber-200', 'bg-blue-50', 'text-blue-800', 'border-blue-200');
+
+            if (isLibre) {
+                ficheBanner.classList.add('bg-blue-50', 'text-blue-800', 'border', 'border-blue-200');
+                ficheIcon.className = 'fas fa-info-circle text-blue-600 text-lg';
+                ficheText.innerHTML = '<b>Mode Paiement Libre :</b> Aucun montant fixe imposé pour cette option.';
+            } else if (expectedMontant > 0 && enteredMontant > 0) {
+                if (Math.abs(expectedMontant - enteredMontant) < 1.0) {
+                    ficheBanner.classList.add('bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-200');
+                    ficheIcon.className = 'fas fa-circle-check text-emerald-600 text-lg';
+                    ficheText.innerHTML = `<b>Montant conforme !</b> Le montant du reçu (${enteredMontant.toLocaleString()} FCFA) correspond exactement à la tranche.`;
+                } else {
+                    ficheBanner.classList.add('bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
+                    ficheIcon.className = 'fas fa-triangle-exclamation text-amber-600 text-lg';
+                    ficheText.innerHTML = `<b>Écart de montant :</b> Le reçu indique <b>${enteredMontant.toLocaleString()} FCFA</b>, mais la tranche sélectionnée attend <b>${expectedMontant.toLocaleString()} FCFA</b>.`;
+                }
+            } else {
+                ficheBanner.classList.add('hidden');
+            }
+        }
+
+        if (ficheTrancheSelect) ficheTrancheSelect.addEventListener('change', verifierConformiteFicheTranche);
+        if (ficheMontantInput) ficheMontantInput.addEventListener('input', verifierConformiteFicheTranche);
+
+        if (ficheFileInput) {
+            ficheFileInput.addEventListener('change', function(e) {
+                if (!ficheFileInput.files || ficheFileInput.files.length === 0) return;
+                const file = ficheFileInput.files[0];
+
+                ficheAiStatus.classList.remove('hidden');
+                ficheAiStatus.innerHTML = '<i class="fas fa-robot text-emerald-600 animate-spin"></i><span>Agent IA : Analyse instantanée du reçu...</span>';
+
+                const formData = new FormData();
+                formData.append('recu_fichier', file);
+                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+                fetch("{% url 'paiements:api_prescan_recu' %}", {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let itemsDetected = [];
+
+                        if (data.montant) {
+                            ficheMontantInput.value = data.montant;
+                            if (ficheBadgeMontant) ficheBadgeMontant.classList.remove('hidden');
+                            ficheMontantInput.classList.add('highlight-flash');
+                            setTimeout(() => ficheMontantInput.classList.remove('highlight-flash'), 1500);
+                            itemsDetected.push(`Montant : ${data.montant.toLocaleString()} FCFA`);
+                        }
+
+                        if (data.reference) {
+                            ficheReferenceInput.value = data.reference;
+                            if (ficheBadgeRef) ficheBadgeRef.classList.remove('hidden');
+                            ficheReferenceInput.classList.add('highlight-flash');
+                            setTimeout(() => ficheReferenceInput.classList.remove('highlight-flash'), 1500);
+                            itemsDetected.push(`N° Réf : ${data.reference}`);
+                        }
+
+                        if (itemsDetected.length > 0) {
+                            ficheAiStatus.innerHTML = `<i class="fas fa-wand-magic-sparkles text-emerald-600"></i><span>Champs extraits par l'IA : ${itemsDetected.join(' • ')}</span>`;
+                        } else {
+                            ficheAiStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-600"></i><span>Fichier analysé et prêt pour validation</span>';
+                        }
+
+                        verifierConformiteFicheTranche();
+                    } else {
+                        ficheAiStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-600"></i><span>Fichier prêt</span>';
+                    }
+                })
+                .catch(err => {
+                    console.error('Erreur pré-scan IA:', err);
+                    ficheAiStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-600"></i><span>Fichier prêt pour validation</span>';
+                });
+            });
+        }
     });
 </script>
 {% endblock %}

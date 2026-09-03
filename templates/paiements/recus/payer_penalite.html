@@ -32,23 +32,29 @@
                 <h3 class="font-bold text-gray-800 text-lg mb-4"><i class="fas fa-list-ul text-green-600 mr-2"></i>Détails des pénalités</h3>
                 <ul class="space-y-4">
                     {% for detail in penalites_info.details %}
-                    <li class="p-3 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <li class="p-4 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-bold text-gray-900 text-base">{{ detail.tranche }}</span>
                                 {% if detail.eligible_paiement %}
-                                    <span class="px-2 py-0.5 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300">Reçu Validé — Éligible</span>
+                                    <span class="px-2.5 py-0.5 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300">Reçu Validé — Éligible au Règlement</span>
+                                    {% if detail.penalite_stoppee and detail.date_arret_calcul %}
+                                    <span class="px-2.5 py-0.5 text-[10px] font-extrabold bg-blue-100 text-blue-800 rounded-full border border-blue-300"><i class="fas fa-pause-circle mr-1"></i>Calcul gelé au {{ detail.date_arret_calcul|date:"d/m/Y" }}</span>
+                                    {% endif %}
                                 {% else %}
-                                    <span class="px-2 py-0.5 text-[10px] font-extrabold bg-rose-100 text-rose-800 rounded-full border border-rose-300">Reçu non validé</span>
+                                    <span class="px-2.5 py-0.5 text-[10px] font-extrabold bg-rose-100 text-rose-800 rounded-full border border-rose-300">⛔ Reçu non validé — Calcul actif (+3 000 FCFA/sem)</span>
                                 {% endif %}
                             </div>
                             <span class="text-xs text-gray-500 mt-1 block">Date limite : {{ detail.date_limite }} | {{ detail.semaines_retard }} semaine(s) de retard</span>
                             <span class="text-xs text-gray-400 block">Statut du reçu : <b>{{ detail.recu_statut }}</b></span>
+                            {% if not detail.eligible_paiement %}
+                                <span class="text-[11px] text-rose-600 font-extrabold block mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Non réglable en ligne tant que le reçu de la tranche n'est pas validé par la comptabilité.</span>
+                            {% endif %}
                         </div>
                         <div class="text-right flex items-center md:flex-col justify-between md:justify-center">
-                            <span class="font-black text-red-600 text-lg">+{{ detail.montant|floatformat:0 }} FCFA</span>
+                            <span class="font-black {% if detail.eligible_paiement %}text-emerald-700{% else %}text-gray-400 opacity-75{% endif %} text-xl">+{{ detail.montant|floatformat:0 }} FCFA</span>
                             {% if not detail.eligible_paiement %}
-                                <a href="{% url 'paiements:televerser_recu_tranche' etudiant.id detail.tranche_id %}" class="mt-1 text-xs text-blue-600 hover:text-blue-800 font-bold underline">
+                                <a href="{% url 'paiements:televerser_recu_tranche' etudiant.id detail.tranche_id %}" class="mt-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-lg font-extrabold hover:bg-blue-100 transition shadow-2xs">
                                     Téléverser le reçu →
                                 </a>
                             {% endif %}
@@ -56,12 +62,15 @@
                     </li>
                     {% endfor %}
                 </ul>
-                <div class="flex justify-between items-center mt-6 pt-4 border-t-2 border-dashed border-gray-200">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mt-6 pt-4 border-t-2 border-dashed border-gray-200 gap-3">
                     <div>
-                        <span class="font-black text-gray-800 text-lg block">Total Éligible au Paiement en Ligne</span>
-                        <span class="text-xs text-gray-500">Cumul global des pénalités de retard : {{ penalites_info.total_global|floatformat:0 }} FCFA</span>
+                        <span class="font-black text-gray-900 text-lg block">Total Éligible au Paiement en Ligne</span>
+                        <span class="text-xs text-gray-500">Seules les pénalités des tranches dont les reçus ont été validés ({{ total_a_payer|floatformat:0 }} FCFA) sont réglées en ligne.</span>
                     </div>
-                    <span class="font-extrabold text-2xl text-green-600">{{ total_a_payer|floatformat:0 }} FCFA</span>
+                    <div class="text-right">
+                        <span class="font-extrabold text-3xl text-emerald-600 block">{{ total_a_payer|floatformat:0 }} FCFA</span>
+                        <span class="text-[10px] text-gray-400 font-bold block">Cumul global des retards : {{ penalites_info.total_global|floatformat:0 }} FCFA</span>
+                    </div>
                 </div>
             </div>
 

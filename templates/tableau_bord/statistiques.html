@@ -27,6 +27,8 @@
                     Suivi de vos enseignements, volumes horaires et évaluations.
                 {% elif user_type in 'CHEF_COMPTABILITE,ADMIN_FINANCIER' %}
                     Analyse de la santé financière et du recouvrement des scolarités.
+                {% elif user_type == 'CHEF_ANONYMAT' %}
+                    Suivi confidentiel du masquage, matching et levée de l'anonymat des examens.
                 {% else %}
                     Analyse globale des données académiques, effectifs et remplissage.
                 {% endif %}
@@ -193,18 +195,133 @@
         </div>
     </div>
 
-    <!-- Graphique enseignant -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">
-            <i class="fas fa-chalkboard-teacher text-green-600 mr-2"></i>
-            Suivi des Séances de Cours
-        </h3>
-        <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg border border-dashed">
-            <div class="text-center">
-                <i class="fas fa-calendar-check text-green-500 text-4xl mb-2"></i>
-                <p class="text-gray-600 font-medium">Vous avez effectué {{ seances_effectuees }} séance(s) sur {{ seances_total }} programmée(s) cette année.</p>
-                <p class="text-sm text-gray-400 mt-1">Continuez d'enregistrer vos fiches de présence pour mettre à jour vos statistiques.</p>
+    <!-- Graphique / Statistique Suivi des Séances enseignant -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <i class="fas fa-calendar-check text-emerald-600"></i>
+                Suivi des Séances de Cours (Émargement Hebdomadaire Officiel)
+            </h3>
+            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-200">
+                Taux de réalisation : {{ taux_realisation }}%
+            </span>
+        </div>
+        <div class="p-6 bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 rounded-2xl border border-emerald-200 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="space-y-2 flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-user-clock text-emerald-700 text-2xl"></i>
+                    <p class="text-gray-800 font-bold text-lg leading-snug">
+                        Vous avez effectué <span class="text-emerald-700 text-2xl font-black">{{ seances_effectuees }}</span> séance(s) sur <span class="text-gray-900 text-2xl font-black">{{ seances_total }}</span> programmée(s) cette année.
+                    </p>
+                </div>
+                <p class="text-xs text-gray-600 pl-8">
+                    <i class="fas fa-info-circle text-emerald-600 mr-1"></i>
+                    Les données sont synchronisées en temps réel à partir de l'emploi du temps officiel validé par le Chef des Études et des fiches hebdo d'émargement archivées par le Chef de la Scolarité.
+                </p>
             </div>
+            <div class="w-full md:w-56 bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm text-center">
+                <div class="w-full bg-gray-100 rounded-full h-3 mb-2 overflow-hidden">
+                    <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-3 rounded-full transition-all duration-500" style="width: {{ taux_realisation }}%;"></div>
+                </div>
+                <span class="text-2xl font-black text-emerald-700">{{ taux_realisation }}%</span>
+                <span class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Réalisation Effective</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== CHEF ANONYMAT ==================== -->
+    {% elif user_type == 'CHEF_ANONYMAT' %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Fiches d'Anonymat -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-indigo-600">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Fiches d'Anonymat</p>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ anonymat_stats.fiches_total }}</p>
+                    <p class="text-xs text-indigo-600 font-bold mt-1">
+                        {{ anonymat_stats.fiches_examens }} Examen(s) • {{ anonymat_stats.fiches_cc }} CC/TP
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center border border-indigo-100">
+                    <i class="fas fa-user-secret text-indigo-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fiches en Attente de Matching -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-amber-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Reçues en Attente</p>
+                    <p class="text-3xl font-black text-amber-600 mt-1">{{ anonymat_stats.fiches_transmises }}</p>
+                    <p class="text-xs text-amber-600 font-bold mt-1">Prêtes à être démasquées</p>
+                </div>
+                <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-100">
+                    <i class="fas fa-clock text-amber-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fiches Démasquées & Matchées -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-emerald-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Matchings Effectués</p>
+                    <p class="text-3xl font-black text-emerald-600 mt-1">{{ anonymat_stats.fiches_matchees }}</p>
+                    <p class="text-xs text-emerald-600 font-bold mt-1">Identités réconciliées</p>
+                </div>
+                <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center border border-emerald-100">
+                    <i class="fas fa-check-double text-emerald-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Procès-Verbaux Générés -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-purple-600">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Procès-Verbaux (PV)</p>
+                    <p class="text-3xl font-black text-purple-600 mt-1">{{ anonymat_stats.pv_generes }}</p>
+                    <p class="text-xs text-purple-600 font-bold mt-1">PV récapitulatifs créés</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center border border-purple-100">
+                    <i class="fas fa-file-signature text-purple-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Synthèse & Raccourcis Anonymat -->
+    <div class="p-6 bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-indigo-700/50">
+        <div class="space-y-2 flex-1">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-400/30">
+                    <i class="fas fa-shield-alt text-amber-400 text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black text-white">Secrétariat des Examens & Workflow d'Anonymat</h3>
+                    <p class="text-xs text-indigo-200/90 mt-0.5">
+                        <strong class="text-amber-300">{{ anonymat_stats.copies_matchees }}</strong> copie(s) démasquée(s) sur un total de <strong class="text-white">{{ anonymat_stats.copies_total }}</strong> copie(s) anonymes traitées.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="w-full md:w-56 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-center">
+            <div class="w-full bg-white/20 rounded-full h-3 mb-2 overflow-hidden">
+                <div class="bg-gradient-to-r from-amber-400 to-amber-300 h-3 rounded-full transition-all duration-500" style="width: {{ anonymat_stats.taux_matching }}%;"></div>
+            </div>
+            <span class="text-3xl font-black text-amber-300">{{ anonymat_stats.taux_matching }}%</span>
+            <span class="block text-[10px] font-extrabold text-indigo-100 uppercase tracking-wider mt-1">Taux de Traitement Anonymat</span>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <a href="{% url 'notes:dashboard_chef_anonymat' %}" class="px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-900 font-black rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2">
+                <i class="fas fa-user-secret text-sm"></i> Dashboard Anonymat
+            </a>
+            <a href="{% url 'notes:liste_proces_verbaux' %}" class="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs border border-white/20 transition flex items-center justify-center gap-2">
+                <i class="fas fa-file-alt text-sm"></i> Consulter les PV
+            </a>
         </div>
     </div>
 

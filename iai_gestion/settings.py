@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     'crispy_tailwind',
     'django_filters',
     'django_cleanup.apps.CleanupConfig',
-    # 'leaflet',  # DÉSACTIVÉ - Nécessite GDAL, à activer plus tard
+    # Cartographie Leaflet.js intégrée via CDN frontend (OpenStreetMap), aucune dépendance backend GDAL requise
     
     # Applications locales
     'apps.authentification',
@@ -110,25 +110,48 @@ TEMPLATES = [
 WSGI_APPLICATION = 'iai_gestion.wsgi.application'
 
 # Database
-DATABASE_ENGINE = config('DATABASE_ENGINE', default='django.db.backends.sqlite3')
-if DATABASE_ENGINE == 'django.db.backends.sqlite3':
+DATABASE_URL = config('DATABASE_URL', default=None)
+
+if DATABASE_URL:
+    import urllib.parse as urlparse
+    url = urlparse.urlparse(DATABASE_URL)
+    engine_map = {
+        'postgres': 'django.db.backends.postgresql',
+        'postgresql': 'django.db.backends.postgresql',
+        'sqlite': 'django.db.backends.sqlite3',
+    }
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / config('DATABASE_NAME', default='db.sqlite3'),
+            'ENGINE': engine_map.get(url.scheme, 'django.db.backends.postgresql'),
+            'NAME': url.path[1:] if url.path else 'iai_gestion',
+            'USER': url.username or 'postgres',
+            'PASSWORD': url.password or '',
+            'HOST': url.hostname or 'localhost',
+            'PORT': str(url.port or 5432),
+            'CONN_MAX_AGE': config('DATABASE_CONN_MAX_AGE', default=600 if not DEBUG else 0, cast=int),
         }
     }
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': DATABASE_ENGINE,
-            'NAME': config('DATABASE_NAME', default='iai_gestion'),
-            'USER': config('DATABASE_USER', default='postgres'),
-            'PASSWORD': config('DATABASE_PASSWORD', default='postgres'),
-            'HOST': config('DATABASE_HOST', default='db'),
-            'PORT': config('DATABASE_PORT', default='5432'),
+    DATABASE_ENGINE = config('DATABASE_ENGINE', default='django.db.backends.sqlite3')
+    if DATABASE_ENGINE in ('django.db.backends.sqlite3', 'sqlite3'):
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / config('DATABASE_NAME', default='db.sqlite3'),
+            }
         }
-    }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': DATABASE_ENGINE,
+                'NAME': config('DATABASE_NAME', default='iai_gestion'),
+                'USER': config('DATABASE_USER', default='postgres'),
+                'PASSWORD': config('DATABASE_PASSWORD', default='postgres'),
+                'HOST': config('DATABASE_HOST', default='localhost'),
+                'PORT': config('DATABASE_PORT', default='5432'),
+                'CONN_MAX_AGE': config('DATABASE_CONN_MAX_AGE', default=600 if not DEBUG else 0, cast=int),
+            }
+        }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -257,13 +280,12 @@ MATRICULE_CONFIG = {
 PAIEMENT_CONFIG = {
     'TRANCHES': {
         1: {'nom': 'Pré-inscription', 'montant': 84000},
-
-        2: {'nom': '1ère Tranche', 'montant': 150000},
-        3: {'nom': '2ème Tranche', 'montant': 150000},
-        4: {'nom': '3ème Tranche', 'montant': 150000},
+        2: {'nom': '1ère Tranche', 'montant': 175000},
+        3: {'nom': '2ème Tranche', 'montant': 115000},
+        4: {'nom': '3ème Tranche', 'montant': 100000},
     },
     'DEVISE': 'FCFA',
-    'TOTAL_ANNUEL': 500000,
+    'TOTAL_ANNUEL': 474000,
 }
 
 # Configuration des filières
@@ -395,23 +417,42 @@ LOGGING = {
 # Créer le dossier logs s'il n'existe pas
 os.makedirs(BASE_DIR / 'logs', exist_ok=True)
 
-# ========== Configuration CinetPay (Paiement Mobile Money) ==========
+# ========== Configuration CinetPay (Paiement Mobile Money MTN & Orange) ==========
 CINETPAY_API_KEY = config('CINETPAY_API_KEY', default='12912847765bcaborz')
 CINETPAY_SITE_ID = config('CINETPAY_SITE_ID', default='445160')
 CINETPAY_SECRET_KEY = config('CINETPAY_SECRET_KEY', default='sandbox_secret_key')
-CINETPAY_MODE = config('CINETPAY_MODE', default='SANDBOX')
+CINETPAY_MODE = config('CINETPAY_MODE', default='SANDBOX')  # 'LIVE' (Production) ou 'SANDBOX' (Test)
 SITE_BASE_URL = config('SITE_BASE_URL', default='http://127.0.0.1:8000')
 
 CINETPAY_BASE_URL = 'https://api-checkout.cinetpay.com'
 CINETPAY_PAYMENT_URL = f'{CINETPAY_BASE_URL}/v2/payment'
 CINETPAY_CHECK_URL = f'{CINETPAY_BASE_URL}/v2/payment/check'
 
-# ========== Configuration de la Messagerie SMTP (Emails) ==========
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+# ========== Configuration de la Messagerie SMTP (Emails Réels & Fallback) ==========
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@iai-cameroun.com')
+EMAIL_BYPASS_SSL = config('EMAIL_BYPASS_SSL', default=True, cast=bool)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=f'IAI-Cameroun Douala <{EMAIL_HOST_USER}>' if EMAIL_HOST_USER else 'noreply@iai-cameroun.cm')
+
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = config('EMAIL_BACKEND', default='apps.paiements.backends.UnverifiedEmailBackend')
+else:
+    EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+
+# ========== Configuration WhatsApp Multicanal (Meta Cloud API & Gateways) ==========
+WHATSAPP_META_TOKEN = config('WHATSAPP_META_TOKEN', default='')
+WHATSAPP_META_PHONE_NUMBER_ID = config('WHATSAPP_META_PHONE_NUMBER_ID', default='')
+WHATSAPP_API_URL = config('WHATSAPP_API_URL', default=f'https://graph.facebook.com/v18.0/{WHATSAPP_META_PHONE_NUMBER_ID}/messages' if WHATSAPP_META_PHONE_NUMBER_ID else '')
+
+TESSERACT_CMD = config('TESSERACT_CMD', default='')
+if TESSERACT_CMD:
+    try:
+        import pytesseract
+        pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+    except Exception:
+        pass
+

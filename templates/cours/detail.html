@@ -72,19 +72,46 @@
                 <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-folder-open text-green-600 mr-2"></i>Supports Pédagogiques</h3>
                 <div class="divide-y divide-gray-100">
                     {% for r in ressources %}
-                    <div class="flex justify-between items-center py-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-lg">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 gap-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-lg flex-shrink-0 mt-1 sm:mt-0">
                                 <i class="fas fa-file-pdf"></i>
                             </div>
                             <div>
-                                <p class="font-bold text-gray-800">{{ r.titre }}</p>
-                                <span class="text-xs text-gray-400 font-semibold">{{ r.get_type_ressource_display }} | Ajouté le : {{ r.date_creation|date:"d M Y" }}</span>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <p class="font-bold text-gray-800">{{ r.titre }}</p>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase
+                                        {% if r.type_ressource == 'TD' %}bg-blue-100 text-blue-700
+                                        {% elif r.type_ressource == 'TP' %}bg-purple-100 text-purple-700
+                                        {% else %}bg-green-100 text-green-700{% endif %}">
+                                        {{ r.get_type_ressource_display }}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-gray-400 font-semibold block mt-0.5">Ajouté le : {{ r.date_ajout|date:"d M Y" }}</span>
+
+                                {% if r.date_limite_remise_physique %}
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <div class="inline-flex items-center bg-amber-50 border border-amber-300 rounded-xl px-3 py-1 text-amber-900 text-xs font-bold shadow-sm">
+                                        <i class="fas fa-calendar-alt text-amber-600 mr-2"></i>
+                                        <span>Remise physique obligatoire : <strong class="text-amber-900 font-extrabold underline ml-1">{{ r.date_limite_remise_physique|date:"d/m/Y" }}</strong></span>
+                                    </div>
+                                    {% if r.compte_a_rebours_display %}
+                                    <span class="text-xs font-extrabold px-2.5 py-1 rounded-xl border shadow-sm
+                                        {% if r.jours_restants_remise <= 1 %}bg-red-600 text-white border-red-700 animate-pulse
+                                        {% elif r.jours_restants_remise <= 5 %}bg-amber-500 text-white border-amber-600
+                                        {% else %}bg-emerald-600 text-white border-emerald-700{% endif %}">
+                                        <i class="far fa-hourglass mr-1"></i>{{ r.compte_a_rebours_display }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
-                        <a href="{{ r.fichier.url }}" target="_blank" class="bg-gray-100 hover:bg-green-50 hover:text-green-700 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 transition">
-                            Télécharger
+                        {% if r.fichier %}
+                        <a href="{{ r.fichier.url }}" target="_blank" class="bg-gray-100 hover:bg-green-50 hover:text-green-700 px-4 py-2 rounded-xl text-xs font-bold text-gray-700 transition flex-shrink-0">
+                            <i class="fas fa-download mr-1"></i> Télécharger
                         </a>
+                        {% endif %}
                     </div>
                     {% empty %}
                     <p class="text-gray-400 text-sm py-4 text-center">Aucun support disponible.</p>

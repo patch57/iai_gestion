@@ -19,9 +19,16 @@ def liste_requetes(request):
     """Affiche la liste des requêtes selon le rôle de l'utilisateur"""
     user = request.user
     role = user.type_utilisateur
+    is_directeur = user.is_superuser or role in ['DIRECTEUR', 'ADMIN_SYSTEME']
     
     queryset = Requete.objects.all().select_related('auteur', 'assigne_a')
     
+    # Statistiques pour la direction / staff
+    total_requetes = queryset.count()
+    nb_escaladees = queryset.filter(statut='ESCALADE').count()
+    nb_en_cours = queryset.filter(statut__in=['SOUMIS', 'EN_COURS', 'RENVOYE']).count()
+    nb_traitees = queryset.filter(statut='TRAITE').count()
+
     # Filtrer selon le rôle
     if role in ['ETUDIANT', 'APPRENANT']:
         queryset = queryset.filter(auteur=user)
@@ -34,13 +41,11 @@ def liste_requetes(request):
     elif role == 'CHEF_COMPTABILITE':
         queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, nature='COMPTABILITE'))
     elif role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE']:
-        # L'enseignant / Chef FC gère ce qui lui est assigné ou ce qui concerne les apprenants
         queryset = queryset.filter(Q(assigne_a=user) | Q(assigne_a__isnull=True, auteur__type_utilisateur='APPRENANT'))
-    elif role == 'ADMIN_SYSTEME':
-        # Le Directeur voit tout, mais on peut filtrer
+    elif is_directeur:
+        # Le Directeur voit l'ensemble du registre de requêtes
         pass
     else:
-        # Les autres ne voient rien
         queryset = queryset.none()
         
     # Filtres de recherche
@@ -50,7 +55,8 @@ def liste_requetes(request):
             Q(titre__icontains=q) | 
             Q(description__icontains=q) |
             Q(auteur__first_name__icontains=q) |
-            Q(auteur__last_name__icontains=q)
+            Q(auteur__last_name__icontains=q) |
+            Q(auteur__username__icontains=q)
         )
         
     statut = request.GET.get('statut', '')
@@ -61,7 +67,7 @@ def liste_requetes(request):
     if nature:
         queryset = queryset.filter(nature=nature)
         
-    paginator = Paginator(queryset, 15)
+    paginator = Paginator(queryset.order_by('-date_creation'), 15)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
@@ -69,7 +75,12 @@ def liste_requetes(request):
         'requetes': page_obj,
         'natures': Requete.NATURE_CHOICES,
         'statuts': Requete.STATUT_CHOICES,
-        'titre': 'Suivi des Requêtes'
+        'is_directeur': is_directeur,
+        'total_requetes': total_requetes,
+        'nb_escaladees': nb_escaladees,
+        'nb_en_cours': nb_en_cours,
+        'nb_traitees': nb_traitees,
+        'titre': 'Espace Requêtes - Direction & Suivi' if is_directeur else 'Suivi des Requêtes'
     }
     return render(request, 'requetes/liste.html', context)
 
@@ -93,6 +104,32 @@ def creer_requete(request):
                 details=f"Requête soumise. Nature : {requete.get_nature_display()}."
             )
             requete.save()
+
+            # Notifications ciblées selon la nature de la requête
+            try:
+                from apps.tableau_bord.services_notification import NotificationService
+                from django.urls import reverse
+                link = reverse('requetes:detail_requete', kwargs={'pk': requete.pk})
+                auteur_nom = request.user.get_full_name() or request.user.username
+                nature_str = requete.get_nature_display()
+                titre_notif = f"Nouvelle Requête ({nature_str}) : {requete.titre[:30]}"
+                msg_notif = f"Requête déposée par {auteur_nom} : {requete.titre}"
+
+                # Toujours notifier le Directeur pour supervision
+                NotificationService.notifier_directeur(titre_notif, msg_notif, type_notif='WARNING', lien=link)
+
+                # Notifier le responsable du domaine
+                if requete.nature == 'SCOLARITE':
+                    NotificationService.notifier_chef_scolarite(titre_notif, msg_notif, type_notif='WARNING', lien=link)
+                elif requete.nature == 'ETUDES':
+                    NotificationService.notifier_chef_etudes(titre_notif, msg_notif, type_notif='WARNING', lien=link)
+                elif requete.nature == 'ANONYMAT':
+                    NotificationService.notifier_chef_anonymat(titre_notif, msg_notif, type_notif='WARNING', lien=link)
+                elif requete.nature == 'COMPTABILITE':
+                    NotificationService.notifier_admin_financier(titre_notif, msg_notif, type_notif='WARNING', lien=link)
+            except Exception:
+                pass
+
             messages.success(request, "✅ Votre requête a été soumise avec succès.")
             return redirect('requetes:liste_requetes')
     else:
@@ -111,13 +148,14 @@ def detail_requete(request, pk):
     requete = get_object_or_404(Requete, pk=pk)
     user = request.user
     role = user.type_utilisateur
+    is_directeur = user.is_superuser or role in ['DIRECTEUR', 'ADMIN_SYSTEME']
     
     # Sécurité de lecture
     if role in ['ETUDIANT', 'APPRENANT']:
         if requete.auteur != user:
             messages.error(request, "Accès refusé.")
             return redirect('requetes:liste_requetes')
-    elif role == 'ADMIN_SYSTEME':
+    elif is_directeur:
         # Le Directeur a accès à tout
         pass
     else:
@@ -147,55 +185,75 @@ def detail_requete(request, pk):
     
     # Si la requête n'est pas déjà finalisée (TRAITE)
     if requete.statut != 'TRAITE':
-        nature_correspondante = (
-            (role == 'CHEF_SCOLARITE' and requete.nature == 'SCOLARITE') or
-            (role == 'CHEF_ETUDES' and requete.nature == 'ETUDES') or
-            (role == 'CHEF_ANONYMAT' and requete.nature == 'ANONYMAT') or
-            (role == 'CHEF_COMPTABILITE' and requete.nature == 'COMPTABILITE') or
-            (role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE'] and requete.auteur.type_utilisateur == 'APPRENANT')
-        )
-        if nature_correspondante:
-            form_reponse = ReponsePersonnelForm(instance=requete)
-            form_escalade = EscaladerRequeteForm()
-            
-        # 2. Traitement par le Directeur (ADMIN_SYSTEME)
-        if role == 'ADMIN_SYSTEME' and requete.statut == 'ESCALADE':
+        if is_directeur:
+            # Le Directeur peut toujours soit répondre directement à l'expéditeur, soit renvoyer avec consignes
             form_reponse = ReponsePersonnelForm(instance=requete)
             form_renvoi = RenvoyerPersonnelForm(instance=requete)
+        else:
+            nature_correspondante = (
+                (role == 'CHEF_SCOLARITE' and requete.nature == 'SCOLARITE') or
+                (role == 'CHEF_ETUDES' and requete.nature == 'ETUDES') or
+                (role == 'CHEF_ANONYMAT' and requete.nature == 'ANONYMAT') or
+                (role == 'CHEF_COMPTABILITE' and requete.nature == 'COMPTABILITE') or
+                (role in ['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR', 'CHEF_FORMATION_CONTINUE'] and requete.auteur.type_utilisateur == 'APPRENANT') or
+                (requete.assigne_a == user)
+            )
+            if nature_correspondante:
+                form_reponse = ReponsePersonnelForm(instance=requete)
+                form_escalade = EscaladerRequeteForm()
             
     context = {
         'requete': requete,
         'form_reponse': form_reponse,
         'form_escalade': form_escalade,
         'form_renvoi': form_renvoi,
-        'titre': f"Requête #{requete.id}"
+        'is_directeur': is_directeur,
+        'titre': f"Requête #{requete.id} - {requete.titre}"
     }
     return render(request, 'requetes/detail.html', context)
 
 
 @login_required
 def repondre_requete(request, pk):
-    """Permet de répondre finalemement à une requête (Clôture le ticket)"""
+    """Permet de répondre finalement à l'expéditeur d'une requête (Clôture le ticket)"""
     requete = get_object_or_404(Requete, pk=pk)
+    user = request.user
+    is_directeur = user.is_superuser or user.type_utilisateur in ['DIRECTEUR', 'ADMIN_SYSTEME']
+
     if request.method == 'POST':
         form = ReponsePersonnelForm(request.POST, instance=requete)
         if form.is_valid():
             requete = form.save(commit=False)
             requete.statut = 'TRAITE'
-            requete.assigne_a = request.user
+            requete.assigne_a = user
+            
+            action_label = "Décision de la Direction" if is_directeur else "Résolution"
+            details_label = f"Réponse transmise par {user.get_full_name() or user.username} : {requete.reponse[:120]}..."
+            
             requete.ajouter_action_historique(
-                action="Résolution",
-                auteur=request.user,
-                details=f"Réponse apportée : {requete.reponse[:100]}..."
+                action=action_label,
+                auteur=user,
+                details=details_label
             )
             requete.save()
             
-            # Envoi d'email de notification à l'étudiant/apprenant
+            # Envoi d'email de notification à l'expéditeur (étudiant/apprenant)
             destinataire = requete.auteur.email
             if destinataire:
                 try:
-                    sujet = f"{getattr(settings, 'EMAIL_SUBJECT_PREFIX', '[IAI-Cameroun] ')}Réponse à votre requête #{requete.id}"
-                    corps_email = f"Bonjour {requete.auteur.first_name},\n\nUne réponse a été apportée à votre requête relative à : '{requete.titre}'.\n\nRéponse du service :\n-------------------------\n{requete.reponse}\n-------------------------\n\nVous pouvez consulter l'historique complet sur votre espace en ligne.\n\nCordialement,\nAdministration IAI-Cameroun Douala."
+                    titre_emetteur = "la Direction / Représentant Résident" if is_directeur else "l'Administration"
+                    sujet = f"[IAI-Cameroun] Réponse à votre requête #{requete.id} - {requete.titre}"
+                    corps_email = (
+                        f"Bonjour {requete.auteur.get_full_name() or requete.auteur.first_name},\n\n"
+                        f"Une réponse officielle a été apportée à votre requête N° {requete.id} ('{requete.titre}') par {titre_emetteur}.\n\n"
+                        f"DÉCISION / RÉPONSE :\n"
+                        f"-----------------------------------------\n"
+                        f"{requete.reponse}\n"
+                        f"-----------------------------------------\n\n"
+                        f"Vous pouvez consulter l'historique complet sur votre espace en ligne IAI-Gestion.\n\n"
+                        f"Cordialement,\n"
+                        f"Direction de l'IAI-Cameroun - Centre de Douala."
+                    )
                     send_mail(
                         subject=sujet,
                         message=corps_email,
@@ -206,7 +264,7 @@ def repondre_requete(request, pk):
                 except Exception as e:
                     print(f"Erreur d'envoi d'email : {e}")
                     
-            messages.success(request, "✅ Réponse enregistrée et transmise à l'étudiant.")
+            messages.success(request, f"✅ Votre réponse a été enregistrée et transmise directement à {requete.auteur.get_full_name() or requete.auteur.username}.")
             return redirect('requetes:detail_requete', pk=requete.id)
             
     return redirect('requetes:detail_requete', pk=pk)
@@ -223,12 +281,13 @@ def escalader_requete(request, pk):
             requete.statut = 'ESCALADE'
             requete.reponse_interne = commentaire
             requete.ajouter_action_historique(
-                action="Escalade",
+                action="Escalade au Directeur",
                 auteur=request.user,
-                details=f"Requête escaladée au Directeur. Motif : {commentaire}"
+                details=f"Requête escaladée au Directeur pour arbitrage. Motif : {commentaire}",
+                est_interne=True
             )
             requete.save()
-            messages.warning(request, "⚠️ La requête a été escaladée au Directeur pour arbitrage.")
+            messages.warning(request, "⚠️ La requête a été escaladée au Directeur / Représentant Résident.")
             return redirect('requetes:detail_requete', pk=requete.id)
             
     return redirect('requetes:detail_requete', pk=pk)
@@ -236,9 +295,11 @@ def escalader_requete(request, pk):
 
 @login_required
 def renvoyer_requete(request, pk):
-    """Permet au Directeur de renvoyer la requête à un personnel après traitement"""
+    """Permet au Directeur de renvoyer la requête à un membre du personnel avec consignes"""
     requete = get_object_or_404(Requete, pk=pk)
-    if request.user.type_utilisateur != 'ADMIN_SYSTEME':
+    is_directeur = request.user.is_superuser or request.user.type_utilisateur in ['DIRECTEUR', 'ADMIN_SYSTEME']
+    
+    if not is_directeur:
         messages.error(request, "Seul le Directeur peut renvoyer des requêtes.")
         return redirect('requetes:detail_requete', pk=pk)
         
@@ -248,13 +309,16 @@ def renvoyer_requete(request, pk):
             requete = form.save(commit=False)
             requete.statut = 'RENVOYE'
             personnel = requete.assigne_a
+            nom_personnel = personnel.get_full_name() if personnel else "Personnel assigné"
+            
             requete.ajouter_action_historique(
                 action="Renvoi au personnel",
                 auteur=request.user,
-                details=f"Renvoyée à {personnel.get_full_name()} avec les instructions : {requete.reponse_interne}"
+                details=f"Renvoyée à {nom_personnel} par la Direction. Instructions : {requete.reponse_interne}",
+                est_interne=True
             )
             requete.save()
-            messages.success(request, f"Requête renvoyée à {personnel.get_full_name()} pour réponse finale.")
+            messages.success(request, f"Requête renvoyée à {nom_personnel} avec les consignes d'arbitrage.")
             return redirect('requetes:detail_requete', pk=requete.id)
             
     return redirect('requetes:detail_requete', pk=pk)

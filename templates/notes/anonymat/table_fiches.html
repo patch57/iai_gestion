@@ -1,0 +1,83 @@
+<div class="overflow-x-auto">
+    <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+        <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+            <tr>
+                <th class="px-6 py-3.5">Matière & Type</th>
+                <th class="px-6 py-3.5">Filière / Niveau</th>
+                <th class="px-6 py-3.5">Salle physique</th>
+                <th class="px-6 py-3.5">Année Acad.</th>
+                <th class="px-6 py-3.5 text-center">Statut</th>
+                <th class="px-6 py-3.5 text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for fiche in fiches_list %}
+            <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
+                <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">
+                    {{ fiche.matiere.code }} - {{ fiche.matiere.nom }}
+                    <span class="block text-xs text-indigo-600 dark:text-indigo-400 font-normal">
+                        {{ fiche.type_evaluation.nom }}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                        {{ fiche.filiere.code }} - L{{ fiche.niveau.numero }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 font-medium">
+                    <i class="fa-solid fa-door-open text-gray-400 mr-1"></i>
+                    {% if fiche.salle %}{{ fiche.salle.nom }} ({{ fiche.salle.code }}){% else %}Non assignée{% endif %}
+                </td>
+                <td class="px-6 py-4 font-mono text-xs">
+                    {{ fiche.annee_academique }}
+                </td>
+                <td class="px-6 py-4 text-center">
+                    {% if fiche.statut == 'BROUILLON' %}
+                        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 rounded-full text-xs font-semibold">
+                            📝 Brouillon (Saisie en cours)
+                        </span>
+                    {% elif fiche.statut == 'TRANSMIS_CHEF_ANONYMAT' %}
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 rounded-full text-xs font-semibold">
+                            📨 Transmis au Chef Anonymat
+                        </span>
+                    {% elif fiche.statut == 'TRANSMIS_CHEF_ETUDES' %}
+                        <span class="px-3 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded-full text-xs font-semibold">
+                            📩 Transmis au Chef des Études
+                        </span>
+                    {% else %}
+                        <span class="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-full text-xs font-semibold">
+                            {{ fiche.get_statut_display }}
+                        </span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                    <a href="{% url 'notes:saisie_fiche_enseignant' fiche.id %}" 
+                       class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:hover:bg-indigo-900/70 dark:text-indigo-300 rounded-lg font-medium text-xs transition">
+                        <i class="fa-solid fa-pen-to-square mr-1.5"></i>
+                        {% if fiche.statut == 'BROUILLON' %}Saisir / OCR{% else %}Consulter{% endif %}
+                    </a>
+                    {% if fiche.statut != 'TRANSMIS_CHEF_ETUDES' %}
+                    <form method="POST" action="{% url 'notes:supprimer_fiche_enseignant' fiche.id %}" class="inline" onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer ce Procès-Verbal de CC ? Il sera automatiquement retiré chez le Chef de l\'Anonymat.');">
+                        {% csrf_token %}
+                        <button type="submit" class="p-1.5 text-gray-400 hover:text-red-600 transition" title="Supprimer le PV (Synchrone avec Chef Anonymat)">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="p-1.5 text-gray-300 dark:text-gray-600 cursor-not-allowed" title="Verrouillé (Transmis au Chef des Études)">
+                        <i class="fa-solid fa-lock"></i>
+                    </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    <i class="fa-solid fa-file-circle-xmark text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+                    Aucun document trouvé dans cette section.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

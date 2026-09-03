@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 from apps.etudiants.models import Etudiant, Filiere, AnneeAcademique, Classe, Apprenant, Formation
 from apps.paiements.models import RecuPaiement, TranchePaiement
-from apps.cours.models import Cours, SeanceCours, RessourceCours, EmploiDuTemps, Presence
+from apps.cours.models import Cours, SeanceCours, RessourceCours, EmploiDuTemps, Presence, InscriptionCours
 from apps.notes.models import Note, Evaluation, Bulletin
 from apps.professeurs.models import Professeur
 from apps.paiements.services import calculer_penalites_etudiant
@@ -48,25 +48,60 @@ def accueil(request):
 
 @login_required
 def console_whatsapp(request):
-    """Console d'envoi et de gestion des notifications WhatsApp/SMS 100% gratuites"""
+    """Console d'envoi et de gestion des notifications WhatsApp/SMS (Click-to-WhatsApp & Passerelle Pro)"""
     from .whatsapp_service import WhatsAppService
-    
+    from .models import Configuration
+
     etudiants = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).select_related('utilisateur', 'filiere')[:50]
     resultat = None
 
     if request.method == 'POST':
-        etudiant_id = request.POST.get('etudiant_id')
-        titre = request.POST.get('titre', 'Rappel IAI-Cameroun')
-        message_txt = request.POST.get('message', '')
+        action = request.POST.get('action', 'send_msg')
 
-        etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
-        resultat = WhatsAppService.notifier_etudiant(etudiant, titre, message_txt)
-        messages.success(request, f"Lien WhatsApp généré avec succès pour {etudiant.get_nom_complet()} !")
+        if action == 'save_config':
+            enabled = request.POST.get('whatsapp_enabled') == 'on'
+            api_url = request.POST.get('whatsapp_api_url', '').strip()
+            api_token = request.POST.get('whatsapp_token', '').strip()
+
+            Configuration.set_valeur('WHATSAPP_ENABLED', 'True' if enabled else 'False', request.user)
+            Configuration.set_valeur('WHATSAPP_API_URL', api_url, request.user)
+            Configuration.set_valeur('WHATSAPP_TOKEN', api_token, request.user)
+
+            messages.success(request, "Paramètres de la passerelle WhatsApp mis à jour avec succès !")
+        else:
+            etudiant_id = request.POST.get('etudiant_id')
+            titre = request.POST.get('titre', 'Rappel IAI-Cameroun')
+            message_txt = request.POST.get('message', '')
+
+            if etudiant_id:
+                etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+                resultat = WhatsAppService.notifier_etudiant(etudiant, titre, message_txt)
+
+                # Si l'API est activée, tenter un envoi automatique direct
+                if Configuration.get_valeur('WHATSAPP_ENABLED', 'False').lower() == 'true':
+                    tel = resultat.get('telephone')
+                    if tel:
+                        succes_envoi = WhatsAppService.envoyer_message(tel, f"*{titre}*\n\n{message_txt}")
+                        if succes_envoi:
+                            messages.success(request, f"Message WhatsApp envoyé automatiquement à {etudiant.get_nom_complet()} !")
+                        else:
+                            messages.warning(request, f"Lien généré. Note : L'envoi automatique via l'API a échoué (vérifiez votre URL/Token).")
+                    else:
+                        messages.success(request, f"Lien WhatsApp généré avec succès pour {etudiant.get_nom_complet()} !")
+                else:
+                    messages.success(request, f"Lien WhatsApp généré avec succès pour {etudiant.get_nom_complet()} !")
+
+    config_enabled = Configuration.get_valeur('WHATSAPP_ENABLED', 'False').lower() == 'true'
+    config_url = Configuration.get_valeur('WHATSAPP_API_URL', '')
+    config_token = Configuration.get_valeur('WHATSAPP_TOKEN', '')
 
     context = {
         'etudiants': etudiants,
         'resultat': resultat,
-        'titre': 'Console WhatsApp & SMS (100% Gratuit)'
+        'config_enabled': config_enabled,
+        'config_url': config_url,
+        'config_token': config_token,
+        'titre': 'Console de Notification WhatsApp'
     }
     return render(request, 'tableau_bord/whatsapp_console.html', context)
 
@@ -93,8 +128,12 @@ def tableau_bord(request):
     elif type_user == 'CHEF_COMPTABILITE' or type_user == 'ADMIN_FINANCIER':
         return chef_comptabilite_dashboard(request)
         
-    # Par défaut (Admin Système ou autre personnel) : afficher le dashboard admin général
+    elif type_user in ['DIRECTEUR', 'ADMIN_SYSTEME']:
+        return dashboard_admin(request)
+        
+    # Par défaut : afficher le dashboard admin général
     return dashboard_admin(request)
+
 
 
 @login_required
@@ -141,8 +180,11 @@ def etudiant_dashboard(request):
         etudiant.refresh_from_db()
 
     from decimal import Decimal
-    # Scolarité de base fixée à 461 000 FCFA (Tarif Niveau 2 complet)
-    base_scolarite = Decimal('461000.00')
+    # Scolarité de base : 474 000 FCFA pour le Niveau 1 (84k + 175k + 115k + 100k) / 461 000 FCFA pour le Niveau 2
+    if etudiant and etudiant.niveau and etudiant.niveau.numero == 2:
+        base_scolarite = Decimal('461000.00')
+    else:
+        base_scolarite = Decimal('474000.00')
 
     # Téléversement de reçu
     if request.method == 'POST' and request.FILES.get('recu_fichier'):
@@ -237,11 +279,33 @@ def etudiant_dashboard(request):
                     notif.est_lue = True
                     notif.date_lecture = timezone.now()
                     notif.save()
+    from apps.paiements.models import ResultatConcours
+    res_concours = None
+    if etudiant.email:
+        res_concours = ResultatConcours.objects.filter(
+            Q(etudiant_cree=etudiant) | Q(email__iexact=etudiant.email)
+        ).first()
+    else:
+        res_concours = ResultatConcours.objects.filter(etudiant_cree=etudiant).first()
+
     recus = RecuPaiement.objects.filter(etudiant=etudiant)
-    montant_paye = sum(r.montant_mentionne for r in recus if r.statut == 'VALIDE')
+    montant_paye = sum((r.montant_mentionne or Decimal('0.00')) for r in recus if r.statut in ['VALIDE', 'EN_ATTENTE'])
+
+    if res_concours:
+        if res_concours.statut_preinscription == 'PAYE' and not recus.filter(tranche__numero=1, statut__in=['VALIDE', 'EN_ATTENTE']).exists():
+            t1 = TranchePaiement.objects.filter(numero=1).first()
+            montant_paye += (t1.montant if t1 else Decimal('84000.00'))
+        if res_concours.statut_tranche2 == 'PAYE' and not recus.filter(tranche__numero=2, statut__in=['VALIDE', 'EN_ATTENTE']).exists():
+            t2 = TranchePaiement.objects.filter(numero=2).first()
+            montant_paye += (t2.montant if t2 else Decimal('175000.00'))
+
+    if not isinstance(montant_paye, Decimal):
+        montant_paye = Decimal(str(montant_paye))
     
-    total_du = base_scolarite + penalites_info['total']
-    reste_payer = max(0, total_du - montant_paye)
+    total_penalites = Decimal(str(penalites_info.get('total', 0)))
+    total_du = base_scolarite + total_penalites
+    reste_payer = max(Decimal('0.00'), total_du - montant_paye)
+
     
     from apps.cours.views import find_matching_salle
     matching_salle = find_matching_salle(etudiant.classe)
@@ -254,7 +318,15 @@ def etudiant_dashboard(request):
         emploi = emploi_query.filter(niveau=etudiant.niveau, salle__isnull=True).first()
     if not emploi:
         emploi = emploi_query.filter(niveau__isnull=True, salle__isnull=True).first()
-    ressources = RessourceCours.objects.filter(cours__filiere=etudiant.filiere)
+    salle_etu = getattr(etudiant, 'salle', None)
+    if salle_etu:
+        ressources = RessourceCours.objects.filter(
+            Q(salle=salle_etu) | Q(salle__isnull=True, cours__filiere=etudiant.filiere)
+        ).distinct()
+    elif etudiant.filiere:
+        ressources = RessourceCours.objects.filter(cours__filiere=etudiant.filiere)
+    else:
+        ressources = RessourceCours.objects.none()
     absences = Presence.objects.filter(etudiant=etudiant, statut__in=['ABSENT', 'RETARD'])
     notes = Note.objects.filter(etudiant=etudiant, est_validee=True)
     
@@ -301,15 +373,72 @@ def etudiant_dashboard(request):
             ).order_by('-date_creation').first()
 
     creneaux_du_jour = []
-    if emploi_hebdo and jour_code_actuel:
-        creneaux_du_jour = CreneauEmploiDuTemps.objects.filter(
-            emploi_du_temps=emploi_hebdo,
-            jour=jour_code_actuel
-        ).exclude(type_evenement='PAUSE').order_by('plage')
+    if jour_code_actuel:
+        creneaux_base = CreneauEmploiDuTemps.objects.filter(jour=jour_code_actuel).exclude(type_evenement='PAUSE')
+        salle_etu = getattr(etudiant, 'salle', None)
+        if salle_etu:
+            creneaux_base = creneaux_base.filter(
+                Q(emploi_du_temps__salle=salle_etu) | 
+                Q(salle_nom__icontains=salle_etu.code) | 
+                Q(salle_nom__icontains=salle_etu.nom)
+            )
+        elif emploi_hebdo:
+            creneaux_base = creneaux_base.filter(emploi_du_temps=emploi_hebdo)
+        
+        creneaux_du_jour = creneaux_base.order_by('plage', 'id')
 
     # Échéances des tranches pour l'année académique active
     annee_code = etudiant.annee_academique.code if etudiant.annee_academique else "2024-2025"
-    tranches_echeances = TranchePaiement.objects.filter(annee_academique=annee_code, est_actif=True).order_by('numero')
+    tranches_query = TranchePaiement.objects.filter(annee_academique=annee_code, est_actif=True).order_by('numero')
+
+    tranches_validees_ids = set(
+        RecuPaiement.objects.filter(
+            etudiant=etudiant,
+            statut='VALIDE'
+        ).values_list('tranche_id', flat=True)
+    )
+
+    inscription_etud = etudiant.inscriptions.first()
+    is_niv_2 = (etudiant.niveau and etudiant.niveau.numero == 2)
+
+    tranches_echeances = []
+    for tranche in tranches_query:
+        # Cloner le montant d'affichage pour adapter dynamiquement la pré-inscription selon le niveau de l'étudiant
+        montant_affichage = tranche.montant
+        if tranche.numero == 1:
+            montant_affichage = Decimal('71000.00') if is_niv_2 else Decimal('84000.00')
+        elif tranche.numero == 2:
+            montant_affichage = Decimal('175000.00')
+        elif tranche.numero == 3:
+            montant_affichage = Decimal('115000.00')
+        elif tranche.numero == 4:
+            montant_affichage = Decimal('100000.00')
+
+        est_validee = (
+            tranche.id in tranches_validees_ids
+            or RecuPaiement.objects.filter(etudiant=etudiant, tranche=tranche, statut__in=['VALIDE', 'EN_ATTENTE']).exists()
+            or (tranche.numero == 1 and (
+                etudiant.recu_preinscription_valide 
+                or (inscription_etud and inscription_etud.recu_preinscription_valide)
+                or (res_concours and res_concours.statut_preinscription == 'PAYE')
+            ))
+            or (tranche.numero == 2 and (
+                (inscription_etud and inscription_etud.recu_tranche_1_valide)
+                or (res_concours and res_concours.statut_tranche2 == 'PAYE')
+            ))
+            or (tranche.numero == 3 and (
+                (inscription_etud and inscription_etud.recu_tranche_2_valide)
+                or (res_concours and res_concours.statut_tranche3 == 'PAYE')
+            ))
+            or (tranche.numero == 4 and (
+                (inscription_etud and inscription_etud.recu_tranche_3_valide)
+                or (res_concours and res_concours.statut_tranche4 == 'PAYE')
+            ))
+        )
+        
+        tranche.montant = montant_affichage
+        tranche.est_validee = est_validee
+        tranches_echeances.append(tranche)
 
     # Historique des règlements de pénalités
     from .models import PenalitePaiement
@@ -321,12 +450,25 @@ def etudiant_dashboard(request):
         statut='SUCCESS'
     ).order_by('-date_creation')
 
+    # Sujets de TP / TD avec date limite de remise physique obligatoire
+    cours_ids = InscriptionCours.objects.filter(etudiant=etudiant, est_actif=True).values_list('cours_id', flat=True)
+    filt_echeances = Q(cours_id__in=cours_ids)
+    if etudiant.filiere:
+        filt_echeances |= Q(cours__filiere=etudiant.filiere)
+
+    prochaines_echeances_tp_td = RessourceCours.objects.filter(
+        filt_echeances,
+        type_ressource__in=['TD', 'TP'],
+        date_limite_remise_physique__isnull=False
+    ).distinct().select_related('cours', 'cours__matiere').order_by('date_limite_remise_physique')
+
     context = {
         'etudiant': etudiant,
         'penalites_info': penalites_info,
         'tranches_echeances': tranches_echeances,
         'penalites_reglees': penalites_reglees,
         'transactions_penalites': transactions_penalites,
+        'prochaines_echeances_tp_td': prochaines_echeances_tp_td,
         'recus': recus,
         'montant_paye': montant_paye,
         'total_du': total_du,
@@ -443,46 +585,156 @@ def enseignant_dashboard(request):
         cours_id = request.POST.get('cours_id')
         type_ressource = request.POST.get('type_ressource', 'COURS')
         titre = request.POST.get('titre', 'Support de cours')
+        date_limite_raw = request.POST.get('date_limite_remise_physique', '').strip()
         cours_obj = get_object_or_404(Cours, id=cours_id)
-        
+
+        date_limite_val = None
+        if date_limite_raw:
+            try:
+                from datetime import datetime
+                date_limite_val = datetime.strptime(date_limite_raw, '%Y-%m-%d').date()
+            except ValueError:
+                date_limite_val = None
+
+        salle_id = request.POST.get('salle_id')
+        filiere_id = request.POST.get('filiere_id')
+        niveau_id = request.POST.get('niveau_id')
+
+        from apps.etudiants.models import Filiere, Niveau, Classe
+        from apps.cours.models import Salle
+
+        salle_obj = Salle.objects.filter(id=salle_id).first() if salle_id else None
+        filiere_obj = None
+        niveau_obj = None
+
+        # Si une Salle / Classe est sélectionnée, déduire dynamiquement la filière et le niveau
+        if salle_obj:
+            classe_associee = Classe.objects.filter(Q(code__iexact=salle_obj.code) | Q(nom__icontains=salle_obj.code)).first()
+            if classe_associee:
+                filiere_obj = classe_associee.filiere
+                niveau_obj = classe_associee.niveau
+
+        if not filiere_obj and filiere_id:
+            filiere_obj = Filiere.objects.filter(id=filiere_id).first()
+        if not filiere_obj:
+            filiere_obj = cours_obj.filiere
+
+        if not niveau_obj and niveau_id:
+            niveau_obj = Niveau.objects.filter(id=niveau_id).first()
+
         ressource = RessourceCours.objects.create(
             cours=cours_obj,
+            salle=salle_obj,
+            filiere=filiere_obj,
+            niveau=niveau_obj,
             type_ressource=type_ressource,
             titre=titre,
             fichier=request.FILES.get('ressource_fichier'),
+            date_limite_remise_physique=date_limite_val,
             est_public=True
         )
+
+        # Envoi de la notification Tri-Canal (In-App, Email, WhatsApp) si c'est un TP/TD avec date de remise
+        if type_ressource in ['TD', 'TP'] and date_limite_val:
+            from apps.cours.models import InscriptionCours
+            from apps.tableau_bord.models import Notification
+            from apps.tableau_bord.whatsapp_service import WhatsAppService
+            from django.core.mail import send_mail
+            from django.conf import settings
+
+            date_str = date_limite_val.strftime('%d/%m/%Y')
+            titre_notif = f"📌 Remise physique {ressource.get_type_ressource_display()} : {titre}"
+            msg_notif = (
+                f"Le sujet de {ressource.get_type_ressource_display()} '{titre}' pour le cours {cours_obj.matiere.nom} ({cours_obj.filiere.code}) a été mis en ligne.\n"
+                f"⚠️ DATE LIMITE DE REMISE PHYSIQUE : {date_str}."
+            )
+            site_url = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
+
+            inscriptions = InscriptionCours.objects.filter(cours=cours_obj, est_actif=True).select_related('etudiant', 'etudiant__utilisateur')
+            if salle_obj:
+                inscriptions = inscriptions.filter(
+                    Q(etudiant__salle=salle_obj) | Q(etudiant__salle__isnull=True)
+                )
+            for ins in inscriptions:
+                etud = ins.etudiant
+                if etud.utilisateur:
+                    Notification.objects.create(
+                        utilisateur=etud.utilisateur,
+                        type='AVERTISSEMENT',
+                        titre=titre_notif,
+                        message=msg_notif,
+                        lien=f'/cours/detail/{cours_obj.id}/'
+                    )
+                dest_email = getattr(etud, 'email', None) or (etud.utilisateur.email if etud.utilisateur else None)
+                if dest_email:
+                    try:
+                        send_mail(
+                            subject=f"{getattr(settings, 'EMAIL_SUBJECT_PREFIX', '[IAI-Cameroun] ')}{titre_notif}",
+                            message=f"Bonjour {etud.get_nom_complet()},\n\n{msg_notif}\n\nConsultez le support : {site_url}/cours/detail/{cours_obj.id}/",
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[dest_email],
+                            fail_silently=True
+                        )
+                    except Exception:
+                        pass
+                tel = getattr(etud, 'telephone', '') or (etud.utilisateur.telephone if hasattr(etud, 'utilisateur') and hasattr(etud.utilisateur, 'telephone') else '')
+                if tel:
+                    try:
+                        WhatsAppService.envoyer_message(
+                            tel,
+                            f"*IAI-CAMEROUN (Douala)* 📌\n*{ressource.get_type_ressource_display()} - Remise physique*\n\nBonjour {etud.get_nom_complet()},\n{msg_notif}\n\nLien : {site_url}/cours/detail/{cours_obj.id}/"
+                        )
+                    except Exception:
+                        pass
+
         messages.success(request, f"Le support '{titre}' a été téléversé avec succès.")
         return redirect('tableau_bord:tableau_bord')
         
-    cours_enseignes = Cours.objects.filter(professeur=professeur)
+    from apps.etudiants.models import Filiere, Niveau
+    cours_enseignes = Cours.objects.filter(professeur=professeur).select_related('filiere', 'matiere') if professeur else Cours.objects.none()
+    filieres_list = Filiere.objects.filter(id__in=cours_enseignes.values_list('filiere_id', flat=True).distinct()) if professeur else Filiere.objects.all()
+    niveaux_list = Niveau.objects.all().order_by('numero')
     emplois = EmploiDuTemps.objects.all()
-    
+    mes_ressources = RessourceCours.objects.filter(cours__professeur=professeur).select_related('cours', 'cours__matiere', 'cours__filiere').order_by('-date_ajout') if professeur else RessourceCours.objects.none()
+
     # Statistiques et requêtes pour le rôle de Chef de Service Formation Continue/Certifiante
     from apps.etudiants.models import Apprenant
     from apps.requetes.models import Requete
-    
+
     total_apprenants = Apprenant.objects.count()
     apprenants_continue = Apprenant.objects.filter(formations__type_formation='CONTINUE').distinct().count()
     apprenants_certif = Apprenant.objects.filter(formations__type_formation='CERTIFICATION').distinct().count()
-    
+
     # Requêtes d'apprenants non closes
     requetes_apprenants = Requete.objects.filter(
         auteur__type_utilisateur='APPRENANT'
     ).exclude(statut='TRAITE').select_related('auteur')
-    
+
     from .models import NoteInformation
     notes_info = NoteInformation.objects.filter(est_active=True).order_by('-date_publication')
 
-    # Extraire le programme quotidien dynamique de l'enseignant (remplacé chaque jour à minuit)
-    from apps.cours.presence_service import obtenir_programme_quotidien_enseignant
+    from apps.cours.presence_service import obtenir_programme_quotidien_enseignant, calculer_stats_seances_enseignant
     programme_quotidien = obtenir_programme_quotidien_enseignant(request.user)
-    
+    stats_seances = calculer_stats_seances_enseignant(request.user)
+
+    from apps.cours.models import Salle
+    salles_list = Salle.objects.filter(est_disponible=True).order_by('nom')
+    if not salles_list.exists():
+        salles_list = Salle.objects.all().order_by('nom')
+
     context = {
         'professeur': professeur,
         'cours_enseignes': cours_enseignes,
+        'salles_list': salles_list,
+        'filieres_list': filieres_list,
+        'niveaux_list': niveaux_list,
+        'mes_ressources': mes_ressources,
         'emplois': emplois,
         'programme_quotidien': programme_quotidien,
+        'stats_seances': stats_seances,
+        'seances_effectuees': stats_seances['seances_effectuees'],
+        'seances_total': stats_seances['seances_total'],
+        'taux_realisation': stats_seances['taux_realisation'],
         'total_apprenants': total_apprenants,
         'apprenants_continue': apprenants_continue,
         'apprenants_certif': apprenants_certif,
@@ -832,12 +1084,19 @@ def chef_comptabilite_dashboard(request):
     from apps.etudiants.models import Apprenant
     apprenants_all = Apprenant.objects.all().order_by('nom_complet')
 
+    from apps.paiements.models import ResultatConcours
+    candidats_preinscrits_recent = ResultatConcours.objects.filter(
+        statut_preinscription='PAYE',
+        etudiant_cree__isnull=False
+    ).select_related('filiere', 'etudiant_cree', 'etudiant_cree__utilisateur').order_by('-date_generation_acces')
+
     context = {
         'recus_attente': recus_attente,
         'tranches_niveau2': tranches_niveau2,
         'annee_code': annee_str,
         'formations_all': formations_all,
         'apprenants_all': apprenants_all,
+        'candidats_preinscrits_recent': candidats_preinscrits_recent,
         'titre': "Espace Chef de la Comptabilité"
     }
     return render(request, 'tableau_bord/chef_comptabilite_dashboard.html', context)
@@ -887,8 +1146,11 @@ def dashboard_admin(request):
             annee_academique=annee_active
         ).count(),
         'total_filieres': Filiere.objects.filter(est_active=True).count(),
-        'total_professeurs': 0,
+        'total_professeurs': Professeur.objects.filter(statut='ACTIF').count() or Professeur.objects.count(),
+        'total_apprenants': Apprenant.objects.count(),
         'taux_croissance': '+12.5%',
+
+
     }
     
     # Statistiques par sexe
@@ -1141,15 +1403,16 @@ def statistiques(request):
             ).values_list('etudiant_id', flat=True).distinct()
             nb_etudiants = len(etudiants_ids)
 
-            seances = SeanceCours.objects.filter(cours__in=cours_assignes)
-            seances_effectuees = seances.filter(est_effectuee=True).count()
-            seances_total = seances.count()
-            taux_realisation = round((seances_effectuees / seances_total * 100), 1) if seances_total > 0 else 0.0
+            from apps.cours.presence_service import calculer_stats_seances_enseignant
+            stats_seances = calculer_stats_seances_enseignant(request.user)
+            seances_effectuees = stats_seances['seances_effectuees']
+            seances_total = stats_seances['seances_total']
+            taux_realisation = stats_seances['taux_realisation']
 
-            evaluations = Evaluation.objects.filter(cours__in=cours_assignes)
+            evaluations = Evaluation.objects.filter(cours__professeur=request.user)
             nb_evaluations = evaluations.count()
 
-            notes_enseignant = Note.objects.filter(evaluation__cours__in=cours_assignes)
+            notes_enseignant = Note.objects.filter(evaluation__cours__professeur=request.user)
             moyenne_notes = notes_enseignant.aggregate(Avg('valeur'))['valeur__avg'] or 0.0
             total_notes = notes_enseignant.count()
             taux_reussite_enseignant = round((notes_enseignant.filter(valeur__gte=10).count() / total_notes * 100), 1) if total_notes > 0 else 0.0
@@ -1165,6 +1428,40 @@ def statistiques(request):
                 'moyenne_notes': round(float(moyenne_notes), 2),
                 'taux_reussite_enseignant': float(taux_reussite_enseignant),
             })
+
+    elif type_user == 'CHEF_ANONYMAT':
+        from apps.notes.models import FicheNotesAnonymat, LigneFicheNotesAnonymat, ProcesVerbalNotes
+
+        fiches = FicheNotesAnonymat.objects.all()
+        fiches_total = fiches.count()
+        fiches_transmises = fiches.filter(statut='TRANSMIS_CHEF_ANONYMAT').count()
+        fiches_matchees = fiches.filter(statut__in=['MATCH_EFFECTUE', 'PV_GENERE', 'TRANSMIS_CHEF_ETUDES', 'VALIDE']).count()
+        fiches_brouillon = fiches.filter(statut='BROUILLON').count()
+        
+        lignes = LigneFicheNotesAnonymat.objects.all()
+        copies_total = lignes.count()
+        copies_matchees = lignes.filter(etudiant__isnull=False).count()
+        
+        taux_matching = round((fiches_matchees / fiches_total * 100), 1) if fiches_total > 0 else 0.0
+        pv_generes = ProcesVerbalNotes.objects.count()
+        
+        fiches_examens = fiches.filter(mode_fiche='DEVOIR_SUR_TABLE').count()
+        fiches_cc = fiches.filter(mode_fiche='EXPOSE_TP_TD').count()
+
+        context.update({
+            'anonymat_stats': {
+                'fiches_total': fiches_total,
+                'fiches_transmises': fiches_transmises,
+                'fiches_matchees': fiches_matchees,
+                'fiches_brouillon': fiches_brouillon,
+                'copies_total': copies_total,
+                'copies_matchees': copies_matchees,
+                'taux_matching': float(taux_matching),
+                'pv_generes': pv_generes,
+                'fiches_examens': fiches_examens,
+                'fiches_cc': fiches_cc,
+            }
+        })
 
     elif type_user in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER']:
         total_recettes = RecuPaiement.objects.filter(statut='VALIDE').aggregate(
@@ -1833,12 +2130,39 @@ def api_donnees_dashboard(request):
 
 @login_required
 def api_notifications_non_lues(request):
-    """API pour le nombre de notifications non lues"""
-    count = Notification.objects.filter(
+    """API pour le nombre et la liste des notifications non lues"""
+    qs = Notification.objects.filter(
         utilisateur=request.user, 
         est_lue=False
-    ).count()
-    return JsonResponse({'count': count, 'success': True})
+    ).order_by('-date_creation')
+    
+    count = qs.count()
+    notifications_data = [
+        {
+            'id': n.id,
+            'titre': n.titre,
+            'message': n.message,
+            'type': n.type,
+            'lien': n.lien or '#',
+            'date': n.date_creation.strftime('%d/%m %H:%M')
+        }
+        for n in qs[:5]
+    ]
+    return JsonResponse({
+        'count': count,
+        'notifications': notifications_data,
+        'success': True
+    })
+
+
+@login_required
+def api_marquer_notification_lue_ajax(request, pk):
+    """API AJAX pour marquer une notification comme lue sans rechargement de page"""
+    notif = get_object_or_404(Notification, pk=pk, utilisateur=request.user)
+    notif.est_lue = True
+    notif.date_lecture = timezone.now()
+    notif.save()
+    return JsonResponse({'success': True})
 
 
 @login_required

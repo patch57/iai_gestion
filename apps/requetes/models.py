@@ -70,14 +70,15 @@ class Requete(models.Model):
     def __str__(self):
         return f"Req #{self.id} - {self.get_nature_display()} - {self.auteur.get_full_name() or self.auteur.username}"
 
-    def ajouter_action_historique(self, action, auteur, details=""):
-        """Ajoute une trace d'action dans l'historique"""
+    def ajouter_action_historique(self, action, auteur, details="", est_interne=False):
+        """Ajoute une trace d'action dans l'historique avec flag de confidentialité"""
         entree = {
             'action': action,
             'auteur': auteur.get_full_name() or auteur.username,
             'role': auteur.get_type_utilisateur_display() if hasattr(auteur, 'get_type_utilisateur_display') else str(auteur),
             'date': timezone.now().isoformat(),
-            'details': details
+            'details': details,
+            'est_interne': est_interne,
         }
         if not self.historique:
             self.historique = []

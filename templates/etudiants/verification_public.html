@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentification Officielle - IAI-Cameroun</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+    </style>
+</head>
+<body class="h-full flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950">
+
+    <div class="w-full max-w-lg bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl overflow-hidden relative">
+        <!-- Accent Top Bar -->
+        <div class="h-2 w-full {% if est_valide %}bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500{% else %}bg-gradient-to-r from-rose-500 via-red-500 to-amber-500{% endif %}"></div>
+
+        <!-- Header -->
+        <div class="p-6 text-center border-b border-slate-800/80 relative">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 mb-3 shadow-inner">
+                <i class="fa-solid fa-shield-halved text-2xl"></i>
+            </div>
+            <h1 class="text-xl font-bold text-white tracking-wide">IAI-CAMEROUN</h1>
+            <p class="text-xs text-sky-400 font-medium uppercase tracking-widest mt-0.5">Centre d'Excellence de Douala</p>
+            <p class="text-xs text-slate-400 mt-1">Système National de Vérification Numérique</p>
+        </div>
+
+        <!-- Status Banner -->
+        <div class="p-4 text-center {% if est_valide %}bg-emerald-500/10 border-y border-emerald-500/20 text-emerald-400{% else %}bg-rose-500/10 border-y border-rose-500/20 text-rose-400{% endif %} flex items-center justify-center gap-3">
+            {% if est_valide %}
+                <span class="flex h-3 w-3 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span class="font-semibold text-sm tracking-wide">DOCUMENT OFFICIEL VALIDE & AUTHENTIFIE</span>
+            {% else %}
+                <i class="fa-solid fa-circle-xmark text-lg"></i>
+                <span class="font-semibold text-sm tracking-wide">DOCUMENT NON VALIDE OU EXPIRÉ</span>
+            {% endif %}
+        </div>
+
+        <!-- Content Body -->
+        <div class="p-6 space-y-6">
+
+            <div class="flex items-center gap-5 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+                {% if etudiant.photo %}
+                    <img src="{{ etudiant.photo.url }}" alt="{{ etudiant.nom }}" class="w-20 h-20 rounded-xl object-cover border-2 border-sky-500/30 shadow-md">
+                {% else %}
+                    <div class="w-20 h-20 rounded-xl bg-slate-700/50 flex items-center justify-center text-slate-400 text-3xl font-bold border border-slate-600">
+                        {{ etudiant.nom|slice:":1" }}
+                    </div>
+                {% endif %}
+                <div class="space-y-1">
+                    <h2 class="text-lg font-bold text-white">{{ etudiant.nom }} {{ etudiant.prenom }}</h2>
+                    <p class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-id-card text-sky-400 mr-1.5"></i>{{ etudiant.matricule }}</p>
+                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        {{ etudiant.filiere.code }} - {{ etudiant.filiere.nom }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Detail Grid -->
+            <div class="grid grid-cols-2 gap-4 text-xs">
+                <div class="bg-slate-800/30 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block mb-1 font-medium">Niveau Académique</span>
+                    <span class="text-white font-semibold text-sm">{% if etudiant.niveau %}{{ etudiant.niveau.code }}{% else %}Niveau 1{% endif %}</span>
+                </div>
+                <div class="bg-slate-800/30 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block mb-1 font-medium">Année Académique</span>
+                    <span class="text-white font-semibold text-sm">{% if etudiant.annee_academique %}{{ etudiant.annee_academique.code }}{% else %}2024-2025{% endif %}</span>
+                </div>
+                <div class="bg-slate-800/30 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block mb-1 font-medium">Statut Administratif</span>
+                    <span class="text-emerald-400 font-semibold text-sm">{{ etudiant.get_statut_display }}</span>
+                </div>
+                <div class="bg-slate-800/30 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block mb-1 font-medium">Centre d'Examen</span>
+                    <span class="text-white font-semibold text-sm">Douala, Cameroun</span>
+                </div>
+            </div>
+
+            <div class="text-center pt-2 border-t border-slate-800/80">
+                <p class="text-[11px] text-slate-500">
+                    Ce QR Code certifie l'authenticité de l'étudiant enregistré dans la base officielle de l'IAI-Cameroun Centre de Douala.
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-slate-950 p-4 text-center text-xs text-slate-500 border-t border-slate-800/80">
+            &copy; 2026 IAI-Gestion &bull; Système Sécurisé de Vérification
+        </div>
+    </div>
+
+</body>
+</html>

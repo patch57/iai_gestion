@@ -18,12 +18,19 @@
         </div>
 
         {% if role == 'CHEF_ETUDES' or role == 'ADMIN_SYSTEME' or role == 'DIRECTEUR' %}
-        <a href="{% url 'cours:creer_emploi_du_temps_hebdo' %}" 
-           class="inline-flex items-center bg-gradient-to-r from-emerald-700 to-green-600 hover:from-emerald-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition gap-2">
-            <i class="fas fa-plus-circle"></i> Créer un Emploi du Temps
-        </a>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'cours:importer_emploi_du_temps_csv' %}" 
+               class="inline-flex items-center bg-gray-900 hover:bg-black text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition gap-2">
+                <i class="fas fa-file-csv text-emerald-400"></i> Importer par CSV
+            </a>
+            <a href="{% url 'cours:creer_emploi_du_temps_hebdo' %}" 
+               class="inline-flex items-center bg-gradient-to-r from-emerald-700 to-green-600 hover:from-emerald-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition gap-2">
+                <i class="fas fa-plus-circle"></i> Créer un Emploi du Temps
+            </a>
+        </div>
         {% endif %}
     </div>
+
 
     <!-- Filtres -->
     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">

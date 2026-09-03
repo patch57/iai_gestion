@@ -1,303 +1,437 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Certificat de Scolarité - {{ etudiant.get_nom_complet }}</title>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Certificat de Scolarité - {{ etudiant.get_nom_complet }} | IAI-Cameroun</title>
+    <link href="https://fonts.googleapis.com/css2?family=Times+New+Roman&family=Arial:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        * { box-sizing: border-box; }
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            font-family: 'Times New Roman', Times, serif;
+            background-color: #eef2f7;
             margin: 0;
-            padding: 40px 0;
+            padding: 20px 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            color: #111;
         }
 
-        .certificate-container {
-            width: 210mm;
-            height: 297mm;
-            background-color: white;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-            box-sizing: border-box;
-            padding: 20mm;
-            position: relative;
-            display: flex;
-            flex-col: column;
-            justify-content: space-between;
-        }
-
-        /* Decorative Border */
-        .certificate-border {
-            position: absolute;
-            top: 10mm;
-            left: 10mm;
-            right: 10mm;
-            bottom: 10mm;
-            border: 2px solid #047857;
-            pointer-events: none;
-        }
-        .certificate-border-inner {
-            position: absolute;
-            top: 12mm;
-            left: 12mm;
-            right: 12mm;
-            bottom: 12mm;
-            border: 1px solid #facc15;
-            pointer-events: none;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 15px;
-            margin-top: 10px;
-        }
-
-        .header-left {
-            text-align: center;
-            font-size: 10px;
-            line-height: 1.4;
-            text-transform: uppercase;
-            font-weight: bold;
-            color: #374151;
-        }
-
-        .header-logo {
-            text-align: center;
-        }
-
-        .logo-text {
-            font-family: 'Playfair Display', serif;
-            font-weight: 700;
-            font-size: 28px;
-            color: #047857;
-            letter-spacing: 2px;
-            margin: 0;
-        }
-        .logo-sub {
-            font-size: 9px;
-            letter-spacing: 4px;
-            color: #eab308;
-            font-weight: 800;
-            margin: 2px 0 0 0;
-            text-transform: uppercase;
-        }
-
-        .title-block {
-            text-align: center;
-            margin: 40px 0;
-        }
-
-        .title {
-            font-family: 'Playfair Display', serif;
-            font-size: 32px;
-            font-weight: 700;
-            color: #111827;
-            margin: 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .divider {
-            width: 150px;
-            height: 3px;
-            background-color: #eab308;
-            margin: 15px auto 0 auto;
-            border-radius: 2px;
-        }
-
-        .content {
-            font-size: 15px;
-            line-height: 1.8;
-            color: #374151;
-            margin-bottom: 40px;
-            padding: 0 10px;
-        }
-
-        .highlight {
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-top: auto;
-            padding-bottom: 20px;
-        }
-
-        .qr-code {
-            text-align: center;
-        }
-        .qr-box {
-            width: 90px;
-            height: 90px;
-            border: 1px solid #d1d5db;
-            padding: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #f9fafb;
-        }
-
-        .signature-block {
-            text-align: center;
-            width: 250px;
-        }
-
-        .signature-title {
-            font-size: 13px;
-            font-weight: bold;
-            color: #4b5563;
-            margin-bottom: 60px;
-        }
-
-        .signature-name {
-            font-size: 14px;
-            font-weight: bold;
-            color: #111827;
-            border-top: 1px solid #d1d5db;
-            padding-top: 5px;
-        }
-
-        /* Printable / Action controls */
-        .print-btn-container {
+        .controls-bar {
             position: fixed;
-            top: 20px;
+            top: 15px;
             right: 20px;
-            z-index: 100;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
         }
-        .print-btn {
-            background-color: #047857;
+
+        .btn-action {
+            background-color: #0a369d;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
+            padding: 9px 18px;
+            border-radius: 6px;
+            font-family: Arial, sans-serif;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.2s;
+            text-decoration: none;
+            transition: background-color 0.2s, transform 0.1s;
         }
-        .print-btn:hover {
-            background-color: #065f46;
-            transform: translateY(-2px);
+        .btn-action:hover {
+            background-color: #06236b;
+            transform: translateY(-1px);
+        }
+        .btn-secondary { background-color: #475569; }
+        .btn-secondary:hover { background-color: #334155; }
+
+        /* Container A4 Portrait */
+        .certificate-container {
+            width: 210mm;
+            height: 297mm;
+            max-height: 297mm;
+            background-color: #ffffff;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.18);
+            padding: 14mm 16mm;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
         }
 
+        /* SVG Frame d'Arches et Vagues Bleu Officiel IAI (Fidèle à l'image) */
+        .svg-frame-container {
+            position: absolute;
+            top: 4mm;
+            left: 4mm;
+            right: 4mm;
+            bottom: 4mm;
+            width: calc(100% - 8mm);
+            height: calc(100% - 8mm);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* Filigrane Image du Logo Officiel IAI */
+        .watermark-logo-img {
+            position: absolute;
+            top: 52%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 330px;
+            height: 300px;
+            object-fit: contain;
+            opacity: 0.08;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .header-section {
+            display: grid;
+            grid-template-columns: 1fr 100px 1fr;
+            align-items: center;
+            text-align: center;
+            padding: 4px 10px 2px 10px;
+        }
+
+        .header-col {
+            font-size: 11px;
+            line-height: 1.35;
+            color: #0a369d;
+            font-weight: bold;
+        }
+
+        .header-logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .header-logo-img {
+            width: 95px;
+            height: 88px;
+            object-fit: contain;
+        }
+
+        .contact-subbar {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            font-size: 8.5px;
+            color: #1e293b;
+            border-top: 1.5px solid #0a369d;
+            border-bottom: 1.5px solid #0a369d;
+            padding: 3px 0;
+            margin: 4px 0 12px 0;
+        }
+
+        .ref-box-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+        .ref-box {
+            border: 2.5px solid #0a369d;
+            background-color: #f1f5f9;
+            border-radius: 12px;
+            padding: 6px 20px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            font-weight: 900;
+            font-size: 12px;
+            color: #0f172a;
+            max-width: 90%;
+            box-shadow: inset 0 0 5px rgba(10, 54, 157, 0.08);
+        }
+
+        .title-box-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .title-box {
+            border: 3px solid #0a369d;
+            border-radius: 14px;
+            padding: 8px 36px;
+            text-align: center;
+            background-color: #ffffff;
+            box-shadow: 0 4px 10px rgba(10, 54, 157, 0.06);
+        }
+        .title-text {
+            font-family: Arial, sans-serif;
+            font-size: 23px;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: 1.5px;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        .cert-body-content {
+            font-size: 15.5px;
+            line-height: 1.85;
+            color: #111827;
+            text-align: justify;
+            padding: 0 15px;
+            margin-bottom: 20px;
+        }
+
+        .cert-body-content p {
+            margin: 0 0 16px 0;
+            text-indent: 30px;
+        }
+
+        .field-bold {
+            font-weight: bold;
+            color: #000000;
+        }
+
+        .footer-signature-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 20px;
+            margin-top: 5px;
+        }
+
+        .qr-code-box {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            font-size: 9px;
+            color: #475569;
+        }
+        .qr-code-img {
+            width: 85px;
+            height: 85px;
+            border: 1px solid #cbd5e1;
+            padding: 3px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        /* Bloc Signature Réhaussé */
+        .signature-container {
+            text-align: center;
+            min-width: 280px;
+            position: relative;
+            transform: translateY(-22px);
+        }
+
+        .fait-a-date {
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+        .fait-a-date .date-space {
+            display: inline-block;
+            min-width: 140px;
+            border-bottom: 1px dotted #64748b;
+        }
+
+        .sign-title {
+            font-size: 14.5px;
+            font-weight: bold;
+            line-height: 1.3;
+            color: #0f172a;
+        }
+
+        .physical-signature-blank-space {
+            height: 90px;
+            width: 100%;
+        }
+
+        .bottom-banner-strip {
+            background: linear-gradient(90deg, #15803d 0%, #84cc16 50%, #15803d 100%);
+            border-radius: 20px;
+            padding: 5px 12px;
+            text-align: center;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            font-weight: 900;
+            font-style: italic;
+            margin: 10px 10px 4px 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+        }
+
+        .nb-footer-note {
+            font-size: 10px;
+            font-style: italic;
+            color: #334155;
+            text-align: justify;
+            padding: 0 10px;
+            line-height: 1.3;
+        }
+
+        .status-badge-annule {
+            position: absolute;
+            top: 48%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-25deg);
+            background-color: rgba(220, 38, 38, 0.92);
+            color: white; font-family: Arial, sans-serif;
+            font-size: 3.2rem; font-weight: 900;
+            padding: 12px 45px; border-radius: 12px;
+            border: 5px solid white;
+            text-transform: uppercase;
+            z-index: 100;
+        }
+
+        @page { size: A4 portrait; margin: 0mm; }
         @media print {
-            body {
-                background-color: white;
-                padding: 0;
-                margin: 0;
-            }
-            .certificate-container {
-                box-shadow: none;
-                margin: 0;
-            }
-            .print-btn-container {
-                display: none;
-            }
+            html, body { background-color: white !important; padding: 0 !important; margin: 0 !important; width: 210mm !important; height: 297mm !important; }
+            .certificate-container { box-shadow: none !important; margin: 0 !important; width: 210mm !important; height: 297mm !important; padding: 8mm 10mm !important; }
+            .controls-bar { display: none !important; }
         }
     </style>
 </head>
 <body>
 
-    <div class="print-btn-container">
-        <button onclick="window.print()" class="print-btn">
-            🖨️ Imprimer le Certificat
+    <div class="controls-bar">
+        {% if user.type_utilisateur in 'CHEF_SCOLARITE,ADMIN_PEDAGOGIQUE,ADMIN_FINANCIER,ADMIN_SYSTEME' or user.is_superuser %}
+        <a href="{% url 'inscriptions:liste_certificats' %}" class="btn-action btn-secondary">
+            <i class="fas fa-arrow-left"></i> Registre des certificats
+        </a>
+        {% endif %}
+        <button onclick="window.print()" class="btn-action">
+            <i class="fas fa-print"></i> Imprimer / Télécharger PDF
         </button>
     </div>
 
     <div class="certificate-container">
-        <div class="certificate-border"></div>
-        <div class="certificate-border-inner"></div>
+        <!-- SVG FRAME : REPRODUCTION EXACTE DE LA BORDURE BLEUE À VAGUES ET ARCHES DE L'IMAGE -->
+        <svg class="svg-frame-container" viewBox="0 0 202 289" preserveAspectRatio="none">
+            <defs>
+                <!-- Motif de Vagues Scallopées Bleu Officiel -->
+                <pattern id="waveH" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <path d="M 0 4 Q 2 0, 4 4 T 8 4" fill="none" stroke="#0a369d" stroke-width="1"/>
+                    <path d="M 0 4 Q 2 8, 4 4 T 8 4" fill="none" stroke="#0a369d" stroke-width="0.6"/>
+                    <circle cx="4" cy="4" r="0.8" fill="#0a369d"/>
+                </pattern>
+                <pattern id="waveV" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <path d="M 4 0 Q 0 2, 4 4 T 4 8" fill="none" stroke="#0a369d" stroke-width="1"/>
+                    <path d="M 4 0 Q 8 2, 4 4 T 4 8" fill="none" stroke="#0a369d" stroke-width="0.6"/>
+                    <circle cx="4" cy="4" r="0.8" fill="#0a369d"/>
+                </pattern>
+            </defs>
+
+            <!-- Ligne Extérieure Bleue -->
+            <rect x="1" y="1" width="200" height="287" fill="none" stroke="#0a369d" stroke-width="1.2"/>
+
+            <!-- Ruban de Vagues Bleu (Haut, Bas, Gauche, Droite) -->
+            <rect x="2" y="2" width="198" height="6" fill="url(#waveH)" />
+            <rect x="2" y="281" width="198" height="6" fill="url(#waveH)" />
+            <rect x="2" y="2" width="6" height="285" fill="url(#waveV)" />
+            <rect x="194" y="2" width="6" height="285" fill="url(#waveV)" />
+
+            <!-- Ligne Intérieure Bleue -->
+            <rect x="8.5" y="8.5" width="185" height="272" fill="none" stroke="#0a369d" stroke-width="1.2"/>
+        </svg>
+
+        <!-- Filigrane : Logo Officiel IAI Image -->
+        <img src="{% static 'images/logo_iai.jpg' %}" alt="Filigrane IAI" class="watermark-logo-img">
+
+        {% if certificat.statut == 'ANNULE' %}
+        <div class="status-badge-annule">ANNULÉ / RÉVOQUÉ</div>
+        {% endif %}
 
         <div>
-            <!-- Header -->
-            <div class="header">
-                <div class="header-left">
-                    République du Cameroun<br>
-                    Paix - Travail - Patrie<br>
-                    MINESUP
+            <!-- Header Tri-Colonnes avec le LOGO OFFICIEL IAI IMAGE -->
+            <div class="header-section">
+                <div class="header-col">
+                    INSTITUT AFRICAIN D'INFORMATIQUE<br>
+                    Représentation du Cameroun<br>
+                    Centre d'Excellence Technologique Paul BIYA
                 </div>
-                <div class="header-logo">
-                    <h2 class="logo-text">IAI-CAMEROUN</h2>
-                    <p class="logo-sub">Douala Centre</p>
+                
+                <div class="header-logo-container">
+                    <img src="{% static 'images/logo_iai.jpg' %}" alt="Logo Officiel IAI" class="header-logo-img">
                 </div>
-                <div class="header-left">
-                    Republic of Cameroon<br>
-                    Peace - Work - Fatherland<br>
-                    MINESUP
+
+                <div class="header-col">
+                    AFRICAN INSTITUTE OF COMPUTERSCIENCES<br>
+                    Cameroon Office<br>
+                    Paul BIYA Technological Center of Excellence
                 </div>
             </div>
 
-            <!-- Title -->
-            <div class="title-block">
-                <h1 class="title">Certificat de Scolarité</h1>
-                <div class="divider"></div>
+            <!-- Barre de contact sous en-tête -->
+            <div class="contact-subbar">
+                BP / P.O. Box: 13719-Yaoundé &nbsp;|&nbsp; Contact: (237) 242729957/242729958 &nbsp;|&nbsp; Site web / Web site: www.iaicameroun.com &nbsp;|&nbsp; Email: contact@iaicameroun.com
             </div>
 
-            <!-- Body -->
-            <div class="content">
-                Le Sous-Directeur de l'Institut Africain d'Informatique (IAI-Cameroun), Centre d'Excellence technologique Paul Biya, Représentation de Douala, soussigné, certifie par la présente que l'étudiant(e) :<br><br>
-                
-                Nom complet : <span class="highlight">{{ etudiant.get_nom_complet }}</span><br>
-                Né(e) le : <span class="highlight">{{ etudiant.date_naissance|date:"d F Y" }}</span> à <span class="highlight">{{ etudiant.lieu_naissance }}</span><br>
-                Matricule : <span class="highlight">{{ etudiant.matricule }}</span><br><br>
-                
-                Est régulièrement inscrit(e) à l'IAI-Cameroun (Centre de Douala) pour l'année académique <span class="highlight">{{ annee_academique.code|default:"2024-2025" }}</span> dans la filière :<br>
-                Filière : <span class="highlight">{{ etudiant.filiere.nom }} ({{ etudiant.filiere.code }})</span><br><br>
-                
-                En foi de quoi, le présent certificat est établi et délivré pour servir et valoir ce que de droit.
+            <!-- Boîte N° Référence Cadre DYNAMIQUE -->
+            <div class="ref-box-container">
+                <div class="ref-box">
+                    {% if certificat.numero_reference %}
+                        {{ certificat.numero_reference }}/IAI/RC/DAF/DAAC/DASAA/SDS III/{{ annee_academique.code|slice:"2:4" }}-{{ annee_academique.code|slice:"7:9" }}
+                    {% else %}
+                        069GL3DYDE/IAI/RC/DAF/DAAC/DASAA/SDS III/25-26
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Boîte Titre CERTIFICAT DE SCOLARITE -->
+            <div class="title-box-container">
+                <div class="title-box">
+                    <h1 class="title-text">CERTIFICAT DE SCOLARITE</h1>
+                </div>
+            </div>
+
+            <!-- Corps du Texte Officiel DYNAMIQUE POUR CHAQUE ÉTUDIANT -->
+            <div class="cert-body-content">
+                <p>
+                    Je soussigné, <span class="field-bold">Représentant Résident, Chef d'Etablissement</span> de l'Institut Africain d'Informatique (IAI) au Cameroun, Centre d'Excellence Technologique Paul BIYA, certifie que l'étudiant(e) <span class="field-bold">{{ etudiant.get_nom_complet|upper }}</span>, né(e) le <span class="field-bold">{{ etudiant.date_naissance|date:"d/m/Y"|default:"--" }}</span> à <span class="field-bold">{{ etudiant.lieu_naissance|upper|default:"--" }}</span>, matricule <span class="field-bold">{{ etudiant.matricule }}</span> est régulièrement inscrit(e) dans notre établissement en <span class="field-bold">{% if etudiant.niveau %}{{ etudiant.niveau.numero }}ème année{% elif etudiant.classe and etudiant.classe.niveau %}{{ etudiant.classe.niveau.numero }}ème année{% else %}3ème année{% endif %}</span> en vue de la préparation du <span class="field-bold">Diplôme d'Ingénieur des Travaux Informatiques</span> option <span class="field-bold">{{ etudiant.filiere.nom }}</span> pour l'année Universitaire <span class="field-bold">{{ annee_academique.code|default:"2025-2026" }}</span>.
+                </p>
+                <p style="margin-top: 25px;">
+                    En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.
+                </p>
             </div>
         </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            <div class="qr-code">
-                <div class="qr-box">
-                    <!-- Simple SVG QR Code mockup -->
-                    <svg width="80" height="80" viewBox="0 0 100 100" style="fill: #111827;">
-                        <rect x="0" y="0" width="25" height="25" />
-                        <rect x="5" y="5" width="15" height="15" style="fill: white;" />
-                        <rect x="8" y="8" width="9" height="9" />
-                        
-                        <rect x="75" y="0" width="25" height="25" />
-                        <rect x="80" y="5" width="15" height="15" style="fill: white;" />
-                        <rect x="83" y="8" width="9" height="9" />
-                        
-                        <rect x="0" y="75" width="25" height="25" />
-                        <rect x="5" y="80" width="15" height="15" style="fill: white;" />
-                        <rect x="8" y="83" width="9" height="9" />
-                        
-                        <!-- Random bits -->
-                        <rect x="35" y="5" width="10" height="10" />
-                        <rect x="50" y="15" width="15" height="5" />
-                        <rect x="35" y="30" width="5" height="15" />
-                        <rect x="45" y="45" width="15" height="15" />
-                        <rect x="65" y="35" width="15" height="10" />
-                        <rect x="85" y="60" width="10" height="10" />
-                        <rect x="30" y="75" width="10" height="15" />
-                        <rect x="55" y="80" width="15" height="5" />
-                        <rect x="70" y="75" width="10" height="10" />
-                    </svg>
+        <!-- Bas de page : QR Code, Zone Date Vide et Espace Vierge pour Cachet/Nom/Signature Physique -->
+        <div>
+            <div class="footer-signature-row">
+                <!-- QR Code d'Authentification Numérique -->
+                <div class="qr-code-box">
+                    {% if qr_code_base64 %}
+                    <img src="{{ qr_code_base64 }}" alt="QR Code" class="qr-code-img">
+                    {% else %}
+                    <div style="width:75px; height:75px; border:1px dashed #94a3b8; display:flex; align-items:center; justify-content:center; margin:auto;">QR CODE</div>
+                    {% endif %}
+                    <div style="margin-top: 3px; font-weight: bold; color: #1e3a8a;">
+                        <i class="fas fa-shield-alt"></i> Vérification Officielle
+                    </div>
                 </div>
-                <span style="font-size: 9px; color: #9ca3af; margin-top: 5px; display: block;">Vérification sécurisée</span>
+
+                <!-- Zone Signature Réhaussée -->
+                <div class="signature-container">
+                    <div class="fait-a-date">
+                        Fait à Yaoundé, le <span class="date-space"></span>
+                    </div>
+                    <div class="sign-title">
+                        Le Représentant Résident<br>
+                        Chef d'Etablissement
+                    </div>
+
+                    <!-- Espace vierge réservé au cachet, au nom et à la signature physiques -->
+                    <div class="physical-signature-blank-space"></div>
+                </div>
             </div>
-            
-            <div class="signature-block">
-                <div class="signature-title">Fait à Douala, le {{ date_aujourdhui|date:"d F Y" }}</div>
-                <div class="signature-name">Le Représentant Régional, Douala</div>
+
+            <!-- Bannière Décorative (Vert/Jaune Gradient Officiel) -->
+            <div class="bottom-banner-strip">
+                IAI-Cameroon... 7<sup>e</sup> Rang Mondial e-Learning / Sommet Mondial de l'Information – Genève 2003
+            </div>
+
+            <!-- Note N.B. de bas de page -->
+            <div class="nb-footer-note">
+                N.B : Il n'est délivré qu'un seul Certificat de Scolarité. L'intéressé(e) est autorisé(e) à en faire autant de copies certifiées conformes qui pourraient lui être nécessaires.
             </div>
         </div>
     </div>

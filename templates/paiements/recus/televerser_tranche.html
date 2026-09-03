@@ -26,9 +26,14 @@
                         class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-bold text-gray-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Référence du reçu / Transaction *</label>
-                    <input type="text" name="reference_recu" required placeholder="Ex: FT240710..."
-                        class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center justify-between">
+                        <span>Référence du reçu / Transaction *</span>
+                        <span id="tranche-badge-ai-ref" class="hidden text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                            🤖 IA Détecté
+                        </span>
+                    </label>
+                    <input type="text" name="reference_recu" id="reference-input" required placeholder="Ex: FT240710..."
+                        class="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-bold uppercase">
                 </div>
             </div>
 
@@ -44,13 +49,17 @@
                         <p class="text-xs text-gray-400">Formats acceptés : PDF, PNG, JPG (Max 5Mo)</p>
                     </div>
                 </div>
+                <div id="ai-prescan-status" class="hidden mt-2 inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3.5 py-1.5 rounded-full shadow-sm">
+                    <i class="fas fa-spinner fa-spin text-emerald-600"></i>
+                    <span>Agent IA : Analyse instantanée du reçu...</span>
+                </div>
             </div>
 
             <!-- Information Alert -->
             <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 text-xs text-blue-700 leading-relaxed flex">
                 <i class="fas fa-info-circle text-base mr-3 mt-0.5"></i>
                 <p>
-                    <strong>Analyse IA intégrée :</strong> Notre système extrait automatiquement les données de votre reçu pour accélérer sa validation. Les documents falsifiés ou suspects feront l'objet d'un rejet automatique et d'une alerte comptable.
+                    <strong>Analyse IA intégrée :</strong> Notre système extrait automatiquement le numéro de référence et les données de votre reçu pour accélérer sa validation.
                 </p>
             </div>
 
@@ -61,20 +70,59 @@
     </div>
 </div>
 
+<style>
+    .highlight-flash {
+        transition: all 0.5s ease-in-out;
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.4);
+        background-color: #ecfdf5 !important;
+    }
+</style>
+
 <script>
     const fileInput = document.getElementById('file-input');
     const fileName = document.getElementById('file-name');
     const uploadIcon = document.getElementById('upload-icon');
     const dropzone = document.getElementById('dropzone');
+    const referenceInput = document.getElementById('reference-input');
+    const badgeAiRef = document.getElementById('tranche-badge-ai-ref');
+    const aiPrescanStatus = document.getElementById('ai-prescan-status');
 
     fileInput.addEventListener('change', (e) => {
-        if(fileInput.files.length > 0) {
-            const name = fileInput.files[0].name;
-            fileName.innerText = name;
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            fileName.innerText = file.name;
             fileName.classList.add('text-green-600');
             uploadIcon.classList.remove('text-gray-400');
             uploadIcon.classList.add('text-green-500');
             dropzone.classList.add('border-green-500', 'bg-green-50/10');
+
+            aiPrescanStatus.classList.remove('hidden');
+            aiPrescanStatus.innerHTML = '<i class="fas fa-robot text-emerald-600 animate-spin"></i><span>Agent IA : Extraction du numéro de référence...</span>';
+
+            const formData = new FormData();
+            formData.append('recu_fichier', file);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            fetch("{% url 'paiements:api_prescan_recu' %}", {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.reference) {
+                    referenceInput.value = data.reference;
+                    if (badgeAiRef) badgeAiRef.classList.remove('hidden');
+                    referenceInput.classList.add('highlight-flash');
+                    setTimeout(() => referenceInput.classList.remove('highlight-flash'), 1500);
+                    aiPrescanStatus.innerHTML = `<i class="fas fa-wand-magic-sparkles text-emerald-600"></i><span>N° Référence extrait : ${data.reference}</span>`;
+                } else {
+                    aiPrescanStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-600"></i><span>Fichier prêt. Veuillez saisir la référence.</span>';
+                }
+            })
+            .catch(err => {
+                console.error('Erreur pré-scan IA:', err);
+                aiPrescanStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-600"></i><span>Fichier prêt pour validation</span>';
+            });
         }
     });
 </script>

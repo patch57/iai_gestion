@@ -1,0 +1,275 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impression en Masse - Certificats de Scolarité | IAI-Cameroun</title>
+    <link href="https://fonts.googleapis.com/css2?family=Times+New+Roman&family=Arial:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background-color: #eef2f7;
+            margin: 0;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            color: #111;
+        }
+
+        .controls-bar {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            background-color: #0a369d;
+            color: white;
+            border: none;
+            padding: 9px 18px;
+            border-radius: 6px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-action:hover { background-color: #06236b; }
+        .btn-secondary { background-color: #475569; }
+
+        .certificate-container {
+            width: 210mm;
+            height: 297mm;
+            max-height: 297mm;
+            background-color: #ffffff;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.18);
+            padding: 14mm 16mm;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            page-break-after: always;
+            break-after: page;
+        }
+
+        .svg-frame-container {
+            position: absolute;
+            top: 4mm;
+            left: 4mm;
+            right: 4mm;
+            bottom: 4mm;
+            width: calc(100% - 8mm);
+            height: calc(100% - 8mm);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .watermark-logo-img {
+            position: absolute;
+            top: 52%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 330px;
+            height: 300px;
+            object-fit: contain;
+            opacity: 0.09;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .header-section {
+            display: grid;
+            grid-template-columns: 1fr 100px 1fr;
+            align-items: center; text-align: center;
+            padding: 4px 10px 2px 10px;
+        }
+        .header-col {
+            font-size: 11px; line-height: 1.35; color: #0a369d; font-weight: bold;
+        }
+        .header-logo-img { width: 95px; height: 88px; object-fit: contain; }
+
+        .contact-subbar {
+            text-align: center; font-family: Arial, sans-serif; font-size: 8.5px;
+            color: #1e293b; border-top: 1.5px solid #0a369d; border-bottom: 1.5px solid #0a369d;
+            padding: 3px 0; margin: 4px 0 12px 0;
+        }
+
+        .ref-box-container { display: flex; justify-content: center; margin-bottom: 14px; }
+        .ref-box {
+            border: 2.5px solid #0a369d; background-color: #f1f5f9; border-radius: 12px;
+            padding: 6px 20px; text-align: center; font-family: Arial, sans-serif;
+            font-weight: 900; font-size: 12px; color: #0f172a;
+        }
+
+        .title-box-container { display: flex; justify-content: center; margin-bottom: 24px; }
+        .title-box { border: 3px solid #0a369d; border-radius: 14px; padding: 8px 36px; text-align: center; }
+        .title-text { font-family: Arial, sans-serif; font-size: 23px; font-weight: 900; color: #0f172a; margin: 0; text-transform: uppercase; }
+
+        .cert-body-content { font-size: 15.5px; line-height: 1.85; color: #111827; text-align: justify; padding: 0 15px; margin-bottom: 20px; }
+        .cert-body-content p { margin: 0 0 16px 0; text-indent: 30px; }
+        .field-bold { font-weight: bold; color: #000; }
+
+        .footer-signature-row { display: flex; justify-content: space-between; align-items: flex-end; padding: 0 20px; margin-top: 5px; }
+        .qr-code-box { text-align: center; font-family: Arial, sans-serif; font-size: 9px; color: #475569; }
+        .qr-code-img { width: 85px; height: 85px; border: 1px solid #cbd5e1; padding: 3px; background: white; border-radius: 4px; }
+
+        .signature-container {
+            text-align: center;
+            min-width: 280px;
+            position: relative;
+            transform: translateY(-22px);
+        }
+        .fait-a-date { font-size: 15px; margin-bottom: 6px; }
+        .fait-a-date .date-space { display: inline-block; min-width: 140px; border-bottom: 1px dotted #64748b; }
+        .sign-title { font-size: 14.5px; font-weight: bold; line-height: 1.3; color: #0f172a; }
+
+        .physical-signature-blank-space { height: 90px; width: 100%; }
+
+        .bottom-banner-strip { background: linear-gradient(90deg, #15803d 0%, #84cc16 50%, #15803d 100%); border-radius: 20px; padding: 5px 12px; text-align: center; color: #ffffff; font-family: Arial, sans-serif; font-size: 11px; font-weight: 900; font-style: italic; margin: 10px 10px 4px 10px; }
+        .nb-footer-note { font-size: 10px; font-style: italic; color: #334155; text-align: justify; padding: 0 10px; line-height: 1.3; }
+
+        @page { size: A4 portrait; margin: 0mm; }
+        @media print {
+            html, body { background-color: white !important; padding: 0 !important; margin: 0 !important; width: 210mm !important; height: 297mm !important; }
+            .certificate-container { box-shadow: none !important; margin: 0 !important; width: 210mm !important; height: 297mm !important; padding: 8mm 10mm !important; }
+            .controls-bar { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls-bar">
+        <a href="{% url 'inscriptions:liste_certificats' %}" class="btn-action btn-secondary">
+            <i class="fas fa-arrow-left"></i> Registre
+        </a>
+        <button onclick="window.print()" class="btn-action">
+            <i class="fas fa-print"></i> Tout Imprimer ({{ certificats_data|length }})
+        </button>
+    </div>
+
+    {% for item in certificats_data %}
+    <div class="certificate-container">
+        <!-- SVG FRAME : REPRODUCTION EXACTE DE LA BORDURE BLEUE À VAGUES ET ARCHES DE L'IMAGE -->
+        <svg class="svg-frame-container" viewBox="0 0 202 289" preserveAspectRatio="none">
+            <defs>
+                <pattern id="waveHMass" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <path d="M 0 4 Q 2 0, 4 4 T 8 4" fill="none" stroke="#0a369d" stroke-width="1"/>
+                    <path d="M 0 4 Q 2 8, 4 4 T 8 4" fill="none" stroke="#0a369d" stroke-width="0.6"/>
+                    <circle cx="4" cy="4" r="0.8" fill="#0a369d"/>
+                </pattern>
+                <pattern id="waveVMass" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <path d="M 4 0 Q 0 2, 4 4 T 4 8" fill="none" stroke="#0a369d" stroke-width="1"/>
+                    <path d="M 4 0 Q 8 2, 4 4 T 4 8" fill="none" stroke="#0a369d" stroke-width="0.6"/>
+                    <circle cx="4" cy="4" r="0.8" fill="#0a369d"/>
+                </pattern>
+            </defs>
+
+            <rect x="1" y="1" width="200" height="287" fill="none" stroke="#0a369d" stroke-width="1.2"/>
+
+            <rect x="2" y="2" width="198" height="6" fill="url(#waveHMass)" />
+            <rect x="2" y="281" width="198" height="6" fill="url(#waveHMass)" />
+            <rect x="2" y="2" width="6" height="285" fill="url(#waveVMass)" />
+            <rect x="194" y="2" width="6" height="285" fill="url(#waveVMass)" />
+
+            <rect x="8.5" y="8.5" width="185" height="272" fill="none" stroke="#0a369d" stroke-width="1.2"/>
+        </svg>
+
+        <img src="{% static 'images/logo_iai.jpg' %}" alt="Filigrane IAI" class="watermark-logo-img">
+
+        <div>
+            <div class="header-section">
+                <div class="header-col">
+                    INSTITUT AFRICAIN D'INFORMATIQUE<br>
+                    Représentation du Cameroun<br>
+                    Centre d'Excellence Technologique Paul BIYA
+                </div>
+                <div class="header-logo-container">
+                    <img src="{% static 'images/logo_iai.jpg' %}" alt="Logo Officiel IAI" class="header-logo-img">
+                </div>
+                <div class="header-col">
+                    AFRICAN INSTITUTE OF COMPUTERSCIENCES<br>
+                    Cameroon Office<br>
+                    Paul BIYA Technological Center of Excellence
+                </div>
+            </div>
+
+            <div class="contact-subbar">
+                BP / P.O. Box: 13719-Yaoundé &nbsp;|&nbsp; Contact: (237) 242729957/242729958 &nbsp;|&nbsp; Site web / Web site: www.iaicameroun.com &nbsp;|&nbsp; Email: contact@iaicameroun.com
+            </div>
+
+            <div class="ref-box-container">
+                <div class="ref-box">
+                    {% if item.certificat.numero_reference %}
+                        {{ item.certificat.numero_reference }}/IAI/RC/DAF/DAAC/DASAA/SDS III/{{ item.annee_academique.code|slice:"2:4" }}-{{ item.annee_academique.code|slice:"7:9" }}
+                    {% else %}
+                        069GL3DYDE/IAI/RC/DAF/DAAC/DASAA/SDS III/25-26
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="title-box-container">
+                <div class="title-box">
+                    <h1 class="title-text">CERTIFICAT DE SCOLARITE</h1>
+                </div>
+            </div>
+
+            <div class="cert-body-content">
+                <p>
+                    Je soussigné, <span class="field-bold">Représentant Résident, Chef d'Etablissement</span> de l'Institut Africain d'Informatique (IAI) au Cameroun, Centre d'Excellence Technologique Paul BIYA, certifie que l'étudiant(e) <span class="field-bold">{{ item.etudiant.get_nom_complet|upper }}</span>, né(e) le <span class="field-bold">{{ item.etudiant.date_naissance|date:"d/m/Y"|default:"--" }}</span> à <span class="field-bold">{{ item.etudiant.lieu_naissance|upper|default:"--" }}</span>, matricule <span class="field-bold">{{ item.etudiant.matricule }}</span> est régulièrement inscrit(e) dans notre établissement en <span class="field-bold">{% if item.etudiant.niveau %}{{ item.etudiant.niveau.numero }}ème année{% elif item.etudiant.classe and item.etudiant.classe.niveau %}{{ item.etudiant.classe.niveau.numero }}ème année{% else %}3ème année{% endif %}</span> en vue de la préparation du <span class="field-bold">Diplôme d'Ingénieur des Travaux Informatiques</span> option <span class="field-bold">{{ item.etudiant.filiere.nom }}</span> pour l'année Universitaire <span class="field-bold">{{ item.annee_academique.code|default:"2025-2026" }}</span>.
+                </p>
+                <p style="margin-top: 25px;">
+                    En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.
+                </p>
+            </div>
+        </div>
+
+        <div>
+            <div class="footer-signature-row">
+                <div class="qr-code-box">
+                    {% if item.qr_code_base64 %}
+                    <img src="{{ item.qr_code_base64 }}" alt="QR Code" class="qr-code-img">
+                    {% endif %}
+                    <div style="margin-top: 3px; font-weight: bold; color: #1e3a8a;">
+                        <i class="fas fa-shield-alt"></i> Vérification
+                    </div>
+                </div>
+
+                <div class="signature-container">
+                    <div class="fait-a-date">
+                        Fait à Yaoundé, le <span class="date-space"></span>
+                    </div>
+                    <div class="sign-title">
+                        Le Représentant Résident<br>
+                        Chef d'Etablissement
+                    </div>
+
+                    <div class="physical-signature-blank-space"></div>
+                </div>
+            </div>
+
+            <div class="bottom-banner-strip">
+                IAI-Cameroon... 7<sup>e</sup> Rang Mondial e-Learning / Sommet Mondial de l'Information – Genève 2003
+            </div>
+
+            <div class="nb-footer-note">
+                N.B : Il n'est délivré qu'un seul Certificat de Scolarité. L'intéressé(e) est autorisé(e) à en faire autant de copies certifiées conformes qui pourraient lui être nécessaires.
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+</body>
+</html>

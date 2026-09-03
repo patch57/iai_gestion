@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Emplois du Temps Apprenants - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8 animate-fadeInUp">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-gray-800">
+                <i class="fas fa-calendar-alt text-green-600 mr-2"></i>Emplois du Temps Apprenants
+            </h1>
+            <p class="text-gray-500 text-sm mt-1">
+                {% if user.type_utilisateur == 'APPRENANT' %}
+                Consultez exclusivement les emplois du temps associés à votre formation et votre module.
+                {% else %}
+                Gérez et consultez les emplois du temps de la Formation Continue et Certifiante.
+                {% endif %}
+            </p>
+        </div>
+        
+        {% if user.type_utilisateur in 'CHEF_FORMATION_CONTINUE,ADMIN_SYSTEME,DIRECTEUR,CHEF_ETUDES' %}
+        <a href="{% url 'cours:creer_emploi_du_temps_apprenant' %}" class="inline-flex items-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
+            <i class="fas fa-plus-circle mr-2 text-yellow-400"></i> Publier un Emploi du Temps
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Liste d'emplois du temps -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for e in emplois %}
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300">
+            <div>
+                <!-- Badges -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2.5 py-1 text-[10px] font-bold uppercase rounded-full bg-emerald-100 text-emerald-700">
+                        {{ e.get_type_formation_display }}
+                    </span>
+                    <span class="text-[10px] text-gray-400 font-semibold">Du {{ e.date_debut|date:"d/m/Y" }} au {{ e.date_fin|date:"d/m/Y" }}</span>
+                </div>
+                
+                <h3 class="font-bold text-gray-800 text-base mb-2 line-clamp-2">{{ e.titre }}</h3>
+                
+                <div class="space-y-1.5 text-xs text-gray-500 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <p><i class="fas fa-book-reader text-green-600 mr-1.5"></i> <span class="font-semibold text-gray-700">Module :</span> {{ e.get_module_formation_display }}</p>
+                    {% if e.niveau_etude %}
+                    <p><i class="fas fa-layer-group text-green-600 mr-1.5"></i> <span class="font-semibold text-gray-700">Stade / Niveau :</span> {{ e.niveau_etude }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="border-t pt-4 mt-2 flex items-center justify-between">
+                <span class="text-[10px] text-gray-400 italic">Publié par {{ e.cree_par.get_full_name|default:e.cree_par.username }}</span>
+                <div class="flex items-center gap-2">
+                    {% if user.type_utilisateur in 'CHEF_FORMATION_CONTINUE ADMIN_SYSTEME DIRECTEUR CHEF_ETUDES' or user.is_superuser %}
+                    <form method="POST" action="{% url 'cours:supprimer_emploi_du_temps_apprenant' e.id %}" onsubmit="return confirm('Voulez-vous vraiment supprimer cet emploi du temps ?')" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-rose-600 hover:text-rose-800 font-bold px-2 py-1.5 text-xs hover:bg-rose-50 rounded-lg transition" title="Supprimer cet emploi du temps">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    {% if e.fichier_pdf %}
+                    <a href="{{ e.fichier_pdf.url }}" target="_blank" class="inline-flex bg-green-700 hover:bg-green-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm">
+                        <i class="fas fa-file-pdf mr-1.5"></i> Télécharger le PDF
+                    </a>
+                    {% else %}
+                    <span class="text-xs text-gray-400">PDF indisponible</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% empty %}
+        <div class="col-span-full p-12 text-center text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm">
+            <i class="fas fa-calendar-times text-5xl mb-4 text-gray-200 block"></i>
+            Aucun emploi du temps ne correspond à votre profil pour le moment.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

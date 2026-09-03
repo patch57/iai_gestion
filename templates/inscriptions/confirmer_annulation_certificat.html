@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Révocation du Certificat | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-xl">
+    <div class="bg-white rounded-2xl shadow-sm border border-red-100 p-6 space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full mx-auto flex items-center justify-center text-2xl font-bold mb-3">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h1 class="text-xl font-bold text-gray-900">Révocation du Certificat de Scolarité</h1>
+            <p class="text-sm text-gray-600 mt-1">Vous êtes sur le point d'annuler officiellement le document ci-dessous :</p>
+        </div>
+
+        <div class="bg-red-50/60 border border-red-200 rounded-xl p-4 space-y-2 text-sm">
+            <div class="flex justify-between">
+                <span class="text-gray-600">Référence :</span>
+                <span class="font-mono font-bold text-red-700">{{ certificat.numero_reference }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-600">Étudiant :</span>
+                <span class="font-bold text-gray-900">{{ certificat.etudiant.get_nom_complet }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-600">Filière :</span>
+                <span class="font-semibold text-gray-800">{{ certificat.etudiant.filiere.nom }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-600">Émis le :</span>
+                <span class="text-gray-700">{{ certificat.date_delivrance|date:"d/m/Y H:i" }}</span>
+            </div>
+        </div>
+
+        <p class="text-xs text-red-600 bg-red-50 p-3 rounded-lg border border-red-100 font-medium">
+            <i class="fas fa-info-circle"></i> Cette action est irréversible. Le scan du QR Code par un tiers indiquera désormais que le document est annulé.
+        </p>
+
+        <form method="POST" class="flex gap-3 justify-end pt-2">
+            {% csrf_token %}
+            <a href="{% url 'inscriptions:liste_certificats' %}" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-sm">
+                Annuler
+            </a>
+            <button type="submit" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm shadow">
+                <i class="fas fa-ban"></i> Confirmer la révocation
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

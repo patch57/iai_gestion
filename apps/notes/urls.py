@@ -48,22 +48,25 @@ urlpatterns = [
     
     # ========== STATISTIQUES ==========
     path('statistiques/', views.statistiques_notes, name='statistiques_notes'),
-    # À implémenter ultérieurement
-    # path('statistiques/filieres/', views.statistiques_par_filiere, name='statistiques_par_filiere'),
-    # path('statistiques/evaluations/', views.statistiques_evaluations, name='statistiques_evaluations'),
+    path('statistiques/filieres/', views.statistiques_par_filiere, name='statistiques_par_filiere'),
+    path('statistiques/evaluations/', views.statistiques_evaluations, name='statistiques_evaluations'),
     
     # ========== API (AJAX) ==========
     path('api/evaluation/<int:evaluation_id>/stats/', views.api_stats_evaluation, name='api_stats_evaluation'),
     path('api/etudiant/<int:etudiant_id>/notes/', views.api_notes_etudiant, name='api_notes_etudiant'),
     path('api/filiere/<int:filiere_id>/moyennes/', views.api_moyennes_filiere, name='api_moyennes_filiere'),
 
-    # ========== FICHES D'ANONYMAT (CONFIDENTIEL) ==========
-    path('fiches-anonymat/', views.liste_fiches_anonymat, name='liste_fiches_anonymat'),
-    path('fiches-anonymat/importer/', views.importer_fiche_anonymat, name='importer_fiche_anonymat'),
-    path('fiches-anonymat/<int:pk>/valider/', views.valider_fiche_anonymat, name='valider_fiche_anonymat'),
-    path('fiches-anonymat/<int:pk>/supprimer/', views.supprimer_fiche_anonymat, name='supprimer_fiche_anonymat'),
+    # ========== FICHES D'ANONYMAT & WORKFLOW CONFIDENTIEL ==========
+    path('anonymat/enseignant/', views.dashboard_anonymat_enseignant, name='dashboard_anonymat_enseignant'),
+    path('anonymat/enseignant/saisie/<int:fiche_id>/', views.saisie_fiche_enseignant, name='saisie_fiche_enseignant'),
+    path('anonymat/enseignant/supprimer/<int:fiche_id>/', views.supprimer_fiche_enseignant, name='supprimer_fiche_enseignant'),
+    path('anonymat/chef/', views.dashboard_chef_anonymat, name='dashboard_chef_anonymat'),
+    path('anonymat/chef/matching/<int:fiche_id>/', views.matching_anonymat_chef, name='matching_anonymat_chef'),
+    path('anonymat/chef/supprimer/<int:fiche_id>/', views.supprimer_fiche_chef_anonymat, name='supprimer_fiche_chef_anonymat'),
+    path('fiches-anonymat/', views.dashboard_chef_anonymat, name='liste_fiches_anonymat'),
     
     # ========== PROCÈS-VERBAUX DE NOTES ==========
+    path('proces-verbaux/', views.liste_proces_verbaux, name='liste_proces_verbaux'),
     path('pv/<int:pk>/', views.detail_pv, name='detail_pv'),
     path('pv/<int:pk>/transmettre/', views.transmettre_pv, name='transmettre_pv'),
     path('pv/<int:pk>/supprimer/', views.supprimer_pv, name='supprimer_pv'),

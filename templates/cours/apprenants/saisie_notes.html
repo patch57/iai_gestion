@@ -1,106 +1,212 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Saisie des Notes - Certification - IAI-Cameroun{% endblock %}
+{% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 py-8 animate-fadeInUp">
-    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-green-800 to-green-700 p-6 text-white flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold">
-                    <i class="fas fa-edit mr-2 text-yellow-400"></i>Saisie des Notes (Certifications / Formation Continue)
-                </h1>
-                <p class="text-xs text-green-100 mt-1">Sélectionnez une formation pour attribuer ou modifier les notes d'évaluation</p>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp space-y-8">
+
+    <!-- En-tête -->
+    <div class="bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-700 rounded-3xl p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+            <div class="flex items-center gap-3">
+                <span class="p-3 bg-white/10 rounded-2xl backdrop-blur-md">
+                    <i class="fas fa-calculator text-2xl text-amber-300"></i>
+                </span>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-black tracking-tight">Saisie Multi-Matières & Moyennes des Apprenants</h1>
+                    <p class="text-emerald-100 text-xs md:text-sm mt-1">Saisie groupée des évaluations par matière et calcul automatique des moyennes de formation</p>
+                </div>
             </div>
-            <a href="{% url 'tableau_bord:tableau_bord' %}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition">
-                Tableau de bord
-            </a>
         </div>
 
-        <!-- Body -->
-        <div class="p-6 md:p-8 space-y-6">
-            <!-- Choix de formation -->
-            <form method="GET" class="flex flex-col md:flex-row gap-4 items-end bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Choisir la Formation / Module</label>
-                    <select name="formation_id" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                        <option value="">-- Sélectionnez une formation --</option>
-                        {% for f in formations %}
-                        <option value="{{ f.id }}" {% if formation_selectionnee.id == f.id %}selected{% endif %}>
-                            {{ f.get_nom_display }} ({{ f.get_type_formation_display }})
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="bg-gray-800 hover:bg-gray-900 text-white font-bold px-6 py-2 rounded-xl text-sm transition">
-                    Charger les apprenants
-                </button>
-            </form>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'cours:gestion_matieres_formation' %}{% if formation_selectionnee %}?formation_id={{ formation_selectionnee.id }}{% endif %}" class="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-4 py-3 rounded-2xl shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-cog"></i> Configurer / Gérer les Matières
+            </a>
+        </div>
+    </div>
 
-            {% if formation_selectionnee %}
-            <form method="POST" class="space-y-6">
-                {% csrf_token %}
-                <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                <th class="p-4">Apprenant</th>
-                                <th class="p-4">Email</th>
-                                <th class="p-4 w-32">Note / 20</th>
-                                <th class="p-4">Observations / Appréciation</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 text-sm">
-                            {% for a in apprenants %}
-                            <tr class="hover:bg-gray-50/50 transition">
-                                <td class="p-4 font-bold text-gray-800">
-                                    {{ a.nom_complet }}
-                                </td>
-                                <td class="p-4 text-gray-500">
-                                    {{ a.email }}
-                                </td>
-                                <td class="p-4">
-                                    <!-- Récupérer la note stockée dans le dictionnaire avec le tag custom ou résolu dans le view -->
-                                    <input type="number" name="note_{{ a.id }}" step="0.25" min="0" max="20" 
-                                           value="{% for aid, data in notes_dict.items %}{% if aid == a.id %}{{ data.note }}{% endif %}{% endfor %}"
-                                           placeholder="Note"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-green-500 focus:border-green-500 font-bold text-green-700">
-                                </td>
-                                <td class="p-4">
-                                    <input type="text" name="commentaire_{{ a.id }}" 
-                                           value="{% for aid, data in notes_dict.items %}{% if aid == a.id %}{{ data.commentaire }}{% endif %}{% endfor %}"
-                                           placeholder="Ex: Excellent, Travailleur, etc."
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-green-500 focus:border-green-500">
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="4" class="p-10 text-center text-gray-400">
-                                    Aucun apprenant n'est actuellement inscrit à cette formation.
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+    <!-- Sélecteur de Formation / Module -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+        <form method="GET" action="" class="flex flex-col md:flex-row items-end gap-4">
+            <div class="flex-1">
+                <label class="block text-xs font-extrabold text-gray-500 uppercase mb-2">Choisir la Formation / Module de Certification <span class="text-rose-500">*</span></label>
+                <select name="formation_id" required class="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm font-bold text-gray-800 focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="">-- Sélectionnez une formation --</option>
+                    {% for f in formations %}
+                    <option value="{{ f.id }}" {% if formation_selectionnee and formation_selectionnee.id == f.id %}selected{% endif %}>
+                        {{ f.get_nom_display }} ({{ f.get_type_formation_display }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-6 py-3 rounded-2xl text-sm transition shadow-md flex items-center gap-2">
+                <i class="fas fa-sync-alt"></i> Charger les Matières & Apprenants
+            </button>
+        </form>
+    </div>
+
+    {% if formation_selectionnee %}
+    <!-- Grille de Saisie Multi-Matières -->
+    <form method="POST" action="" class="space-y-6">
+        {% csrf_token %}
+
+        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-black text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-graduation-cap text-emerald-600"></i> {{ formation_selectionnee.get_nom_display }}
+                    </h2>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        {{ matieres|length }} matière(s) définie(s) • {{ donnees_apprenants|length }} apprenant(s) inscrit(s)
+                    </p>
                 </div>
 
-                {% if apprenants %}
-                <div class="flex justify-end">
-                    <button type="submit" class="bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-6 py-3 rounded-xl text-sm shadow-md transition cursor-pointer">
-                        <i class="fas fa-save mr-2 text-yellow-400"></i> Enregistrer toutes les notes
+                <div class="flex items-center gap-2">
+                    <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-6 py-3 rounded-2xl text-xs shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-check-circle"></i> Enregistrer Toutes les Notes
                     </button>
                 </div>
-                {% endif %}
-            </form>
-            {% else %}
-            <div class="p-12 text-center text-gray-400 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                <i class="fas fa-edit text-5xl mb-4 text-gray-300 block"></i>
-                Veuillez sélectionner une formation dans la liste ci-dessus pour charger la liste des apprenants et attribuer les notes.
+            </div>
+
+            <!-- Liste des Matières et Coefficients -->
+            <div class="bg-emerald-50/60 p-4 border-b border-emerald-100 flex flex-wrap items-center gap-3 text-xs">
+                <span class="font-extrabold text-emerald-900 uppercase">Matières évaluées :</span>
+                {% for m in matieres %}
+                <span class="bg-white border border-emerald-200 text-emerald-800 px-3 py-1 rounded-full font-bold shadow-xs">
+                    {{ m.nom }} <span class="text-emerald-600 font-extrabold">(Coeff {{ m.coefficient|floatformat:1 }})</span>
+                </span>
+                {% endfor %}
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 uppercase text-[10px] font-black tracking-wider border-b">
+                            <th class="p-4 min-w-[200px]">Apprenant</th>
+                            {% for m in matieres %}
+                            <th class="p-4 min-w-[220px] text-center border-l border-gray-200">
+                                <p class="font-black text-gray-800 text-xs">{{ m.nom }}</p>
+                                <p class="text-[10px] text-emerald-700 font-bold">Coeff {{ m.coefficient|floatformat:1 }}</p>
+                            </th>
+                            {% endfor %}
+                            <th class="p-4 text-center min-w-[130px] border-l border-gray-200 bg-slate-50">Moyenne (/20)</th>
+                            <th class="p-4 text-center min-w-[120px] border-l border-gray-200 bg-slate-50">Décision</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 font-medium">
+                        {% for row in donnees_apprenants %}
+                        <tr class="hover:bg-emerald-50/20 transition row-apprenant" data-apprenant-id="{{ row.apprenant.id }}">
+                            <td class="p-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-xs">
+                                        {{ row.apprenant.nom_complet|first|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="font-extrabold text-gray-900 text-xs">{{ row.apprenant.nom_complet }}</p>
+                                        <p class="text-[10px] text-gray-500">{{ row.apprenant.email }}</p>
+                                    </div>
+                                </div>
+                            </td>
+
+                            {% for item in row.notes_row %}
+                            <td class="p-3 border-l border-gray-100">
+                                <div class="space-y-1.5">
+                                    <div class="relative">
+                                        <input type="number" step="0.25" min="0" max="20" name="note_{{ row.apprenant.id }}_{{ item.matiere_id }}" value="{{ item.note_str }}" placeholder="Note /20" data-coeff="{{ item.coefficient }}" oninput="recalculerMoyenneLigne(this)" class="input-note w-full text-center rounded-xl border border-gray-300 py-1.5 px-2 font-bold text-gray-900 text-xs focus:ring-emerald-500 focus:border-emerald-500">
+                                    </div>
+                                    <input type="text" name="commentaire_{{ row.apprenant.id }}_{{ item.matiere_id }}" value="{{ item.commentaire }}" placeholder="Appréciation..." class="w-full text-[10px] rounded-lg border border-gray-200 py-1 px-2 text-gray-600 focus:ring-emerald-500">
+                                </div>
+                            </td>
+                            {% endfor %}
+
+                            <!-- Moyenne Générale -->
+                            <td class="p-4 text-center border-l border-gray-100 bg-slate-50 font-black">
+                                <span class="moyenne-valeur text-base font-black text-gray-900">
+                                    {% if row.moyenne is not None %}
+                                    {{ row.moyenne|floatformat:2 }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </span>
+                            </td>
+
+                            <!-- Décision -->
+                            <td class="p-4 text-center border-l border-gray-100 bg-slate-50">
+                                <span class="badge-decision px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border {{ row.statut_color }}">
+                                    {{ row.statut_decision }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{{ matieres|length|add:3 }}" class="text-center py-12 text-gray-400">
+                                <i class="fas fa-user-slash text-3xl text-gray-300 mb-2 block"></i>
+                                Aucun apprenant inscrit dans cette formation pour le moment.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if donnees_apprenants %}
+            <div class="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
+                <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-8 py-3 rounded-2xl text-xs shadow-lg transition flex items-center gap-2">
+                    <i class="fas fa-check-circle text-sm"></i> Enregistrer Toutes les Notes & Valider les Moyennes
+                </button>
             </div>
             {% endif %}
         </div>
+    </form>
+    {% else %}
+    <div class="bg-emerald-50/50 rounded-3xl p-12 text-center border border-emerald-100 space-y-4">
+        <i class="fas fa-hand-pointer text-4xl text-emerald-600 animate-bounce"></i>
+        <h3 class="text-lg font-bold text-gray-800">Veuillez sélectionner une formation ci-dessus</h3>
+        <p class="text-xs text-gray-500 max-w-md mx-auto">Choisissez un module pour charger la liste des matières et la grille de saisie des apprenants.</p>
     </div>
+    {% endif %}
 </div>
+
+<script>
+function recalculerMoyenneLigne(inputElem) {
+    const row = inputElem.closest('.row-apprenant');
+    if (!row) return;
+
+    const noteInputs = row.querySelectorAll('.input-note');
+    let totalPoints = 0;
+    let totalCoeffs = 0;
+
+    noteInputs.forEach(inp => {
+        const val = parseFloat(inp.value);
+        const coeff = parseFloat(inp.getAttribute('data-coeff')) || 1.0;
+
+        if (!isNaN(val) && val >= 0 && val <= 20) {
+            totalPoints += val * coeff;
+            totalCoeffs += coeff;
+        }
+    });
+
+    const elemMoyenne = row.querySelector('.moyenne-valeur');
+    const elemBadge = row.querySelector('.badge-decision');
+
+    if (totalCoeffs > 0) {
+        const moyenne = (totalPoints / totalCoeffs).toFixed(2);
+        elemMoyenne.innerText = moyenne;
+
+        if (moyenne >= 10.0) {
+            elemBadge.innerText = 'Admis(e)';
+            elemBadge.className = 'badge-decision px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-emerald-100 text-emerald-800 border-emerald-200';
+        } else {
+            elemBadge.innerText = 'Ajourné(e)';
+            elemBadge.className = 'badge-decision px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-rose-100 text-rose-800 border-rose-200';
+        }
+    } else {
+        elemMoyenne.innerText = '-';
+        elemBadge.innerText = 'En attente';
+        elemBadge.className = 'badge-decision px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-gray-100 text-gray-700 border-gray-200';
+    }
+}
+</script>
 {% endblock %}

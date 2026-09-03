@@ -81,6 +81,12 @@
                                 </button>
                             </form>
                             {% endif %}
+                            <form method="POST" action="{% url 'cours:supprimer_fiche_presence' f.pk %}" class="inline" onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer définitivement cette fiche de présence hebdomadaire pour {{ f.classe.nom }} (Semaine du {{ f.semaine_du|date:"d/m/Y" }}) ?');">
+                                {% csrf_token %}
+                                <button type="submit" class="p-1.5 text-gray-400 hover:text-red-600 transition inline-flex items-center" title="Supprimer la semaine de cette salle">
+                                    <i class="fas fa-trash-alt text-sm"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% empty %}

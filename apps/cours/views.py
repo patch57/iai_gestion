@@ -4,6 +4,7 @@ IAI-Cameroun - Centre de Douala
 """
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, permission_required
+from apps.authentification.decorators import role_required
 from django.contrib import messages
 from django.db.models import Q, Count
 from django.core.paginator import Paginator
@@ -18,73 +19,138 @@ from apps.etudiants.models import Filiere
 @login_required
 def liste_cours(request):
     """Liste des cours & Programme Quotidien extrait de l'emploi du temps officiel (Section Cours Sidebar)"""
-    from apps.cours.models import EmploiDuTempsHebdomadaire, CreneauEmploiDuTemps
+    from apps.cours.models import EmploiDuTempsHebdomadaire, CreneauEmploiDuTemps, Salle
+    from apps.etudiants.models import Etudiant, Filiere, Niveau
     from django.utils import timezone
+    from django.db.models import Q
     
     today = timezone.now().date()
     weekday_num = today.weekday()
     
     JOUR_MAP = {
-        0: 'LUNDI',
-        1: 'MARDI',
-        2: 'MERCREDI',
-        3: 'JEUDI',
-        4: 'VENDREDI',
-        5: 'SAMEDI',
+        0: 'LUNDI', 1: 'MARDI', 2: 'MERCREDI', 3: 'JEUDI', 4: 'VENDREDI', 5: 'SAMEDI'
     }
     JOUR_NOMS = {
         0: 'Lundi', 1: 'Mardi', 2: 'Mercredi', 3: 'Jeudi', 4: 'Vendredi', 5: 'Samedi', 6: 'Dimanche'
     }
+    JOUR_REV_MAP = {
+        'LUNDI': 'Lundi', 'MARDI': 'Mardi', 'MERCREDI': 'Mercredi',
+        'JEUDI': 'Jeudi', 'VENDREDI': 'Vendredi', 'SAMEDI': 'Samedi'
+    }
     
-    jour_code_actuel = JOUR_MAP.get(weekday_num, None)
-    nom_jour_actuel = JOUR_NOMS.get(weekday_num, 'Aujourd\'hui')
-    
-    # Filtre filière si sélectionnée
-    filiere_id = request.GET.get('filiere', '')
-    etudiant = getattr(request.user, 'etudiant_profile', None) if hasattr(request.user, 'etudiant_profile') else None
-    if not etudiant:
-        from apps.etudiants.models import Etudiant
-        etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
-        
-    filiere_obj = None
-    if filiere_id:
-        filiere_obj = Filiere.objects.filter(id=filiere_id).first()
-    elif etudiant and etudiant.filiere:
-        filiere_obj = etudiant.filiere
+    jour_choisi = request.GET.get('jour', '').upper()
+    if jour_choisi in JOUR_REV_MAP:
+        jour_code_actuel = jour_choisi
+        nom_jour_actuel = JOUR_REV_MAP[jour_choisi]
     else:
-        filiere_obj = Filiere.objects.filter(est_active=True).first()
+        jour_code_actuel = JOUR_MAP.get(weekday_num, 'LUNDI')
+        nom_jour_actuel = JOUR_NOMS.get(weekday_num, 'Lundi')
+    
+    user = request.user
+    etudiant = getattr(user, 'etudiant_profile', None) if hasattr(user, 'etudiant_profile') else None
+    if not etudiant:
+        etudiant = Etudiant.objects.filter(utilisateur=user).first()
+        
+    is_professeur = (getattr(user, 'type_utilisateur', None) == 'PROFESSEUR')
 
-    emploi_hebdo = None
+    filiere_id = request.GET.get('filiere', '')
+    niveau_id = request.GET.get('niveau', '')
+    salle_id = request.GET.get('salle', '')
+
+    filiere_obj = Filiere.objects.filter(id=filiere_id).first() if filiere_id else None
+    niveau_obj = Niveau.objects.filter(id=niveau_id).first() if niveau_id else None
+    salle_obj = Salle.objects.filter(id=salle_id).first() if salle_id else None
+
+    # Base des créneaux pour la journée
+    creneaux_base = CreneauEmploiDuTemps.objects.filter(jour=jour_code_actuel).exclude(type_evenement='PAUSE')
+
     if filiere_obj:
-        emploi_hebdo = EmploiDuTempsHebdomadaire.objects.filter(
-            filiere=filiere_obj,
-            statut='VALIDE',
-            date_debut_semaine__lte=today,
-            date_fin_semaine__gte=today
-        ).first()
-        if not emploi_hebdo:
-            emploi_hebdo = EmploiDuTempsHebdomadaire.objects.filter(
-                filiere=filiere_obj,
-                statut='VALIDE'
-            ).order_by('-date_creation').first()
+        creneaux_base = creneaux_base.filter(emploi_du_temps__filiere=filiere_obj)
 
-    creneaux_du_jour = []
-    if emploi_hebdo and jour_code_actuel:
-        creneaux_du_jour = CreneauEmploiDuTemps.objects.filter(
-            emploi_du_temps=emploi_hebdo,
-            jour=jour_code_actuel
-        ).exclude(type_evenement='PAUSE').order_by('plage')
+    if niveau_obj:
+        niveau_num = str(niveau_obj.numero)
+        creneaux_base = creneaux_base.filter(
+            Q(emploi_du_temps__niveau=f"LEVEL_{niveau_num}") | 
+            Q(emploi_du_temps__niveau=f"LEVEL {niveau_num}") | 
+            Q(emploi_du_temps__niveau__icontains=niveau_num)
+        )
+
+    if salle_obj:
+        creneaux_base = creneaux_base.filter(
+            Q(emploi_du_temps__salle=salle_obj) | Q(salle_nom__icontains=salle_obj.code) | Q(salle_nom__icontains=salle_obj.nom)
+        )
+
+    is_etudiant = bool(etudiant or getattr(user, 'type_utilisateur', '') in ['ETUDIANT', 'APPRENANT'])
+
+    # Filtrage automatique pour l'étudiant connecté (selon sa salle ou filière/niveau)
+    if is_etudiant and etudiant and not (filiere_obj or niveau_obj or salle_obj or user.is_staff or user.is_superuser):
+        salle_etu = getattr(etudiant, 'salle', None)
+        if salle_etu:
+            creneaux_base = creneaux_base.filter(
+                Q(emploi_du_temps__salle=salle_etu) | 
+                Q(salle_nom__icontains=salle_etu.code) | 
+                Q(salle_nom__icontains=salle_etu.nom)
+            )
+        elif etudiant.filiere:
+            creneaux_base = creneaux_base.filter(emploi_du_temps__filiere=etudiant.filiere)
+            if etudiant.niveau:
+                niveau_num = str(etudiant.niveau.numero)
+                creneaux_base = creneaux_base.filter(
+                    Q(emploi_du_temps__niveau=f"LEVEL_{niveau_num}") | 
+                    Q(emploi_du_temps__niveau=f"LEVEL {niveau_num}") | 
+                    Q(emploi_du_temps__niveau__icontains=niveau_num)
+                )
+
+    if not filiere_obj and not niveau_obj and not salle_obj and is_professeur:
+        nom_prof = user.get_full_name() or user.username
+        last_name = user.last_name or nom_prof
+        creneaux_du_jour = creneaux_base.filter(
+            Q(enseignant_nom__icontains=last_name) | Q(enseignant_nom__icontains=user.username)
+        ).order_by('plage', 'id')
+
+        if not creneaux_du_jour.exists():
+            creneaux_du_jour = creneaux_base.all().order_by('plage', 'id')
+    else:
+        creneaux_du_jour = creneaux_base.all().order_by('plage', 'id')
 
     filieres = Filiere.objects.filter(est_active=True)
+    niveaux = Niveau.objects.all().order_by('numero')
+    salles = Salle.objects.filter(est_disponible=True).order_by('nom')
     
+    # Chargement des supports pédagogiques (Cours, TP, TD)
+    from apps.cours.models import RessourceCours
+    if etudiant and etudiant.filiere:
+        salle_etu = getattr(etudiant, 'salle', None)
+        if salle_etu:
+            ressources = RessourceCours.objects.filter(
+                Q(salle=salle_etu) | Q(salle__isnull=True, cours__filiere=etudiant.filiere)
+            ).select_related('cours', 'cours__matiere').order_by('-date_ajout')
+        else:
+            ressources = RessourceCours.objects.filter(
+                Q(cours__filiere=etudiant.filiere) | Q(cours__isnull=True)
+            ).select_related('cours', 'cours__matiere').order_by('-date_ajout')
+    elif filiere_obj:
+        ressources = RessourceCours.objects.filter(
+            Q(cours__filiere=filiere_obj) | Q(cours__isnull=True)
+        ).select_related('cours', 'cours__matiere').order_by('-date_ajout')
+    else:
+        ressources = RessourceCours.objects.select_related('cours', 'cours__matiere').order_by('-date_ajout')[:20]
+
     context = {
         'creneaux_du_jour': creneaux_du_jour,
         'nom_jour_actuel': nom_jour_actuel,
-        'emploi_hebdo': emploi_hebdo,
+        'jour_code_actuel': jour_code_actuel,
         'filiere_selectionnee': filiere_obj,
+        'niveau_selectionne': niveau_obj,
+        'salle_selectionnee': salle_obj,
         'filieres': filieres,
+        'niveaux': niveaux,
+        'salles': salles,
         'etudiant': etudiant,
-        'titre': 'Programme Quotidien & Emploi du Temps'
+        'is_etudiant': is_etudiant,
+        'is_professeur': is_professeur,
+        'ressources': ressources,
+        'titre': 'Programme Quotidien & Cours'
     }
     return render(request, 'cours/liste.html', context)
 
@@ -176,30 +242,42 @@ def supprimer_cours(request, pk):
     return render(request, 'cours/confirmer_suppression.html', context)
 
 
-@login_required
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
 def liste_matieres(request):
-    """Liste des matières"""
+    """Liste et gestion complète des matières"""
+    search_query = request.GET.get('q', '').strip()
+    semestre_filter = request.GET.get('semestre', '').strip()
+    
     matieres = Matiere.objects.all().annotate(
         nombre_cours=Count('cours')
     )
     
+    if search_query:
+        matieres = matieres.filter(
+            Q(code__icontains=search_query) | Q(nom__icontains=search_query)
+        )
+        
+    if semestre_filter.isdigit():
+        matieres = matieres.filter(semestre=int(semestre_filter))
+        
     context = {
         'matieres': matieres,
-        'titre': 'Liste des Matières'
+        'search_query': search_query,
+        'semestre_filter': semestre_filter,
+        'titre': 'Gestion des Matières & Unités d\'Enseignement'
     }
     return render(request, 'cours/matieres.html', context)
 
 
-@login_required
-@permission_required('cours.add_matiere', raise_exception=True)
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
 def ajouter_matiere(request):
     """Ajouter une matière"""
     if request.method == 'POST':
         form = MatiereForm(request.POST)
         if form.is_valid():
             matiere = form.save()
-            messages.success(request, f'La matière {matiere} a été créée avec succès.')
-            return redirect('liste_matieres')
+            messages.success(request, f'La matière "{matiere.nom}" ({matiere.code}) a été créée avec succès.')
+            return redirect('cours:liste_matieres')
     else:
         form = MatiereForm()
     
@@ -208,6 +286,48 @@ def ajouter_matiere(request):
         'titre': 'Nouvelle Matière'
     }
     return render(request, 'cours/matiere_form.html', context)
+
+
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
+def modifier_matiere(request, pk):
+    """Modifier une matière existante"""
+    matiere = get_object_or_404(Matiere, pk=pk)
+    if request.method == 'POST':
+        form = MatiereForm(request.POST, instance=matiere)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'La matière "{matiere.nom}" ({matiere.code}) a été modifiée avec succès.')
+            return redirect('cours:liste_matieres')
+    else:
+        form = MatiereForm(instance=matiere)
+    
+    context = {
+        'form': form,
+        'matiere': matiere,
+        'titre': f'Modifier {matiere.nom}'
+    }
+    return render(request, 'cours/matiere_form.html', context)
+
+
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
+def supprimer_matiere(request, pk):
+    """Supprimer une matière"""
+    from django.db.models import ProtectedError
+    matiere = get_object_or_404(Matiere, pk=pk)
+    if request.method == 'POST':
+        nom = matiere.nom
+        try:
+            matiere.delete()
+            messages.success(request, f'La matière "{nom}" a été supprimée avec succès.')
+        except ProtectedError:
+            messages.error(request, f'Impossible de supprimer la matière "{nom}" car elle est actuellement liée à des cours.')
+        return redirect('cours:liste_matieres')
+    
+    context = {
+        'matiere': matiere,
+        'titre': f'Supprimer {matiere.nom}'
+    }
+    return render(request, 'cours/matiere_confirm_delete.html', context)
 
 
 @login_required
@@ -437,7 +557,7 @@ def creer_emploi_du_temps_hebdo(request):
             return redirect('cours:editer_creneaux_emploi_du_temps', pk=emploi.pk)
             
     filieres = Filiere.objects.filter(est_active=True)
-    salles = Salle.objects.filter(est_disponible=True)
+    salles = Salle.objects.filter(est_disponible=True).order_by('nom')
     
     context = {
         'filieres': filieres,
@@ -541,9 +661,105 @@ def approuver_emploi_du_temps(request, pk):
         emploi.approuve_par = request.user
         emploi.date_approbation = timezone.now()
         emploi.save()
+
+        # Synchroniser automatiquement la fiche hebdo présence enseignants
+        try:
+            from apps.cours.presence_service import synchroniser_fiche_presence_enseignant_auto
+            synchroniser_fiche_presence_enseignant_auto(emploi, request.user)
+        except Exception:
+            pass
+
+        # --- Notification Tri-canal des Enseignants et Étudiants ---
+        from django.conf import settings
+        from django.contrib.auth import get_user_model
+        from apps.tableau_bord.models import Notification
+        from apps.tableau_bord.whatsapp_service import WhatsAppService
+        from django.core.mail import send_mail
+
+        User = get_user_model()
+        enseignants = User.objects.filter(
+            type_utilisateur__in=['ENSEIGNANT', 'PROFESSEUR', 'FORMATEUR'],
+            est_actif=True
+        )
+
+        titre_notif = f"📅 Emploi du temps publié : {emploi.titre_semaine}"
+        msg_notif = (
+            f"Le nouvel emploi du temps officiellement approuvé pour la période "
+            f"({emploi.titre_semaine}) est disponible. Veuillez consulter vos créneaux de cours."
+        )
+        site_url = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
+
+        for ens in enseignants:
+            # 1. Notification In-App
+            Notification.objects.create(
+                utilisateur=ens,
+                type='INFO',
+                titre=titre_notif,
+                message=msg_notif,
+                lien=f'/cours/emploi-du-temps-officiel/{emploi.pk}/imprimer/'
+            )
+            # 2. Email réel
+            if ens.email:
+                try:
+                    send_mail(
+                        subject=f"{getattr(settings, 'EMAIL_SUBJECT_PREFIX', '[IAI-Cameroun] ')}Nouveau Planning - {emploi.titre_semaine}",
+                        message=f"Bonjour {ens.get_full_name() or ens.username},\n\n{msg_notif}\n\nConsultez le planning complet sur : {site_url}/cours/emploi-du-temps-officiel/{emploi.pk}/imprimer/",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[ens.email],
+                        fail_silently=True
+                    )
+                except Exception:
+                    pass
+            # 3. WhatsApp
+            tel = getattr(ens, 'telephone', '') or getattr(ens, 'contact', '')
+            if tel:
+                try:
+                    WhatsAppService.envoyer_message(
+                        tel,
+                        f"*IAI-CAMEROUN (Douala)* 📅\n*Publication d'Emploi du Temps*\n\nBonjour {ens.get_full_name() or ens.username},\n{msg_notif}\n\nLien : {site_url}/cours/emploi-du-temps-officiel/{emploi.pk}/imprimer/"
+                    )
+                except Exception:
+                    pass
+
+        # --- Notification des Étudiants ---
+        from apps.etudiants.models import Etudiant
+        etudiants_qs = Etudiant.objects.filter(statut__in=['PREINSCRIT', 'INSCRIT', 'ACTIF']).select_related('utilisateur')
+        if hasattr(emploi, 'filiere') and emploi.filiere:
+            etudiants_qs = etudiants_qs.filter(filiere=emploi.filiere)
+
+        for etud in etudiants_qs:
+            if etud.utilisateur:
+                Notification.objects.create(
+                    utilisateur=etud.utilisateur,
+                    type='INFO',
+                    titre=titre_notif,
+                    message=msg_notif,
+                    lien=f'/cours/emploi-du-temps-officiel/{emploi.pk}/imprimer/'
+                )
+            dest_email = etud.email or (etud.utilisateur.email if etud.utilisateur else None)
+            if dest_email:
+                try:
+                    send_mail(
+                        subject=f"{getattr(settings, 'EMAIL_SUBJECT_PREFIX', '[IAI-Cameroun] ')}Nouveau Planning - {emploi.titre_semaine}",
+                        message=f"Bonjour {etud.get_nom_complet()},\n\n{msg_notif}\n\nConsultez votre planning complet sur : {site_url}/cours/emploi-du-temps-officiel/{emploi.pk}/imprimer/",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[dest_email],
+                        fail_silently=True
+                    )
+                except Exception:
+                    pass
+            try:
+                WhatsAppService.notifier_etudiant(
+                    etudiant=etud,
+                    titre="Nouveau Planning Publié",
+                    message=f"Alerte Emploi du Temps - IAI-Cameroun\n\nBonjour {etud.get_nom_complet()},\n{msg_notif}\n\nLien : {site_url}/cours/emploi-du-temps-officiel/{emploi.pk}/imprimer/"
+                )
+            except Exception:
+                pass
+
         messages.success(
             request, 
-            f"✅ Emploi du temps '{emploi.titre_semaine}' approuvé et publié ! Il est désormais distribué aux Étudiants, Enseignants et Chef de la Scolarité."
+            f"✅ Emploi du temps '{emploi.titre_semaine}' approuvé et publié ! Il a été notifié aux Enseignants et Étudiants."
         )
     elif action == 'rejeter':
         motif = request.POST.get('motif_rejet', '')
@@ -691,6 +907,20 @@ def creer_fiche_presence(request):
 
         classe = get_object_or_404(Classe, pk=classe_id)
         
+        # Contrôle d'unicité : une seule liste de présence par salle/classe et par semaine
+        fiche_existante = FichePresenceHebdomadaire.objects.filter(
+            classe=classe,
+            semaine_du=semaine_du
+        ).first()
+
+        if fiche_existante:
+            messages.warning(
+                request,
+                f"⚠️ Une liste de présence pour {classe.nom} existe déjà pour la semaine du {semaine_du} au {semaine_au}. "
+                f"Vous avez été redirigé vers celle-ci."
+            )
+            return redirect('cours:saisie_grille_presence', pk=fiche_existante.pk)
+
         fiche = FichePresenceHebdomadaire.objects.create(
             classe=classe,
             filiere=classe.filiere,
@@ -722,55 +952,106 @@ def creer_fiche_presence(request):
 
 
 @login_required
+def supprimer_fiche_presence(request, pk):
+    """Supprimer définitivement une fiche de présence hebdomadaire pour une salle / classe"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    if role not in ('CHEF_SCOLARITE', 'ADMIN_SYSTEME', 'CHEF_ETUDES') and not user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de la Scolarité.")
+        return redirect('cours:liste_fiches_presence')
+
+    from apps.cours.models import FichePresenceHebdomadaire
+    fiche = get_object_or_404(FichePresenceHebdomadaire, pk=pk)
+    nom_classe = fiche.classe.nom
+    sem_du = fiche.semaine_du
+    sem_au = fiche.semaine_au
+    fiche.delete()
+
+    messages.success(request, f"🗑️ La fiche de présence de {nom_classe} (Semaine du {sem_du} au {sem_au}) a été supprimée.")
+    return redirect('cours:liste_fiches_presence')
+
+
+@login_required
 def saisie_grille_presence(request, pk):
-    """Grille de saisie et d'édition de la liste de présence hebdomadaire (Lun-Sam)"""
+    """Grille de présence hebdomadaire (Lun-Sam) avec possibilité d'édition pour le Chef de la Scolarité"""
     from apps.cours.models import FichePresenceHebdomadaire, LignePresenceHebdomadaire
+    from apps.cours.presence_service import synchroniser_fiche_presence_automatique
     import json
 
     fiche = get_object_or_404(FichePresenceHebdomadaire, pk=pk)
-    lignes = fiche.lignes.all().select_related('etudiant')
+
+    user = request.user
+    role = getattr(user, 'type_utilisateur', '')
+    peut_editer = role in ['CHEF_SCOLARITE', 'CHEF_ETUDES', 'ADMIN_SYSTEME'] or user.is_superuser
+
+    lignes = fiche.lignes.all().select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom')
 
     if request.method == 'POST':
+        if not peut_editer:
+            messages.error(request, "❌ Seul le Chef de la Scolarité est autorisé à modifier cette grille de présence.")
+            return redirect('cours:saisie_grille_presence', pk=fiche.pk)
+
         for ligne in lignes:
             e_id = ligne.etudiant.id
             grid_data = {}
             total_abs = 0
-            
+
             for jour in ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam']:
                 slots = []
-                for slot_num in range(1, 7):
+                for slot_num in range(1, 5):
                     field_name = f"abs_{e_id}_{jour}_{slot_num}"
                     val = request.POST.get(field_name, '').strip().upper()
-                    slots.append(val)
+                    slots.append(val if val == 'A' else '')
                     if val == 'A':
                         total_abs += 1
                 grid_data[jour] = slots
-                
+
             ligne.nombre_absences = total_abs
             ligne.details_jours_json = json.dumps(grid_data)
             ligne.save()
 
-        messages.success(request, f"💾 Grille de présence enregistrée ({fiche.classe.nom}).")
+        messages.success(request, f"💾 Grille de présence mise à jour avec succès ({fiche.classe.nom if fiche.classe else ''}).")
         return redirect('cours:saisie_grille_presence', pk=fiche.pk)
+
+    # Synchroniser automatiquement les absences issues des cours lors de la consultation
+    synchroniser_fiche_presence_automatique(fiche)
+
+    lignes = fiche.lignes.all().select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom')
 
     lignes_data = []
     for l in lignes:
         try:
-            details = json.loads(l.details_jours_json)
+            details = json.loads(l.details_jours_json) if l.details_jours_json else {}
         except Exception:
             details = {}
+            
+        formatted_details = {}
+        for jour in ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam']:
+            raw_slots = details.get(jour, [])
+            if isinstance(raw_slots, str):
+                raw_slots = list(raw_slots)
+            slots_4 = []
+            for i in range(4):
+                if i < len(raw_slots):
+                    val = str(raw_slots[i]).strip().upper()
+                    slots_4.append(val if val == 'A' else '')
+                else:
+                    slots_4.append('')
+            formatted_details[jour] = slots_4
             
         lignes_data.append({
             'ligne': l,
             'etudiant': l.etudiant,
             'details': details,
+            'formatted_details': formatted_details,
             'absences': l.nombre_absences
         })
 
     context = {
         'fiche': fiche,
         'lignes_data': lignes_data,
-        'titre': f"Grille de Présence - {fiche.classe.nom}"
+        'peut_editer': peut_editer,
+        'titre': f"Grille de Présence - {fiche.classe.nom if fiche.classe else 'Classe'}"
     }
     return render(request, 'cours/presences/grille_hebdomadaire.html', context)
 
@@ -940,6 +1221,192 @@ def publier_fiche_presence(request, pk):
 
 
 @login_required
+def liste_fiches_presence_enseignant(request):
+    """Liste, archivage et suivi des fiches hebdo de présence enseignants (Scolarité)"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    if role not in ('CHEF_SCOLARITE', 'ADMIN_SYSTEME', 'CHEF_ETUDES') and not user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de la Scolarité et à la Direction.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.cours.models import FichePresenceEnseignantHebdo
+    fiches = FichePresenceEnseignantHebdo.objects.all().select_related('rempli_par').order_by('-semaine_du')
+    
+    context = {
+        'fiches': fiches,
+        'titre': 'Suivi Hebdomadaire des Présences Enseignants'
+    }
+    return render(request, 'cours/presences/fiches_enseignants.html', context)
+
+
+@login_required
+def creer_fiche_presence_enseignant(request):
+    """Créer une fiche d'émargement hebdo enseignants basés sur les créneaux d'emploi du temps validés"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    if role not in ('CHEF_SCOLARITE', 'ADMIN_SYSTEME', 'CHEF_ETUDES') and not user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de la Scolarité.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from datetime import datetime
+    from apps.cours.models import FichePresenceEnseignantHebdo, PointagePresenceEnseignant, CreneauEmploiDuTemps, EmploiDuTempsHebdomadaire
+    from apps.professeurs.models import Professeur
+    from apps.cours.presence_service import normaliser_chaine
+
+    if request.method == 'POST':
+        semaine_du_str = request.POST.get('semaine_du')
+        semaine_au_str = request.POST.get('semaine_au')
+
+        try:
+            semaine_du = datetime.strptime(semaine_du_str, '%Y-%m-%d').date()
+            semaine_au = datetime.strptime(semaine_au_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            messages.error(request, "Date invalide.")
+            return redirect('cours:liste_fiches_presence_enseignant')
+
+        from apps.etudiants.models import AnneeAcademique
+        from apps.inscriptions.utils import get_current_academic_year_code
+        annee_active = AnneeAcademique.get_active()
+        annee_code = annee_active.code if annee_active else get_current_academic_year_code()
+
+        fiche, created = FichePresenceEnseignantHebdo.objects.get_or_create(
+            semaine_du=semaine_du,
+            defaults={
+                'semaine_au': semaine_au,
+                'annee_academique': annee_code,
+                'rempli_par': user,
+                'statut': 'BROUILLON'
+            }
+        )
+        if not created and fiche.annee_academique != annee_code:
+            fiche.annee_academique = annee_code
+            fiche.save(update_fields=['annee_academique'])
+
+        emplois_valides = EmploiDuTempsHebdomadaire.objects.filter(statut='VALIDE')
+        if not emplois_valides.exists():
+            emplois_valides = EmploiDuTempsHebdomadaire.objects.all()
+
+        creneaux = CreneauEmploiDuTemps.objects.filter(emploi_du_temps__in=emplois_valides).exclude(type_evenement='PAUSE')
+        professeurs = Professeur.objects.filter(est_actif=True)
+
+        for prof in professeurs:
+            mots_cles = set()
+            if prof.nom: mots_cles.update(normaliser_chaine(prof.nom).split())
+            if prof.prenom: mots_cles.update(normaliser_chaine(prof.prenom).split())
+            mots_cles = {m for m in mots_cles if len(m) > 2 and m not in ['mme', 'prof', 'docteur', 'monsieur']}
+
+            for c in creneaux:
+                str_ens = normaliser_chaine(c.enseignant_nom)
+                if str_ens and mots_cles and mots_cles.intersection(set(str_ens.split())):
+                    PointagePresenceEnseignant.objects.get_or_create(
+                        fiche=fiche,
+                        enseignant=prof,
+                        creneau=c,
+                        date_seance=semaine_du,
+                        defaults={'statut': 'PRESENT'}
+                    )
+
+        messages.success(request, f"✅ Fiche hebdo présence enseignants créée pour la semaine du {semaine_du}.")
+        return redirect('cours:saisir_fiche_presence_enseignant', pk=fiche.pk)
+
+    return redirect('cours:liste_fiches_presence_enseignant')
+
+
+@login_required
+def saisir_fiche_presence_enseignant(request, pk):
+    """Saisie / Émargement des présences effectives des enseignants (Chef de la Scolarité)"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    if role not in ('CHEF_SCOLARITE', 'ADMIN_SYSTEME', 'CHEF_ETUDES') and not user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de la Scolarité.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.cours.models import FichePresenceEnseignantHebdo, PointagePresenceEnseignant, CreneauEmploiDuTemps, EmploiDuTempsHebdomadaire
+    from apps.professeurs.models import Professeur
+
+    fiche = get_object_or_404(FichePresenceEnseignantHebdo, pk=pk)
+
+    if request.method == 'POST':
+        for key, value in request.POST.items():
+            if key.startswith('statut_'):
+                pointage_id = key.split('_')[1]
+                pointage = PointagePresenceEnseignant.objects.filter(pk=pointage_id, fiche=fiche).first()
+                if pointage:
+                    pointage.statut = value
+                    obs = request.POST.get(f'obs_{pointage_id}', '').strip()
+                    pointage.observations = obs
+                    pointage.save()
+
+        if 'valider_archivage' in request.POST:
+            fiche.statut = 'VALIDE'
+            fiche.save()
+            messages.success(request, f"🔒 Fiche de présence enseignants du {fiche.semaine_du} validée et archivée.")
+            return redirect('cours:liste_fiches_presence_enseignant')
+
+        messages.success(request, f"💾 Modifications enregistrées pour la fiche du {fiche.semaine_du}.")
+        return redirect('cours:saisir_fiche_presence_enseignant', pk=fiche.pk)
+
+    pointages = fiche.pointages.select_related('enseignant', 'creneau', 'creneau__emploi_du_temps', 'creneau__emploi_du_temps__filiere').order_by('enseignant__nom', 'creneau__jour')
+
+    if not pointages.exists():
+        emplois_valides = EmploiDuTempsHebdomadaire.objects.filter(statut='VALIDE')
+        if not emplois_valides.exists():
+            emplois_valides = EmploiDuTempsHebdomadaire.objects.all()
+
+        creneaux = CreneauEmploiDuTemps.objects.filter(emploi_du_temps__in=emplois_valides).exclude(type_evenement='PAUSE').select_related('emploi_du_temps', 'emploi_du_temps__filiere')
+        professeurs = Professeur.objects.filter(est_actif=True)
+
+        from apps.cours.presence_service import normaliser_chaine
+        for prof in professeurs:
+            mots_cles = set()
+            if prof.nom: mots_cles.update(normaliser_chaine(prof.nom).split())
+            if prof.prenom: mots_cles.update(normaliser_chaine(prof.prenom).split())
+            mots_cles = {m for m in mots_cles if len(m) > 2 and m not in ['mme', 'prof', 'docteur', 'monsieur']}
+
+            for c in creneaux:
+                str_ens = normaliser_chaine(c.enseignant_nom)
+                if str_ens and mots_cles and mots_cles.intersection(set(str_ens.split())):
+                    PointagePresenceEnseignant.objects.get_or_create(
+                        fiche=fiche,
+                        enseignant=prof,
+                        creneau=c,
+                        date_seance=fiche.semaine_du,
+                        defaults={'statut': 'PRESENT'}
+                    )
+        pointages = fiche.pointages.select_related('enseignant', 'creneau', 'creneau__emploi_du_temps', 'creneau__emploi_du_temps__filiere').order_by('enseignant__nom', 'creneau__jour')
+
+    context = {
+        'fiche': fiche,
+        'pointages': pointages,
+        'statut_choices': PointagePresenceEnseignant.STATUT_PRESENCE_CHOICES,
+        'titre': f'Émargement Enseignants - Semaine du {fiche.semaine_du}'
+    }
+    return render(request, 'cours/presences/saisie_enseignants.html', context)
+
+
+@login_required
+def exporter_fiche_presence_enseignant_pdf(request, pk):
+    """Téléchargement PDF de la Fiche Hebdomadaire d'Émargement & Présence Enseignants"""
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    if role not in ('CHEF_SCOLARITE', 'ADMIN_SYSTEME', 'CHEF_ETUDES', 'DIRECTEUR') and not user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de la Scolarité et à la Direction.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.cours.models import FichePresenceEnseignantHebdo
+    from apps.inscriptions.pdf_services import generer_fiche_presence_enseignant_pdf
+
+    fiche = get_object_or_404(FichePresenceEnseignantHebdo, pk=pk)
+    base_url = request.build_absolute_uri('/')[:-1]
+
+    pdf_bytes = generer_fiche_presence_enseignant_pdf(fiche, domain_url=base_url)
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    filename = f"Fiche_Emargement_Enseignants_Semaine_{fiche.semaine_du.strftime('%Y%m%d')}.pdf"
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@login_required
 def note_annuelle_discipline(request, salle_id):
     """Génère le document officiel NOTES ANNUELLES DE DISCIPLINE (HA, HJ, HNJ et Décision HNJ > 30)"""
     user = request.user
@@ -969,6 +1436,15 @@ def note_annuelle_discipline(request, salle_id):
         messages.success(request, "✅ Heures justifiées (HJ) enregistrées avec succès.")
 
     data = calculer_notes_annuelles_discipline(salle_id)
+
+    if request.GET.get('format') == 'pdf' or request.GET.get('export') == 'pdf':
+        from apps.inscriptions.pdf_services import generer_notes_annuelles_discipline_pdf
+        base_url = request.build_absolute_uri('/')[:-1]
+        pdf_bytes = generer_notes_annuelles_discipline_pdf(data['classe'], data['results'], domain_url=base_url)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f"Notes_Annuelles_Discipline_{getattr(data['classe'], 'nom', 'Classe')}.pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
 
     context = {
         'data': data,
@@ -1023,18 +1499,287 @@ def exporter_liste_classe_presence_pdf(request, classe_id):
     today = timezone.now().date()
     semaine_du = today - datetime.timedelta(days=today.weekday())
     semaine_au = semaine_du + datetime.timedelta(days=5)
-
     annee_code = getattr(getattr(classe, 'annee_academique', None), 'code', '2025-2026')
+
+    # Récupérer la fiche de présence hebdomadaire si disponible pour injecter dynamiquement la grille d'absences
+    from apps.cours.models import FichePresenceHebdomadaire
+    import json
+
+    fiche_id = request.GET.get('fiche')
+    fiche = None
+    if fiche_id:
+        fiche = FichePresenceHebdomadaire.objects.filter(pk=fiche_id).first()
+    
+    if not fiche and classe and hasattr(classe, 'pk'):
+        fiche = FichePresenceHebdomadaire.objects.filter(classe_id=classe.id, semaine_du=semaine_du).first()
+
+    lignes_map = {}
+    if fiche:
+        semaine_du = fiche.semaine_du
+        semaine_au = fiche.semaine_au
+        for l in fiche.lignes.all():
+            try:
+                lignes_map[l.etudiant_id] = {
+                    'absences': l.nombre_absences,
+                    'details': json.loads(l.details_jours_json or '{}')
+                }
+            except Exception:
+                lignes_map[l.etudiant_id] = {'absences': l.nombre_absences, 'details': {}}
+
+    etudiants_liste = []
+    for et in etudiants:
+        info = lignes_map.get(et.id, {'absences': 0, 'details': {}})
+        et.total_absences = info['absences']
+        details = info['details']
+        
+        slots_flat = []
+        for jour_key in ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam']:
+            day_slots = details.get(jour_key, [])
+            if not isinstance(day_slots, list):
+                day_slots = []
+            for i in range(4):
+                val = day_slots[i] if i < len(day_slots) else ''
+                slots_flat.append(val)
+        et.slots_flat = slots_flat
+        etudiants_liste.append(et)
+
+    if request.GET.get('format') == 'pdf' or request.GET.get('export') == 'pdf':
+        from apps.inscriptions.pdf_services import generer_liste_presence_etudiants_pdf
+        base_url = request.build_absolute_uri('/')[:-1]
+        pdf_bytes = generer_liste_presence_etudiants_pdf(classe, semaine_du, semaine_au, etudiants_liste, domain_url=base_url)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f"Liste_Presence_{getattr(classe, 'nom', 'Classe')}.pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
 
     context = {
         'classe': classe,
-        'etudiants': etudiants,
+        'etudiants': etudiants_liste,
+        'fiche': fiche,
         'annee_academique': annee_code,
         'semaine_du': semaine_du,
         'semaine_au': semaine_au,
         'titre': f"Liste de Présence - {getattr(classe, 'nom', 'Classe')}"
     }
     return render(request, 'cours/presences/liste_classe_presence_pdf.html', context)
+
+
+@login_required
+def importer_emploi_du_temps_csv(request):
+    """
+    Importation multi-format de l'emploi du temps (Salle, Filière, Niveau) par le Chef des Études.
+    Formats acceptés : CSV, Excel (.xlsx, .xls), PDF (.pdf), Image (.png, .jpg, .jpeg).
+    """
+    if request.user.type_utilisateur not in ['CHEF_ETUDES', 'ADMIN_SYSTEME', 'DIRECTEUR']:
+        messages.error(request, "Accès réservé au Chef des Études et à la Direction.")
+        return redirect('cours:emploi_du_temps_officiel')
+
+    if request.method == 'POST' and (request.FILES.get('fichier_csv') or request.FILES.get('fichier_emploi')):
+        uploaded_file = request.FILES.get('fichier_csv') or request.FILES.get('fichier_emploi')
+        filiere_id = request.POST.get('filiere')
+        salle_id = request.POST.get('salle')
+        niveau = request.POST.get('niveau', 'LEVEL_1')
+        titre_semaine = request.POST.get('titre_semaine', 'SEMAINE IMPORTÉE')
+        date_debut = request.POST.get('date_debut_semaine')
+        date_fin = request.POST.get('date_fin_semaine')
+
+        if not filiere_id or not date_debut or not date_fin:
+            messages.error(request, "Veuillez spécifier la filière, la date de début et la date de fin.")
+            return redirect('cours:emploi_du_temps_officiel')
+
+        filiere = get_object_or_404(Filiere, pk=filiere_id)
+        salle = get_object_or_404(Salle, pk=salle_id) if salle_id else None
+
+        emploi = EmploiDuTempsHebdomadaire.objects.create(
+            filiere=filiere,
+            salle=salle,
+            niveau=niveau,
+            titre_semaine=titre_semaine,
+            date_debut_semaine=date_debut,
+            date_fin_semaine=date_fin,
+            soumis_par=request.user,
+            statut='BROUILLON'
+        )
+
+        from .import_service import extraire_creneaux_multi_format
+        try:
+            import_result = extraire_creneaux_multi_format(uploaded_file)
+            valid_items = import_result.get('valid_items', [])
+            errors = import_result.get('errors', [])
+            conflits = import_result.get('conflits', [])
+            stats = import_result.get('stats', {})
+
+            creneaux_crees = 0
+
+            for c in valid_items:
+                salle_nom = c.get('salle_nom') or (salle.code if salle else '')
+                CreneauEmploiDuTemps.objects.update_or_create(
+                    emploi_du_temps=emploi,
+                    jour=c['jour'],
+                    plage=c['plage'],
+                    defaults={
+                        'intitule': c['intitule'],
+                        'enseignant_nom': c['enseignant_nom'],
+                        'salle_nom': salle_nom,
+                        'progression_heures': c['progression_heures'],
+                        'type_evenement': c['type_evenement']
+                    }
+                )
+                creneaux_crees += 1
+
+            if creneaux_crees > 0:
+                msg_success = f"✅ Emploi du temps '{emploi.titre_semaine}' importé avec succès ({creneaux_crees} créneaux enregistrés)."
+                if conflits:
+                    msg_success += f" ⚠️ {len(conflits)} conflit(s) de créneaux détecté(s)."
+                messages.success(request, msg_success)
+            else:
+                messages.warning(request, f"⚠️ Emploi du temps créé en brouillon, mais aucun créneau valide n'a pu être extrait de '{uploaded_file.name}'.")
+
+            if errors:
+                for err in errors[:5]:
+                    messages.error(request, f"Erreur import : {err}")
+                if len(errors) > 5:
+                    messages.error(request, f"... et {len(errors) - 5} autre(s) erreur(s).")
+
+            return redirect('cours:imprimer_emploi_du_temps_officiel', pk=emploi.pk)
+
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la lecture du fichier : {str(e)}")
+            emploi.delete()
+            return redirect('cours:emploi_du_temps_officiel')
+
+    filieres = Filiere.objects.filter(est_active=True)
+    salles = Salle.objects.filter(est_disponible=True)
+    context = {
+        'filieres': filieres,
+        'salles': salles,
+        'niveaux': EmploiDuTempsHebdomadaire.NIVEAU_CHOICES,
+        'titre': "Importer un Emploi du Temps (Multi-Format)"
+    }
+    return render(request, 'cours/emploi_du_temps_importer.html', context)
+
+
+
+@login_required
+def exporter_emploi_du_temps_pdf(request, pk):
+    """Téléchargement direct du PDF officiel de l'emploi du temps"""
+    from apps.inscriptions.pdf_services import generer_emploi_du_temps_pdf
+    emploi = get_object_or_404(EmploiDuTempsHebdomadaire.objects.select_related('filiere', 'salle'), pk=pk)
+
+    base_url = request.build_absolute_uri('/')[:-1]
+    pdf_bytes = generer_emploi_du_temps_pdf(emploi, domain_url=base_url)
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    filename = f"Emploi_du_Temps_{emploi.filiere.code}_{emploi.niveau}_{emploi.pk}.pdf"
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@login_required
+def exporter_emploi_du_temps_ics(request, pk):
+    """Téléchargement du fichier iCalendar (.ics) pour synchronisation agenda"""
+    from .ical_service import generer_ics_emploi_du_temps
+    emploi = get_object_or_404(EmploiDuTempsHebdomadaire.objects.select_related('filiere', 'salle'), pk=pk)
+
+    base_url = request.build_absolute_uri('/')[:-1]
+    ics_bytes = generer_ics_emploi_du_temps(emploi, domain_url=base_url)
+
+    response = HttpResponse(ics_bytes, content_type='text/calendar')
+    filename = f"Emploi_du_Temps_{emploi.filiere.code}_{emploi.niveau}.ics"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def supprimer_ressource(request, pk):
+    """Suppression d'un support pédagogique par l'enseignant ou l'admin avec répercussion immédiate"""
+    ressource = get_object_or_404(RessourceCours, pk=pk)
+
+    user = request.user
+    prof_profile = getattr(user, 'profil_professeur', getattr(user, 'professeur', None))
+    is_author = prof_profile is not None and ressource.cours.professeur == prof_profile
+    is_admin = user.is_superuser or user.type_utilisateur in ['ADMIN_SYSTEME', 'CHEF_ETUDES']
+
+    if not (is_author or is_admin):
+        messages.error(request, "Vous n'avez pas la permission de supprimer ce support.")
+        return redirect('tableau_bord:tableau_bord')
+
+    titre = ressource.titre
+    cours = ressource.cours
+
+    # 1. Notifier les étudiants inscrits au cours de la suppression du support
+    try:
+        from apps.tableau_bord.models import Notification
+        from apps.cours.models import InscriptionCours
+        inscriptions = InscriptionCours.objects.filter(cours=cours, est_actif=True).select_related('etudiant__utilisateur')
+        for insc in inscriptions:
+            if insc.etudiant and insc.etudiant.utilisateur:
+                Notification.objects.create(
+                    utilisateur=insc.etudiant.utilisateur,
+                    type='INFO',
+                    titre=f"Support retiré : {cours.matiere.nom}",
+                    message=f"Le support pédagogique '{titre}' a été retiré par l'enseignant.",
+                    lien='/tableau-de-bord/'
+                )
+    except Exception:
+        pass
+
+    # 2. Suppression en BDD (django_cleanup supprime automatiquement le fichier physique du disque)
+    ressource.delete()
+    messages.success(request, f"Le support '{titre}' a été supprimé. La modification est appliquée en temps réel chez les étudiants.")
+    return redirect(request.META.get('HTTP_REFERER', 'tableau_bord:tableau_bord'))
+
+
+@login_required
+def modifier_echeance_ressource(request, pk):
+    """Modification ou définition de la date limite de remise physique par l'enseignant/admin"""
+    ressource = get_object_or_404(RessourceCours, pk=pk)
+
+    user = request.user
+    prof_profile = getattr(user, 'profil_professeur', getattr(user, 'professeur', None))
+    is_author = prof_profile is not None and ressource.cours.professeur == prof_profile
+    is_admin = user.is_superuser or user.type_utilisateur in ['ADMIN_SYSTEME', 'CHEF_ETUDES', 'ENSEIGNANT']
+
+    if not (is_author or is_admin):
+        messages.error(request, "Vous n'avez pas la permission de modifier cette échéance.")
+        return redirect('tableau_bord:tableau_bord')
+
+    if request.method == 'POST':
+        nouvelle_date = request.POST.get('date_limite_remise_physique')
+        if nouvelle_date:
+            ressource.date_limite_remise_physique = nouvelle_date
+            ressource.save()
+            messages.success(request, f"L'échéance de remise physique pour '{ressource.titre}' a été mise à jour.")
+        else:
+            ressource.date_limite_remise_physique = None
+            ressource.save()
+            messages.info(request, f"L'échéance de remise physique pour '{ressource.titre}' a été retirée.")
+
+    return redirect(request.META.get('HTTP_REFERER', 'tableau_bord:tableau_bord'))
+
+
+@login_required
+def supprimer_echeance_ressource(request, pk):
+    """Suppression directe de la date limite de remise physique pour un support"""
+    ressource = get_object_or_404(RessourceCours, pk=pk)
+
+    user = request.user
+    prof_profile = getattr(user, 'profil_professeur', getattr(user, 'professeur', None))
+    is_author = prof_profile is not None and ressource.cours.professeur == prof_profile
+    is_admin = user.is_superuser or user.type_utilisateur in ['ADMIN_SYSTEME', 'CHEF_ETUDES', 'ENSEIGNANT']
+
+    if not (is_author or is_admin):
+        messages.error(request, "Vous n'avez pas la permission de modifier cette échéance.")
+        return redirect('tableau_bord:tableau_bord')
+
+    if request.method == 'POST':
+        ressource.date_limite_remise_physique = None
+        ressource.save()
+        messages.success(request, f"L'échéance de remise physique pour '{ressource.titre}' a été supprimée avec succès.")
+
+    return redirect(request.META.get('HTTP_REFERER', 'tableau_bord:tableau_bord'))
+
+
 
 
 

@@ -24,8 +24,11 @@ class Utilisateur(AbstractUser):
         ('CHEF_ETUDES', '📚 Chef Études'),
         ('CHEF_ANONYMAT', '🕵️ Chef Anonymat'),
         ('CHEF_COMPTABILITE', '💰 Chef Comptabilité'),
+        ('DIRECTEUR', 'Directeur / Représentant Résident'),
         ('ADMIN_SYSTEME', '⚙️ Admin Système'),
+
     ]
+
     
     # Types de baccalauréat
     TYPE_BACCALAUREAT = [

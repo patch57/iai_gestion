@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- BREADCRUMB & HEADER -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <a href="{% url 'notes:dashboard_chef_anonymat' %}" class="inline-flex items-center text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline mb-2">
+                <i class="fa-solid fa-arrow-left mr-1.5"></i> Retour au Dashboard Chef Anonymat
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
+                    <i class="fa-solid fa-file-signature text-purple-600"></i>
+                    Procès-Verbal de CC (Exposés/TP/TD) : {{ fiche.matiere.nom }}
+                {% else %}
+                    <i class="fa-solid fa-user-check text-purple-600"></i>
+                    Levée d'Anonymat Devoir sur Table : {{ fiche.matiere.nom }}
+                {% endif %}
+            </h1>
+            <div class="flex flex-wrap gap-2 mt-2 text-xs">
+                <span class="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-semibold px-2.5 py-0.5 rounded-full">
+                    Filière : {{ fiche.filiere.code }} - L{{ fiche.niveau.numero }}
+                </span>
+                <span class="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-0.5 rounded-full">
+                    <i class="fa-solid fa-door-open mr-1"></i> Salle : {% if fiche.salle %}{{ fiche.salle.nom }}{% else %}Non définie{% endif %}
+                </span>
+                <span class="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2.5 py-0.5 rounded-full font-semibold">
+                    Enseignant : {{ fiche.enseignant_nom }}
+                </span>
+                {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
+                <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2.5 py-0.5 rounded-full font-semibold">
+                    📋 Exposés, TP & TD (Transmission Directe sans Matching)
+                </span>
+                {% else %}
+                <span class="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2.5 py-0.5 rounded-full font-semibold">
+                    🔒 Devoir sur Table (Levée d'Anonymat 3 Colonnes)
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <form method="POST" onsubmit="return confirm('Confirmez-vous la transmission du Procès-Verbal officiel au Chef des Études ?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="generer_et_transmettre_pv">
+            <button type="submit" class="inline-flex items-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm rounded-lg shadow-sm transition">
+                <i class="fa-solid fa-paper-plane mr-2"></i>
+                {% if fiche.statut == 'TRANSMIS_CHEF_ETUDES' %}
+                    Ré-émettre & Transmettre le PV au Chef des Études
+                {% else %}
+                    Générer & Transmettre le PV au Chef des Études
+                {% endif %}
+            </button>
+        </form>
+    </div>
+
+    <!-- CAS 1 : EXPOSÉS, TP, TD & CC CONTINU (TRANSMISSION DIRECTE APRES VERIFICATION) -->
+    {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
+            <div>
+                <h3 class="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-purple-600"></i>
+                    Procès-Verbal des Notes de CC (Noms & Matricules Dûment Identifiés)
+                </h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Aucun matching d'anonymat requis pour les travaux dirigés, travaux pratiques et exposés.
+                </p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+                <thead class="bg-gray-100 dark:bg-gray-700 uppercase font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
+                    <tr>
+                        <th class="px-4 py-3 text-center w-10">N°</th>
+                        <th class="px-4 py-3 w-32">Matricule</th>
+                        <th class="px-4 py-3">Noms et Prénoms</th>
+                        <th class="px-3 py-3 text-center">Note 1</th>
+                        <th class="px-3 py-3 text-center">Note 2</th>
+                        <th class="px-3 py-3 text-center">Note 3</th>
+                        <th class="px-3 py-3 text-center">Note 4</th>
+                        <th class="px-3 py-3 text-center">Note 5</th>
+                        <th class="px-4 py-3 text-center bg-purple-50 dark:bg-purple-950/40 text-purple-900 dark:text-purple-300 font-bold">Moyenne CC (/20)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for ligne in lignes %}
+                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
+                        <td class="px-4 py-2.5 text-center font-mono text-gray-400">
+                            {{ forloop.counter }}
+                        </td>
+                        <td class="px-4 py-2.5 font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            {% if ligne.etudiant %}{{ ligne.etudiant.matricule }}{% else %}-{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 font-bold text-gray-900 dark:text-white">
+                            {% if ligne.etudiant %}{{ ligne.etudiant.get_nom_complet }}{% else %}{{ ligne.nom_manuscrit_detecte|default:"Anonyme" }}{% endif %}
+                        </td>
+                        <td class="px-3 py-2.5 text-center text-gray-500">{% if ligne.note_1 is not None %}{{ ligne.note_1 }}{% else %}-{% endif %}</td>
+                        <td class="px-3 py-2.5 text-center text-gray-500">{% if ligne.note_2 is not None %}{{ ligne.note_2 }}{% else %}-{% endif %}</td>
+                        <td class="px-3 py-2.5 text-center text-gray-500">{% if ligne.note_3 is not None %}{{ ligne.note_3 }}{% else %}-{% endif %}</td>
+                        <td class="px-3 py-2.5 text-center text-gray-500">{% if ligne.note_4 is not None %}{{ ligne.note_4 }}{% else %}-{% endif %}</td>
+                        <td class="px-3 py-2.5 text-center text-gray-500">{% if ligne.note_5 is not None %}{{ ligne.note_5 }}{% else %}-{% endif %}</td>
+                        <td class="px-4 py-2.5 text-center font-extrabold text-sm text-purple-900 dark:text-purple-200 bg-purple-50/60 dark:bg-purple-950/30">
+                            {% if ligne.moyenne_cc is not None %}{{ ligne.moyenne_cc }}{% else %}{{ ligne.note|default:"0.00" }}{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CAS 2 : DEVOIR SUR TABLE / EXAMEN (MATCHING AVEC LISTE ETUDIANTS DE LA CLASSE) -->
+    {% else %}
+    <!-- BLOC OCR COMPLET (3 COLONNES: CODE + NOTE + NOMS) -->
+    <div class="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 rounded-2xl p-5 mb-6 border border-purple-200 dark:border-purple-800/40 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-purple-600 dark:text-purple-400"></i>
+                    OCR & Matching Automatique (3 Colonnes)
+                </h3>
+                <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                    Téléversez la fiche remplie (<strong class="text-purple-600 dark:text-purple-300">Code Anonymat, Note, NOMS et PRENOMS</strong>) pour exécuter le matching automatique avec l'effectif.
+                </p>
+            </div>
+            
+            <form method="POST" enctype="multipart/form-data" class="flex items-center gap-2">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="importer_ocr_complet">
+                <input type="file" name="fichier_ocr_complet" accept=".jpg,.png,.jpeg,.pdf" required class="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700">
+                <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold shrink-0 shadow-sm">
+                    Matcher OCR
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLEAU DE MATCHING (CODE ANONYMAT -> ETUDIANT REEL) -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
+            <h3 class="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                <i class="fa-solid fa-user-tag text-purple-600"></i>
+                Correspondances : Code Anonymat ↔ Étudiant Réel
+            </h3>
+            <span class="text-xs text-gray-500">
+                Effectif inscrit : {{ etudiants_classe.count }} étudiant(s)
+            </span>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="enregistrer_matching">
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                    <thead class="bg-gray-100 dark:bg-gray-700 text-xs uppercase font-semibold text-gray-500 dark:text-gray-400">
+                        <tr>
+                            <th class="px-6 py-3.5">Code Anonymat</th>
+                            <th class="px-6 py-3.5 text-center">Note / 20</th>
+                            <th class="px-6 py-3.5">Nom Manuscrit Détecté</th>
+                            <th class="px-6 py-3.5">Étudiant Réel Associé (Matricule)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for ligne in lignes %}
+                        <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
+                            <td class="px-6 py-4 font-mono font-bold text-purple-700 dark:text-purple-300">
+                                {{ ligne.numero_anonymat }}
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <input type="text" name="note_{{ ligne.id }}" value="{% if ligne.note is not None %}{{ ligne.note }}{% endif %}"
+                                       class="w-20 px-2 py-1 border rounded text-center font-bold text-sm dark:bg-gray-700 dark:border-gray-600">
+                            </td>
+                            <td class="px-6 py-4 text-xs font-mono text-gray-500">
+                                {{ ligne.nom_manuscrit_detecte|default:"-" }}
+                            </td>
+                            <td class="px-6 py-4">
+                                <select name="etudiant_{{ ligne.id }}" class="w-full px-3 py-1.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-xs">
+                                    <option value="">-- Sélectionner l'Étudiant --</option>
+                                    {% for e in etudiants_classe %}
+                                        <option value="{{ e.id }}" {% if ligne.etudiant_id == e.id %}selected{% endif %}>
+                                            {{ e.get_nom_complet }} ({{ e.matricule }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex justify-end">
+                <button type="submit" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs rounded-lg shadow-sm">
+                    <i class="fa-solid fa-floppy-disk mr-1.5"></i> Enregistrer le Matching
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

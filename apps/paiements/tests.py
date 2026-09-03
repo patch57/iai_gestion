@@ -62,7 +62,7 @@ class PenalitesServicesTestCase(TestCase):
         # Reçu non validé -> total global = 3000, total éligible = 0
         penalites = calculer_penalites_etudiant(self.etudiant)
         self.assertEqual(penalites['total_global'], 3000)
-        self.assertEqual(penalites['total'], 0)
+        self.assertEqual(penalites['total_eligibles'], 0)
         self.assertFalse(penalites['details'][0]['eligible_paiement'])
         
         # Validation du reçu -> éligibilité au paiement activée
@@ -72,6 +72,28 @@ class PenalitesServicesTestCase(TestCase):
         penalites_valides = calculer_penalites_etudiant(self.etudiant)
         self.assertEqual(penalites_valides['total'], 3000)
         self.assertTrue(penalites_valides['details'][0]['eligible_paiement'])
+
+    def test_arret_calcul_penalites_recu_valide(self):
+        """Vérifie que la validation d'un reçu stoppe définitivement le calcul de pénalités à la date de paiement/soumission du reçu."""
+        from apps.paiements.models import RecuPaiement
+        # Création d'un reçu soumis il y a 7 jours (1 semaine après la date limite)
+        date_paiement_recu = date.today() - timedelta(days=7)
+        recu = RecuPaiement.objects.create(
+            etudiant=self.etudiant,
+            tranche=self.tranche1,
+            recu_fichier="recus/test.pdf",
+            montant_mentionne=84000,
+            date_paiement=date_paiement_recu,
+            statut='VALIDE'
+        )
+        self.etudiant.recu_preinscription_valide = True
+        self.etudiant.save()
+
+        penalites = calculer_penalites_etudiant(self.etudiant)
+        # Retard accumulé entre date_limite (today - 14) et date_paiement (today - 7) = 7 jours => 1 semaine => 1500 FCFA
+        self.assertEqual(penalites['total'], 1500)
+        self.assertTrue(penalites['details'][0]['penalite_stoppee'])
+        self.assertEqual(penalites['details'][0]['date_arret_calcul'], date_paiement_recu)
 
     def test_envoyer_rappels_paiements_command(self):
         """Vérifie que la commande Django calcule bien les pénalités et envoie un courriel d'avertissement"""
@@ -200,6 +222,27 @@ class ResultatConcoursTestCase(TestCase):
         
         res.refresh_from_db()
         self.assertEqual(res.statut_preinscription, 'PAYE')
+        self.assertIsNotNone(res.etudiant_cree)
+        self.assertIsNotNone(res.etudiant_cree.filiere)
+
+    def test_marquer_preinscription_payee_sans_filiere(self):
+        """Vérifie la conversion robuste d'un candidat sans filière présélectionnée"""
+        self.client.login(username='comptable_test', password='Password123!')
+        res = ResultatConcours.objects.create(
+            session_concours=self.session,
+            numero_table="N2026-201",
+            nom="KOUAM",
+            prenom="Jean",
+            filiere=None,
+            statut_preinscription='NON_PAYE'
+        )
+        url = reverse('paiements:marquer_preinscription_payee', kwargs={'pk': res.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        res.refresh_from_db()
+        self.assertEqual(res.statut_preinscription, 'PAYE')
+        self.assertIsNotNone(res.etudiant_cree)
+        self.assertIsNotNone(res.etudiant_cree.filiere)
 
     def test_exporter_resultats_concours_pdf(self):
         self.client.login(username='comptable_test', password='Password123!')

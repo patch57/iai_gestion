@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }}{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+    <!-- Action / Navigation Bar -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 border border-gray-200 rounded-3xl shadow-sm">
+        <div>
+            <a href="{% url 'cours:liste_fiches_presence_enseignant' %}" class="inline-flex items-center text-xs font-bold text-emerald-700 hover:text-emerald-800 mb-2">
+                <i class="fas fa-arrow-left mr-1.5"></i> Retour à la liste des fiches
+            </a>
+            <h1 class="text-2xl font-black text-gray-800 flex items-center gap-3">
+                <i class="fas fa-clipboard-user text-emerald-700"></i> Émargement Présence Enseignants
+            </h1>
+            <p class="text-xs text-gray-500 mt-0.5">Semaine du {{ fiche.semaine_du|date:"d/m/Y" }} au {{ fiche.semaine_au|date:"d/m/Y" }} — Basé sur l'Emploi du Temps Officiel du Chef des Études</p>
+        </div>
+        <div class="flex items-center gap-3">
+            {% if fiche.statut == 'VALIDE' %}
+            <span class="px-3.5 py-2 bg-emerald-100 text-emerald-800 rounded-2xl text-xs font-black border border-emerald-300 flex items-center gap-1.5">
+                <i class="fas fa-lock"></i> Fiche Validée & Archivée
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Formulaire d'émargement -->
+    <form method="POST">
+        {% csrf_token %}
+        <div class="bg-white border border-gray-200 rounded-3xl shadow-sm overflow-hidden">
+            <div class="p-4 bg-emerald-900 text-white flex justify-between items-center">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fas fa-list-check text-amber-300"></i> Grille de Pointage des Séances Programmées
+                </h3>
+                <span class="text-xs bg-white/10 px-3 py-1 rounded-full border border-white/20">
+                    {{ pointages|length }} séance(s) / créneau(x) détecté(s)
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                            <th class="px-6 py-4">Enseignant</th>
+                            <th class="px-6 py-4">Jour & Tranche Horaire</th>
+                            <th class="px-6 py-4">Matière / Cours (EDT)</th>
+                            <th class="px-6 py-4">Filière / Salle</th>
+                            <th class="px-6 py-4 text-center">Présence Effective</th>
+                            <th class="px-6 py-4">Observations / Remarques</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-150 text-xs font-medium text-gray-700">
+                        {% for p in pointages %}
+                        <tr class="hover:bg-gray-50/80 transition">
+                            <td class="px-6 py-4 font-bold text-gray-900">
+                                <i class="fas fa-chalkboard-teacher text-emerald-600 mr-1.5"></i>
+                                {{ p.enseignant.get_nom_complet }}
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="font-bold text-gray-800">{{ p.creneau.get_jour_display|default:"Séance" }}</span>
+                                <span class="block text-[11px] text-gray-400 font-mono">{{ p.creneau.get_plage_display }}</span>
+                            </td>
+                            <td class="px-6 py-4 font-bold text-emerald-800">
+                                {{ p.creneau.intitule|default:"Cours Programmé" }}
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-bold text-[11px]">
+                                    {{ p.creneau.emploi_du_temps.filiere.code }}
+                                </span>
+                                {% if p.creneau.salle_nom %}
+                                <span class="ml-1 text-blue-700 font-bold">({{ p.creneau.salle_nom }})</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <select name="statut_{{ p.id }}" class="text-xs border border-gray-300 rounded-xl px-3 py-1.5 font-bold focus:ring-emerald-500 focus:border-emerald-500
+                                    {% if p.statut == 'PRESENT' %}text-emerald-700 bg-emerald-50 border-emerald-300
+                                    {% elif p.statut == 'ABSENT' %}text-rose-700 bg-rose-50 border-rose-300
+                                    {% elif p.statut == 'EXCUSE' %}text-amber-700 bg-amber-50 border-amber-300
+                                    {% endif %}">
+                                    <option value="PRESENT" {% if p.statut == 'PRESENT' %}selected{% endif %}>✅ Présent (Effectuée)</option>
+                                    <option value="ABSENT" {% if p.statut == 'ABSENT' %}selected{% endif %}>❌ Absent (Non effectuée)</option>
+                                    <option value="EXCUSE" {% if p.statut == 'EXCUSE' %}selected{% endif %}>🟡 Excusé / Remplacement</option>
+                                </select>
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="text" name="obs_{{ p.id }}" value="{{ p.observations }}" placeholder="Ex: Retard 15 min, cours rattrapé..." class="w-full text-xs border border-gray-200 rounded-xl px-3 py-1 focus:ring-emerald-500 focus:border-emerald-500">
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                                <i class="fas fa-calendar-times text-4xl block mb-2 opacity-40"></i>
+                                Aucun créneau d'emploi du temps trouvé pour cette semaine. Assurez-vous que l'emploi du temps officiel a été validé par le Chef des Études.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if pointages %}
+            <div class="p-6 bg-gray-50 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                <p class="text-xs text-gray-500">
+                    <i class="fas fa-info-circle text-emerald-600 mr-1"></i>
+                    Les modifications mettent immédiatement à jour le compteur des séances effectuées dans l'espace de chaque enseignant.
+                </p>
+                <div class="flex gap-3">
+                    <button type="submit" name="enregistrer_brouillon" class="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-2xl text-xs font-bold transition">
+                        <i class="fas fa-save mr-1"></i> Enregistrer Brouillon
+                    </button>
+                    <button type="submit" name="valider_archivage" onclick="return confirm('⚠️ Confirmez-vous le verrouillage et l\'archivage officiel de cette fiche hebdo d\'émargement ?');" class="px-5 py-2.5 bg-gradient-to-r from-emerald-700 to-green-600 hover:from-emerald-800 hover:to-green-700 text-white rounded-2xl text-xs font-black shadow-md hover:shadow-lg transition">
+                        <i class="fas fa-lock mr-1"></i> Valider & Archiver Officiellement
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

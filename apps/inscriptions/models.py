@@ -7,6 +7,8 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 from decimal import Decimal
+import uuid
+import hashlib
 
 
 class AnneeAcademique(models.Model):
@@ -455,3 +457,99 @@ class FicheRenseignement(models.Model):
 
     def __str__(self):
         return f"Fiche Renseignement - {self.etudiant.get_nom_complet()} ({self.annee_academique.code})"
+
+
+class CertificatScolarite(models.Model):
+    """Certificats de scolarité délivrés officiellement aux étudiants"""
+    STATUT_CHOICES = [
+        ('VALIDE', '🟢 Valide'),
+        ('ANNULE', '🔴 Annulé / Révoqué'),
+        ('EXPIRE', '⚪ Expiré'),
+    ]
+
+    numero_reference = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Numéro de référence",
+        help_text="Format: IAI-CS-2026-XXXXXX"
+    )
+    token_verification = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name="Token de vérification"
+    )
+    etudiant = models.ForeignKey(
+        'etudiants.Etudiant',
+        on_delete=models.CASCADE,
+        related_name='certificats_scolarite',
+        verbose_name="Étudiant"
+    )
+    annee_academique = models.ForeignKey(
+        AnneeAcademique,
+        on_delete=models.PROTECT,
+        related_name='certificats_scolarite',
+        verbose_name="Année Académique"
+    )
+    emetteur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='certificats_emis',
+        verbose_name="Émis par (Agent)"
+    )
+    date_delivrance = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Date de délivrance"
+    )
+    motif = models.CharField(
+        max_length=150,
+        default="Usage administratif",
+        verbose_name="Motif / Usage"
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='VALIDE',
+        verbose_name="Statut"
+    )
+    derogation_accordee = models.BooleanField(
+        default=False,
+        verbose_name="Dérogation administrative accordée"
+    )
+    motif_derogation = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Motif de la dérogation"
+    )
+    hash_securite = models.CharField(
+        max_length=64,
+        blank=True,
+        verbose_name="Empreinte cryptographique (SHA-256)"
+    )
+    telechargements_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Nombre de consultations/téléchargements"
+    )
+
+    class Meta:
+        app_label = 'inscriptions'
+        verbose_name = "Certificat de Scolarité"
+        verbose_name_plural = "Certificats de Scolarité"
+        ordering = ['-date_delivrance']
+
+    def save(self, *args, **kwargs):
+        if not self.numero_reference:
+            annee = self.annee_academique.code.split('-')[0] if self.annee_academique else str(timezone.now().year)
+            short_id = str(self.token_verification).split('-')[0].upper()
+            self.numero_reference = f"IAI-CS-{annee}-{short_id}"
+        
+        # Générer l'empreinte SHA-256 de vérification d'intégrité
+        raw_data = f"{self.numero_reference}:{self.etudiant_id}:{self.token_verification}:{self.date_delivrance}"
+        self.hash_securite = hashlib.sha256(raw_data.encode('utf-8')).hexdigest()
+        
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.numero_reference} - {self.etudiant.get_nom_complet()} ({self.get_statut_display()})"

@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- En-tête -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-book text-emerald-600"></i>
+                Gestion des Matières & Unités d'Enseignement
+            </h1>
+            <p class="text-sm text-gray-600 mt-1">
+                Configurez et modifiez les matières, leurs crédits et leurs volumes horaires (CM, TD, TP) sans passer par l'administration brute.
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0 flex gap-2">
+            <a href="{% url 'cours:ajouter_matiere' %}" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm rounded-lg shadow transition">
+                <i class="fas fa-plus mr-2"></i> Ajouter une Matière
+            </a>
+            <a href="/admin/cours/matiere/" target="_blank" class="inline-flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition" title="Ouvrir dans Django Admin">
+                <i class="fas fa-cog mr-1"></i> Admin Django
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtres et Recherche -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <form method="get" class="flex flex-col sm:flex-row items-center gap-4">
+            <div class="relative flex-1 w-full">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Rechercher par code (ex: PYTHON, PWeb1) ou nom..." 
+                       class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+            </div>
+            
+            <div class="w-full sm:w-48">
+                <select name="semestre" onchange="this.form.submit()" class="w-full py-2 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="">Tous les semestres</option>
+                    <option value="1" {% if semestre_filter == '1' %}selected{% endif %}>Semestre 1</option>
+                    <option value="2" {% if semestre_filter == '2' %}selected{% endif %}>Semestre 2</option>
+                </select>
+            </div>
+
+            <div class="flex gap-2 w-full sm:w-auto">
+                <button type="submit" class="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium rounded-lg transition w-full sm:w-auto">
+                    Filtrer
+                </button>
+                {% if search_query or semestre_filter %}
+                <a href="{% url 'cours:liste_matieres' %}" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition">
+                    Réinitialiser
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau des Matières -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-xs uppercase font-semibold text-gray-500 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3">Code</th>
+                        <th class="px-4 py-3">Intitulé de la Matière</th>
+                        <th class="px-4 py-3 text-center">Crédits</th>
+                        <th class="px-4 py-3 text-center">Volume Horaires (CM/TD/TP)</th>
+                        <th class="px-4 py-3 text-center">Semestre</th>
+                        <th class="px-4 py-3 text-center">Optionnelle</th>
+                        <th class="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for m in matieres %}
+                    <tr class="hover:bg-gray-50/80 transition">
+                        <td class="px-4 py-3 font-semibold text-emerald-700">
+                            {{ m.code }}
+                        </td>
+                        <td class="px-4 py-3 font-medium text-gray-900">
+                            {{ m.nom }}
+                            {% if m.description %}
+                            <p class="text-xs text-gray-400 font-normal truncate max-w-xs">{{ m.description }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                {{ m.credits }} ECTS
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-center font-mono text-xs">
+                            <span class="text-blue-600 font-bold" title="Heures Cours">{{ m.heures_cours }}h CM</span> /
+                            <span class="text-amber-600 font-bold" title="Heures TD">{{ m.heures_td }}h TD</span> /
+                            <span class="text-purple-600 font-bold" title="Heures TP">{{ m.heures_tp }}h TP</span>
+                            <span class="text-gray-400 block text-[11px] font-sans">Total: {{ m.get_heures_totales }}h</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2 py-1 text-xs font-medium rounded bg-blue-50 text-blue-700 border border-blue-100">
+                                Semestre {{ m.semestre }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if m.est_optionnelle %}
+                            <span class="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Oui</span>
+                            {% else %}
+                            <span class="text-xs font-medium text-gray-500">Obligatoire</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="{% url 'cours:modifier_matiere' m.id %}" class="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'cours:supprimer_matiere' m.id %}" class="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition" title="Supprimer">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fas fa-info-circle text-2xl mb-2 text-gray-300 block"></i>
+                            Aucune matière trouvée.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="p-4 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
+            <span>Total : <strong>{{ matieres|length }}</strong> matière(s) configurée(s)</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

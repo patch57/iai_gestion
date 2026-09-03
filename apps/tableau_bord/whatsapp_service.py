@@ -109,6 +109,34 @@ class WhatsAppService:
             succes, msg = cls.envoyer_message_callmebot(num_norm, message, api_key=api_token)
             return succes
 
+        # Intégration Meta WhatsApp Business Cloud API (graph.facebook.com)
+        if "facebook.com" in api_url.lower() or "meta" in api_url.lower():
+            headers = {
+                'Authorization': f'Bearer {api_token}',
+                'Content-Type': 'application/json'
+            }
+            payload = {
+                'messaging_product': 'whatsapp',
+                'recipient_type': 'individual',
+                'to': num_norm,
+                'type': 'text',
+                'text': {
+                    'preview_url': False,
+                    'body': message
+                }
+            }
+            try:
+                resp = requests.post(api_url, json=payload, headers=headers, timeout=10)
+                if resp.status_code in (200, 201):
+                    logger.info(f"[WhatsApp Meta API] Message envoyé avec succès à +{num_norm}")
+                    return True
+                else:
+                    logger.error(f"[WhatsApp Meta API] Échec d'envoi à +{num_norm} (HTTP {resp.status_code}: {resp.text})")
+                    return False
+            except Exception as e:
+                logger.error(f"[WhatsApp Meta API] Erreur de connexion : {str(e)}")
+                return False
+
         # Intégration générique HTTP API (UltraMsg, Chat-API, Twilio, etc.)
         payload = {
             'token': api_token,
@@ -145,7 +173,7 @@ class WhatsAppService:
                 utilisateur=etudiant.utilisateur,
                 titre=titre,
                 message=message,
-                type_notification='RAPPEL',
+                type='WARNING',
                 est_lue=False
             )
 

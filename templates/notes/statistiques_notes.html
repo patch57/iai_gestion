@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Statistiques des Notes - IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <span class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                    <i class="fas fa-chart-line text-xl"></i>
+                </span>
+                Statistiques des Notes & Résultats
+            </h1>
+            <p class="text-sm text-gray-500 mt-1">Aperçu analytique des moyennes, délibérations et taux de réussite par filière.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{% url 'notes:statistiques_par_filiere' %}" class="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-lg hover:bg-indigo-100 transition flex items-center gap-2">
+                <i class="fas fa-graduation-cap"></i> Par Filière
+            </a>
+            <a href="{% url 'notes:statistiques_evaluations' %}" class="px-4 py-2 bg-purple-50 text-purple-600 font-medium rounded-lg hover:bg-purple-100 transition flex items-center gap-2">
+                <i class="fas fa-file-signature"></i> Par Évaluation
+            </a>
+        </div>
+    </div>
+
+    <!-- Navigation Onglets Semestre -->
+    <div class="flex border-b border-gray-200 bg-white px-6 rounded-t-xl">
+        <a href="?semestre=1" class="py-3 px-6 text-sm font-semibold border-b-2 transition flex items-center gap-2 {% if semestre == 1 %}border-emerald-600 text-emerald-600{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">
+            <i class="fas fa-calendar-alt"></i> Semestre 1
+        </a>
+        <a href="?semestre=2" class="py-3 px-6 text-sm font-semibold border-b-2 transition flex items-center gap-2 {% if semestre == 2 %}border-emerald-600 text-emerald-600{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">
+            <i class="fas fa-calendar-alt"></i> Semestre 2
+        </a>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Moyenne Globale</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1">{{ moyenne_globale }}/20</h3>
+                <span class="text-xs font-medium text-emerald-600 mt-1 inline-block"><i class="fas fa-check-circle"></i> Validée</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-award"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Taux de Réussite</p>
+                <h3 class="text-2xl font-bold text-emerald-600 mt-1">{{ taux_reussite_global }}%</h3>
+                <span class="text-xs text-gray-500 mt-1 inline-block">{{ total_admis }} admis sur {{ total_bulletins }}</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-user-check"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Bulletins Traités</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1">{{ total_bulletins }}</h3>
+                <span class="text-xs text-gray-500 mt-1 inline-block">Semestre {{ semestre }}</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-file-invoice"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Évaluations Organisées</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1">{{ total_evaluations }}</h3>
+                <span class="text-xs text-gray-500 mt-1 inline-block">CC, TP & Examens</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-pen-nib"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau Synthétique par Filière -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <i class="fas fa-list-alt text-emerald-600"></i> Performances par Filières
+            </h2>
+            <span class="text-xs text-gray-500">Année Académique : {{ annee }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
+                    <tr>
+                        <th class="px-6 py-4">Filière</th>
+                        <th class="px-6 py-4 text-center">Effectif</th>
+                        <th class="px-6 py-4 text-center">Moyenne Semestrielle</th>
+                        <th class="px-6 py-4 text-center">Taux de Réussite</th>
+                        <th class="px-6 py-4 text-center">Admis</th>
+                        <th class="px-6 py-4 text-center">Ajournés</th>
+                        <th class="px-6 py-4 text-center">Plus Haute Note</th>
+                        <th class="px-6 py-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in stats_par_filiere %}
+                    <tr class="hover:bg-gray-50/80 transition">
+                        <td class="px-6 py-4 font-semibold text-gray-900 flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                                {{ item.filiere.code }}
+                            </span>
+                            {{ item.filiere.nom }}
+                        </td>
+                        <td class="px-6 py-4 text-center font-medium">{{ item.effectif }}</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold {% if item.moyenne >= 12 %}bg-emerald-100 text-emerald-800{% elif item.moyenne >= 10 %}bg-blue-100 text-blue-800{% else %}bg-rose-100 text-rose-800{% endif %}">
+                                {{ item.moyenne }}/20
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <div class="w-16 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: {{ item.taux_reussite }}%"></div>
+                                </div>
+                                <span class="text-xs font-bold text-gray-700">{{ item.taux_reussite }}%</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center text-emerald-600 font-bold">{{ item.admis }}</td>
+                        <td class="px-6 py-4 text-center text-amber-600 font-bold">{{ item.ajournes }}</td>
+                        <td class="px-6 py-4 text-center font-semibold text-blue-600">{{ item.meilleure_moyenne }}/20</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'notes:statistiques_par_filiere' %}?filiere_id={{ item.filiere.id }}" class="text-xs text-indigo-600 font-semibold hover:underline">
+                                Détails <i class="fas fa-arrow-right ml-1"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-8 text-center text-gray-400">
+                            <i class="fas fa-info-circle text-2xl mb-2 block"></i>
+                            Aucune donnée disponible pour ce semestre.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

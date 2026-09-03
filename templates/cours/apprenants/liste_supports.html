@@ -43,6 +43,13 @@
                     <span class="text-[10px] text-gray-400 font-semibold">{{ s.date_depot|date:"d M Y" }}</span>
                 </div>
                 
+                {% if s.date_limite_remise_physique %}
+                <div class="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-center text-amber-800 text-xs font-bold shadow-sm">
+                    <i class="fas fa-calendar-alt text-amber-600 mr-2 text-sm"></i>
+                    <span>Remise physique : <span class="text-amber-900 font-extrabold">{{ s.date_limite_remise_physique|date:"d/m/Y" }}</span></span>
+                </div>
+                {% endif %}
+                
                 <h3 class="font-bold text-gray-800 text-base mb-2 line-clamp-2">{{ s.titre }}</h3>
                 <p class="text-xs text-gray-500 mb-4">
                     <i class="fas fa-graduation-cap mr-1 text-green-600"></i> {{ s.get_module_formation_display }} <br>
@@ -53,13 +60,21 @@
             
             <div class="border-t pt-4 mt-4 flex items-center justify-between">
                 <span class="text-[10px] text-gray-400 italic">Par {{ s.formateur.get_full_name|default:s.formateur.username }}</span>
-                {% if s.fichier %}
-                <a href="{{ s.fichier.url }}" target="_blank" class="inline-flex bg-green-600 hover:bg-green-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm">
-                    <i class="fas fa-download mr-1.5"></i> Télécharger
-                </a>
-                {% else %}
-                <span class="text-xs text-gray-400">Aucun fichier</span>
-                {% endif %}
+                <div class="flex items-center gap-2">
+                    {% if s.fichier %}
+                    <a href="{{ s.fichier.url }}" target="_blank" class="inline-flex bg-green-600 hover:bg-green-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm">
+                        <i class="fas fa-download mr-1.5"></i> Télécharger
+                    </a>
+                    {% endif %}
+                    {% if user.is_superuser or user == s.formateur or user.type_utilisateur in 'ADMIN_SYSTEME,CHEF_FORMATION_CONTINUE,CHEF_ETUDES' %}
+                    <form method="POST" action="{% url 'cours:supprimer_support_apprenant' s.pk %}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement le support \'{{ s.titre|escapejs }}\' ?');" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" title="Supprimer le support" class="p-1.5 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition border-0 cursor-pointer text-xs">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
             </div>
         </div>
         {% empty %}

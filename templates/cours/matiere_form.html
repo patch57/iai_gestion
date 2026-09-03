@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-2xl">
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">
+                {% if matiere %}Modifier la matière : <span class="text-emerald-600">{{ matiere.nom }}</span>{% else %}Ajouter une nouvelle Matière{% endif %}
+            </h1>
+            <p class="text-sm text-gray-600">Formulaire d'édition de la configuration académique.</p>
+        </div>
+        <a href="{% url 'cours:liste_matieres' %}" class="text-gray-600 hover:text-gray-900 text-sm font-medium flex items-center gap-1">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Code Matière *</label>
+                    <input type="text" name="code" value="{{ form.code.value|default:'' }}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                           placeholder="ex: PYTHON, Cisco1, PWeb1">
+                    {% if form.code.errors %}<p class="text-red-500 text-xs mt-1">{{ form.code.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Intitulé / Nom *</label>
+                    <input type="text" name="nom" value="{{ form.nom.value|default:'' }}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                           placeholder="ex: Programmation Python">
+                    {% if form.nom.errors %}<p class="text-red-500 text-xs mt-1">{{ form.nom.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description / Syllabique</label>
+                <textarea name="description" rows="3" 
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          placeholder="Description succincte des objectifs de la matière...">{{ form.description.value|default:'' }}</textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Crédits (ECTS) *</label>
+                    <input type="number" name="credits" value="{{ form.credits.value|default:3 }}" min="1" max="30" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Semestre *</label>
+                    <select name="semestre" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        <option value="1" {% if form.semestre.value == 1 or form.semestre.value == '1' %}selected{% endif %}>Semestre 1</option>
+                        <option value="2" {% if form.semestre.value == 2 or form.semestre.value == '2' %}selected{% endif %}>Semestre 2</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Heures CM</label>
+                    <input type="number" name="heures_cours" value="{{ form.heures_cours.value|default:30 }}" min="0" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Heures TD</label>
+                    <input type="number" name="heures_td" value="{{ form.heures_td.value|default:15 }}" min="0" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Heures TP</label>
+                    <input type="number" name="heures_tp" value="{{ form.heures_tp.value|default:0 }}" min="0" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+                <input type="checkbox" name="est_optionnelle" id="id_est_optionnelle" {% if form.est_optionnelle.value %}checked{% endif %}
+                       class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
+                <label for="id_est_optionnelle" class="text-sm font-medium text-gray-700">Matière optionnelle</label>
+            </div>
+
+            <div class="pt-4 flex justify-end gap-3 border-t border-gray-100">
+                <a href="{% url 'cours:liste_matieres' %}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition">
+                    Annuler
+                </a>
+                <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow transition">
+                    <i class="fas fa-save mr-1"></i> Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

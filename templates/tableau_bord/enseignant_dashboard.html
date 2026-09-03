@@ -52,6 +52,42 @@
     </div>
     {% endif %}
 
+    <!-- Suivi des Séances de Cours (Émargement Hebdo Enseignant) -->
+    <div class="mb-8 bg-gradient-to-r from-emerald-900 via-teal-800 to-green-900 rounded-3xl p-6 shadow-xl text-white">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div class="space-y-3 flex-1">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
+                        <i class="fas fa-calendar-check text-amber-300 text-2xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-amber-400 text-gray-900 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">Suivi Officiel des Séances</span>
+                            <span class="bg-white/20 text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border border-white/20">Calcul Automatique EDT</span>
+                        </div>
+                        <h3 class="text-xl font-black text-white mt-1">
+                            Charge Hebdomadaire : <span class="text-amber-300">{{ stats_seances.seances_hebdo|default:0 }} séance(s)/semaine</span> ({{ stats_seances.heures_hebdo|default:0 }}h/semaine)
+                        </h3>
+                    </div>
+                </div>
+                <div class="p-3 bg-white/10 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-chart-bar text-amber-400 text-base"></i>
+                        <span>Cumul Annuel : <strong class="text-white font-black text-sm">{{ seances_effectuees }}</strong> effectuée(s) sur <strong class="text-amber-300 font-black text-sm">{{ seances_total }}</strong> programmée(s)</span>
+                    </div>
+                    <span class="text-[11px] text-emerald-100/80 italic">EDT Officiel (Chef des Études) & Émargement Hebdo (Scolarité)</span>
+                </div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center w-full lg:w-48 flex-shrink-0">
+                <div class="w-full bg-white/20 rounded-full h-2.5 mb-2 overflow-hidden">
+                    <div class="bg-amber-400 h-2.5 rounded-full transition-all duration-500" style="width: {{ taux_realisation }}%;"></div>
+                </div>
+                <span class="text-3xl font-black text-amber-300">{{ taux_realisation }}%</span>
+                <span class="block text-[10px] font-extrabold uppercase tracking-wider text-emerald-100">Réalisation Effective</span>
+            </div>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Téléversement de cours, TP, TD -->
         <div class="lg:col-span-1 space-y-8">
@@ -60,17 +96,37 @@
                 {% if cours_enseignes %}
                 <form method="POST" enctype="multipart/form-data" class="space-y-4">
                     {% csrf_token %}
+                    
+                    <!-- Choix direct de la Salle / Classe -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner le Cours</label>
-                        <select name="cours_id" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Salle / Classe <span class="text-red-500">*</span></label>
+                        <select name="salle_id" id="id_salle_id" required class="w-full text-xs rounded-xl border border-gray-300 px-3 py-2 bg-white focus:ring-green-500 focus:border-green-500 font-bold text-gray-800">
+                            {% for s in salles_list %}
+                            <option value="{{ s.id }}" data-code="{{ s.code }}" data-nom="{{ s.nom }}">{{ s.nom }} ({{ s.code }})</option>
+                            {% empty %}
+                            {% for f in filieres_list %}
+                            <option value="{{ f.id }}">{{ f.nom }} ({{ f.code }})</option>
+                            {% endfor %}
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Sélectionner le Cours <span class="text-red-500">*</span></label>
+                        <select name="cours_id" id="id_cours_select" required class="w-full text-xs font-bold text-gray-800 rounded-xl border border-gray-300 px-3 py-2.5 focus:ring-green-500 focus:border-green-500">
                             {% for cours in cours_enseignes %}
-                            <option value="{{ cours.id }}">{{ cours.code }} - {{ cours.matiere.nom }} ({{ cours.filiere.code }})</option>
+                            <option value="{{ cours.id }}"
+                                    data-filiere="{{ cours.filiere.id }}"
+                                    data-filiere-code="{{ cours.filiere.code }}"
+                                    data-semestre="{{ cours.matiere.semestre|default:'1' }}">
+                                [{{ cours.filiere.code }}] {{ cours.code }} - {{ cours.matiere.nom }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Type de Ressource</label>
-                        <select name="type_ressource" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                        <select name="type_ressource" id="id_type_ressource" class="w-full rounded-xl border border-gray-300 px-4 py-2 text-xs font-bold focus:ring-green-500 focus:border-green-500">
                             <option value="COURS">Support de Cours</option>
                             <option value="TD">Sujet de TD</option>
                             <option value="TP">Sujet de TP</option>
@@ -78,16 +134,93 @@
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Titre du document</label>
-                        <input type="text" name="titre" required placeholder="Ex: Chapitre 1 - Introduction" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500">
+                        <input type="text" name="titre" required placeholder="Ex: Chapitre 1 - Introduction" class="w-full rounded-xl border border-gray-300 px-4 py-2 text-xs focus:ring-green-500 focus:border-green-500 font-semibold">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Fichier (PDF, ZIP, DOCX)</label>
-                        <input type="file" name="ressource_fichier" required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                        <input type="file" name="ressource_fichier" required class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
                     </div>
-                    <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200">
-                        Téléverser le Support
+
+                    <!-- Champ d'Échéance de Remise Physique (Dynamique pour TD / TP) -->
+                    <div id="container_echeance_remise" class="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-1 transition-all">
+                        <label class="block text-xs font-bold text-amber-900 flex items-center">
+                            <i class="fas fa-calendar-alt text-amber-600 mr-1.5"></i>
+                            Date limite de remise physique <span id="badge_requis" class="ml-1 text-[10px] text-red-600 font-extrabold uppercase bg-red-100 px-2 py-0.5 rounded-full hidden">Obligatoire</span>
+                        </label>
+                        <input type="date" name="date_limite_remise_physique" id="id_date_limite_remise_physique" class="w-full text-xs rounded-xl border border-amber-300 px-3 py-2 bg-white focus:ring-amber-500 focus:border-amber-500 font-semibold text-gray-800">
+                        <p class="text-[11px] text-amber-800 italic" id="txt_help_echeance">Date à laquelle les étudiants doivent vous remettre leur travail imprimé/manuscrit (optionnel pour les cours).</p>
+                    </div>
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200 text-sm">
+                        <i class="fas fa-cloud-upload-alt mr-2"></i> Téléverser le Support
                     </button>
                 </form>
+
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const selectType = document.getElementById('id_type_ressource');
+                        const inputDate = document.getElementById('id_date_limite_remise_physique');
+                        const badgeRequis = document.getElementById('badge_requis');
+                        const containerEcheance = document.getElementById('container_echeance_remise');
+                        const helpTxt = document.getElementById('txt_help_echeance');
+
+                        const selectSalle = document.getElementById('id_salle_id');
+                        const coursSelect = document.getElementById('id_cours_select');
+
+                        function updateDynamicSelection() {
+                            if (!selectSalle || !coursSelect) return;
+                            const selectedOption = selectSalle.options[selectSalle.selectedIndex];
+                            const salleCode = selectedOption ? (selectedOption.getAttribute('data-code') || selectedOption.text || '').toUpperCase() : '';
+
+                            let firstCoursFound = false;
+                            Array.from(coursSelect.options).forEach(opt => {
+                                const filiereCode = (opt.getAttribute('data-filiere-code') || '').toUpperCase();
+                                const optText = (opt.textContent || '').toUpperCase();
+
+                                const matchSalle = !salleCode || filiereCode.includes(salleCode) || salleCode.includes(filiereCode) || optText.includes(salleCode);
+
+                                if (matchSalle) {
+                                    opt.style.display = '';
+                                    opt.disabled = false;
+                                    if (!firstCoursFound) {
+                                        opt.selected = true;
+                                        firstCoursFound = true;
+                                    }
+                                } else {
+                                    opt.style.display = 'none';
+                                    opt.disabled = true;
+                                }
+                            });
+                        }
+
+                        if (selectSalle) {
+                            selectSalle.addEventListener('change', updateDynamicSelection);
+                            updateDynamicSelection();
+                        }
+
+                        function majAffichageEcheance() {
+                            const val = selectType.value;
+                            if (val === 'TD' || val === 'TP') {
+                                inputDate.required = true;
+                                badgeRequis.classList.remove('hidden');
+                                containerEcheance.classList.remove('bg-amber-50/70', 'border-amber-200');
+                                containerEcheance.classList.add('bg-red-50/80', 'border-red-300', 'ring-2', 'ring-red-300');
+                                helpTxt.innerText = "⚠️ Les étudiants seront immédiatement notifiés (App + Email + WhatsApp) de cette date d'échéance.";
+                            } else {
+                                inputDate.required = false;
+                                badgeRequis.classList.add('hidden');
+                                containerEcheance.classList.remove('bg-red-50/80', 'border-red-300', 'ring-2', 'ring-red-300');
+                                containerEcheance.classList.add('bg-amber-50/70', 'border-amber-200');
+                                helpTxt.innerText = "Date à laquelle les étudiants doivent vous remettre leur travail imprimé/manuscrit (optionnel pour les cours).";
+                            }
+                        }
+
+                        if (selectType) {
+                            selectType.addEventListener('change', majAffichageEcheance);
+                            majAffichageEcheance();
+                        }
+                    });
+                </script>
                 {% else %}
                 <p class="text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">Aucun cours ne vous a encore été attribué cette année par l'administration.</p>
                 {% endif %}
@@ -193,6 +326,104 @@
                     </div>
                     {% endif %}
                 </div>
+            </div>
+
+            <!-- Mes Supports Pédagogiques Téléversés (Consultation & Gestion) -->
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg text-gray-800 flex items-center">
+                        <i class="fas fa-folder-open text-emerald-600 mr-2"></i>Mes Supports Pédagogiques Téléversés ({{ mes_ressources.count }})
+                    </h3>
+                    <span class="text-xs font-bold text-gray-400">Consultation & Gestion</span>
+                </div>
+                
+                {% if mes_ressources %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                                <th class="p-3">Cours & Filière</th>
+                                <th class="p-3">Type & Titre</th>
+                                <th class="p-3">Ajouté le</th>
+                                <th class="p-3">Échéance Physique</th>
+                                <th class="p-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 text-xs">
+                            {% for res in mes_ressources %}
+                            <tr class="hover:bg-gray-50/50 transition">
+                                <td class="p-3 font-bold text-gray-800">
+                                    {{ res.cours.code }} <br>
+                                    <span class="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{{ res.cours.filiere.code }}</span>
+                                </td>
+                                <td class="p-3">
+                                    <div class="flex items-center gap-1.5 mb-0.5">
+                                        <span class="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase
+                                            {% if res.type_ressource == 'TD' %}bg-blue-100 text-blue-800
+                                            {% elif res.type_ressource == 'TP' %}bg-purple-100 text-purple-800
+                                            {% else %}bg-green-100 text-green-800{% endif %}">
+                                            {{ res.get_type_ressource_display }}
+                                        </span>
+                                    </div>
+                                    <span class="font-bold text-gray-900">{{ res.titre }}</span>
+                                </td>
+                                <td class="p-3 text-gray-400 font-medium">{{ res.date_ajout|date:"d/m/Y" }}</td>
+                                <td class="p-3">
+                                    {% if res.date_limite_remise_physique %}
+                                    <div class="space-y-1">
+                                        <span class="font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 inline-flex items-center text-[11px]">
+                                            <i class="far fa-calendar-alt text-amber-600 mr-1"></i>{{ res.date_limite_remise_physique|date:"d/m/Y" }}
+                                        </span>
+                                        {% if res.compte_a_rebours_display %}
+                                        <span class="block text-[10px] font-bold text-amber-700">
+                                            <i class="far fa-clock mr-0.5"></i>{{ res.compte_a_rebours_display }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-gray-400 italic text-[11px]">Aucune échéance</span>
+                                    {% endif %}
+                                </td>
+                                <td class="p-3 text-right">
+                                    <div class="inline-flex items-center gap-1.5">
+                                        {% if res.fichier %}
+                                        <a href="{{ res.fichier.url }}" target="_blank" title="Télécharger le fichier" class="p-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        {% endif %}
+                                        
+                                        <!-- Modifier / Définir l'échéance physique -->
+                                        <button type="button" onclick="openEditDeadlineModal({{ res.pk }}, '{{ res.titre|escapejs }}', '{% if res.date_limite_remise_physique %}{{ res.date_limite_remise_physique|date:'Y-m-d' }}{% endif %}')" title="{% if res.date_limite_remise_physique %}Modifier l'échéance physique{% else %}Définir une échéance physique{% endif %}" class="p-1.5 text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition border-0 cursor-pointer">
+                                            <i class="fas fa-calendar-plus"></i>
+                                        </button>
+
+                                        {% if res.date_limite_remise_physique %}
+                                        <!-- Supprimer uniquement l'échéance physique -->
+                                        <form method="POST" action="{% url 'cours:supprimer_echeance_ressource' res.pk %}" onsubmit="return confirm('Voulez-vous supprimer l\'échéance de remise physique pour \'{{ res.titre|escapejs }}\' ?');" class="inline">
+                                            {% csrf_token %}
+                                            <button type="submit" title="Supprimer l'échéance physique" class="p-1.5 text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 rounded-lg transition border-0 cursor-pointer">
+                                                <i class="fas fa-calendar-minus"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+
+                                        <!-- Supprimer le support complet -->
+                                        <form method="POST" action="{% url 'cours:supprimer_ressource' res.pk %}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement le support \'{{ res.titre|escapejs }}\' ?');" class="inline">
+                                            {% csrf_token %}
+                                            <button type="submit" title="Supprimer le support" class="p-1.5 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition border-0 cursor-pointer">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-gray-400 text-xs text-center py-6">Aucun support pédagogique n'a encore été téléversé par vos soins.</p>
+                {% endif %}
             </div>
 
             <!-- Calendrier / Emplois du temps Globaux -->
@@ -331,4 +562,50 @@
         </div>
     </div>
 </div>
+<!-- Modal Modification Échéance Physique -->
+<div id="modalModifierEcheance" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-fade-in">
+        <div class="flex justify-between items-center pb-4 border-b border-gray-100">
+            <h3 class="font-bold text-gray-800 text-lg flex items-center">
+                <i class="far fa-calendar-alt text-amber-600 mr-2"></i> Modifier l'Échéance Physique
+            </h3>
+            <button onclick="closeEditDeadlineModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold border-0 bg-transparent cursor-pointer">&times;</button>
+        </div>
+        <form id="formModifierEcheance" method="POST" action="" class="mt-4 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Support concerné</label>
+                <input type="text" id="modalSupportTitre" readonly class="w-full text-xs font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 cursor-not-allowed">
+            </div>
+            <div>
+                <label for="modalDateEcheance" class="block text-xs font-bold text-amber-900 uppercase mb-1">Nouvelle date limite de remise physique</label>
+                <input type="date" name="date_limite_remise_physique" id="modalDateEcheance" required class="w-full text-xs rounded-xl border border-amber-300 px-3 py-2 bg-white focus:ring-amber-500 focus:border-amber-500 font-semibold text-gray-800">
+                <span class="text-[11px] text-gray-400 block mt-1">L'étudiant verra immédiatement le compte à rebours ajusté en jour.</span>
+            </div>
+            <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <button type="button" onclick="closeEditDeadlineModal()" class="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 bg-gray-100 rounded-xl">Annuler</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-md transition">Enregistrer la date</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditDeadlineModal(resId, titre, currentDate) {
+    const modal = document.getElementById('modalModifierEcheance');
+    const form = document.getElementById('formModifierEcheance');
+    const titreInput = document.getElementById('modalSupportTitre');
+    const dateInput = document.getElementById('modalDateEcheance');
+    
+    form.action = `/cours/ressources/${resId}/echeance/modifier/`;
+    titreInput.value = titre;
+    dateInput.value = currentDate || '';
+    
+    modal.classList.remove('hidden');
+}
+
+function closeEditDeadlineModal() {
+    document.getElementById('modalModifierEcheance').classList.add('hidden');
+}
+</script>
 {% endblock %}

@@ -1,0 +1,72 @@
+<div class="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col justify-between space-y-4 hover:shadow-xl transition relative overflow-hidden group">
+    <!-- En-tête Carte -->
+    <div class="space-y-3">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase {{ badge_bg }}">
+                {{ type_badge }}
+            </span>
+
+            <div class="flex items-center gap-1.5">
+                {% if fiche.filiere %}
+                <span class="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md text-[10px] font-bold border border-slate-200">
+                    {{ fiche.filiere.code }}
+                </span>
+                {% endif %}
+
+                {% if fiche.niveau %}
+                <span class="bg-indigo-50 text-indigo-800 px-2 py-0.5 rounded-md text-[10px] font-bold border border-indigo-100">
+                    N{{ fiche.niveau.numero }}
+                </span>
+                {% endif %}
+
+                {% if fiche.salle %}
+                <span class="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md text-[10px] font-bold border border-emerald-100">
+                    <i class="fas fa-door-open text-[9px] mr-1"></i>{{ fiche.salle.nom }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div>
+            <h3 class="font-black text-gray-900 text-base leading-snug group-hover:text-indigo-600 transition">
+                {{ fiche.matiere.nom }}
+            </h3>
+            <p class="text-xs text-gray-500 font-medium mt-0.5">
+                Code : <span class="font-bold text-gray-800">{{ fiche.matiere.code }}</span> • {{ fiche.annee_academique }}
+            </p>
+        </div>
+
+        <div class="p-3 bg-gray-50 rounded-2xl border border-gray-100 space-y-1">
+            <div class="text-xs text-gray-700 flex items-center gap-1.5 font-medium">
+                <i class="fas fa-chalkboard-teacher text-indigo-600"></i> Enseignant :
+                <span class="font-bold text-gray-900">{{ fiche.enseignant_nom|default:fiche.enseignant.get_full_name|default:"-" }}</span>
+            </div>
+            <div class="text-[11px] text-gray-500 italic">
+                Transmis par le Chef Anonymat le {{ fiche.date_transmission_etudes|default:fiche.date_creation|date:"d/m/Y à H:i" }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions et Statut -->
+    <div class="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+        <div>
+            {% if fiche.statut == 'VALIDE' %}
+            <span class="inline-flex items-center text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                <i class="fas fa-check-circle mr-1"></i> Validé & Publié
+            </span>
+            {% else %}
+            <span class="inline-flex items-center text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                <i class="fas fa-clock mr-1 text-amber-600"></i> Transmis pour Délibération
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center gap-2">
+            {% if fiche.proces_verbal %}
+            <a href="{% url 'notes:detail_pv' pk=fiche.proces_verbal.pk %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow transition flex items-center gap-1">
+                <i class="fas fa-eye"></i> Consulter PV
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>

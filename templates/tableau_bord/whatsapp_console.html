@@ -77,22 +77,60 @@
             {% endif %}
         </div>
 
-        <!-- Guide & Avantages -->
+        <!-- Guide, Avantages & Configuration API -->
         <div class="space-y-6">
+            <!-- Formulaire de Configuration API Pro -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-emerald-100">
+                <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
+                    <i class="fas fa-[#00D2FF] fa-cogs text-emerald-600 mr-2"></i>
+                    Passerelle API WhatsApp (Envoi Automatique)
+                </h3>
+                <p class="text-xs text-gray-500 mb-4">
+                    Activez l'envoi direct en arrière-plan (sans clic) en renseignant votre fournisseur API (UltraMsg, Green-API, Twilio, etc.).
+                </p>
+
+                <form method="POST" class="space-y-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_config">
+
+                    <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                        <input type="checkbox" id="whatsapp_enabled" name="whatsapp_enabled" {% if config_enabled %}checked{% endif %} class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                        <label for="whatsapp_enabled" class="text-xs font-bold text-gray-800 cursor-pointer">
+                            Activer l'envoi API automatique
+                        </label>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">URL d'API WhatsApp</label>
+                        <input type="url" name="whatsapp_api_url" value="{{ config_url }}" placeholder="https://api.ultramsg.com/instance/messages/chat" class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-xs p-2.5 border">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Token / Clé d'API</label>
+                        <input type="password" name="whatsapp_token" value="{{ config_token }}" placeholder="Votre clé ou token d'API" class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-xs p-2.5 border">
+                    </div>
+
+                    <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs transition shadow flex items-center justify-center space-x-2">
+                        <i class="fas fa-[#00D2FF] fa-save"></i>
+                        <span>Enregistrer les paramètres API</span>
+                    </button>
+                </form>
+            </div>
+
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <h3 class="text-base font-bold text-gray-900 mb-3">Comment ça marche ?</h3>
                 <ul class="space-y-3 text-xs text-gray-600">
                     <li class="flex items-start">
                         <i class="fas fa-[#00D2FF] fa-check text-emerald-500 mt-0.5 mr-2"></i>
-                        <span><strong>Gratuité 100%</strong> : Utilise la technologie Click-to-WhatsApp (wa.me) sans intermédiaire payant.</span>
+                        <span><strong>Mode Hybride</strong> : Si l'API est activée, l'envoi part automatiquement en arrière-plan. Sinon, le lien Click-to-WhatsApp 100% gratuit est généré.</span>
                     </li>
                     <li class="flex items-start">
                         <i class="fas fa-[#00D2FF] fa-check text-emerald-500 mt-0.5 mr-2"></i>
-                        <span><strong>Double Impact</strong> : Le message est également archivé dans les notifications internes de l'étudiant.</span>
+                        <span><strong>Double Impact</strong> : Les messages sont conservés dans les notifications in-app de l'étudiant et du Chef de la comptabilité.</span>
                     </li>
                     <li class="flex items-start">
                         <i class="fas fa-[#00D2FF] fa-check text-emerald-500 mt-0.5 mr-2"></i>
-                        <span><strong>Format Cameroun</strong> : Détecte et formate automatiquement les numéros (+237 6XX...).</span>
+                        <span><strong>Format Cameroun</strong> : Normalisation automatique au format international (+237 6XX...).</span>
                     </li>
                 </ul>
             </div>

@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 import os
 import re
+import uuid
 from datetime import date
 
 
@@ -434,6 +435,13 @@ class Etudiant(models.Model):
         verbose_name="Matricule",
         help_text="Format: GL.CMR.D014.2324A ou SR.CMR.D014.2324A"
     )
+    verification_token = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        null=True,
+        blank=True,
+        verbose_name="Jeton de vérification QR"
+    )
     
     # Informations personnelles
     nom = models.CharField(max_length=100, verbose_name="Nom")
@@ -612,7 +620,7 @@ class Etudiant(models.Model):
             })
         
         # Vérifier la cohérence filière-niveau
-        if self.filiere and self.niveau and self.niveau.filiere != self.filiere:
+        if getattr(self, 'filiere_id', None) and getattr(self, 'niveau_id', None) and self.niveau.filiere != self.filiere:
             raise ValidationError({
                 'niveau': 'Le niveau doit correspondre à la filière sélectionnée'
             })
@@ -628,7 +636,7 @@ class Etudiant(models.Model):
         
         # Vérifier que le code filière correspond à la filière choisie
         filiere_code = self.matricule.split('.')[0]
-        if self.filiere and filiere_code != self.filiere.code:
+        if getattr(self, 'filiere_id', None) and filiere_code != self.filiere.code:
             raise ValidationError({
                 'matricule': f'Le matricule indique la filière {filiere_code} mais la filière sélectionnée est {self.filiere.code}'
             })
@@ -643,9 +651,10 @@ class Etudiant(models.Model):
     def save(self, *args, **kwargs):
         """Sauvegarde avec validation et mise à jour automatique"""
         # Synchroniser avec l'utilisateur si nécessaire
-        if self.utilisateur and not self.matricule:
-            self.matricule = self.utilisateur.matricule
-        
+        # Auto-affectation d'une classe par filière et niveau si non définie
+        if not self.classe and getattr(self, 'filiere_id', None) and getattr(self, 'niveau_id', None):
+            self.assigner_classe_automatique()
+
         self.full_clean()
         
         # Mettre à jour l'effectif de la classe si le statut change
@@ -693,11 +702,50 @@ class Etudiant(models.Model):
             annee = datetime.now().year
             suffixe_annee = f"{str(annee)[2:]}{str(annee+1)[2:]}"
         
-        if self.filiere:
+        if getattr(self, 'filiere_id', None):
             num_ordre = Etudiant.objects.filter(filiere=self.filiere).count() + 1
             self.matricule = f"{self.filiere.code}.CMR.DO{num_ordre:02d}.{suffixe_annee}A"
     
     # ========== MÉTHODES MÉTIER ==========
+    
+    def assigner_classe_automatique(self):
+        """Affecte automatiquement l'étudiant à une classe correspondant à sa filière et son niveau pour l'année académique courante"""
+        if not getattr(self, 'filiere_id', None) or not getattr(self, 'niveau_id', None):
+            return None
+        from apps.etudiants.models import Classe, AnneeAcademique
+        annee = self.annee_academique or AnneeAcademique.get_active() or AnneeAcademique.objects.filter(est_active=True).first()
+        if not annee:
+            return None
+        
+        if self.classe and self.classe.filiere == self.filiere and self.classe.niveau == self.niveau and self.classe.annee_academique == annee:
+            return self.classe
+
+        classes_cibles = Classe.objects.filter(
+            filiere=self.filiere,
+            niveau=self.niveau,
+            annee_academique=annee,
+            est_active=True
+        ).order_by('id')
+
+        if not classes_cibles.exists():
+            nom_c = f"{self.filiere.nom} {self.niveau.numero}A" if self.filiere.code == "GL" else f"{self.filiere.nom} {self.niveau.numero}"
+            classe_c = Classe.objects.create(
+                nom=nom_c,
+                filiere=self.filiere,
+                niveau=self.niveau,
+                annee_academique=annee,
+                effectif_max=40,
+                est_active=True
+            )
+            classes_cibles = [classe_c]
+
+        for c in classes_cibles:
+            if c.etudiants.count() < c.effectif_max:
+                self.classe = c
+                return c
+
+        self.classe = classes_cibles.first()
+        return self.classe
     
     def get_nom_complet(self):
         """Retourne le nom complet de l'étudiant"""

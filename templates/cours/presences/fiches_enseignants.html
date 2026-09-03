@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }} - IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-8 animate-fade-in">
+    <!-- Header Hero Banner -->
+    <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-800 rounded-3xl p-6 sm:p-8 text-white shadow-xl">
+        <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+            <i class="fas fa-clipboard-check text-[180px]"></i>
+        </div>
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <span class="inline-flex items-center gap-1.5 px-3.5 py-1 bg-white/15 backdrop-blur-md text-emerald-200 text-[10px] font-black rounded-full uppercase tracking-wider border border-white/10">
+                    <i class="fas fa-shield-alt text-amber-400"></i> Espace Scolarité & Direction
+                </span>
+                <h1 class="text-2xl sm:text-3xl font-black tracking-tight mt-2 flex items-center gap-3">
+                    <i class="fas fa-user-check text-emerald-400"></i> Fiches Hebdo Émargement & Présence Enseignants
+                </h1>
+                <p class="text-sm text-emerald-100/80 font-medium mt-1 max-w-2xl">
+                    Pointage effectif et contrôle de conformité des séances de cours programmées par le Chef des Études.
+                </p>
+            </div>
+            
+            <div class="flex items-center gap-3 self-start md:self-auto">
+                <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-4 py-3 text-center min-w-[100px]">
+                    <span class="text-2xl font-black text-white block">{{ fiches|length }}</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-200">Fiches Total</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2 Colonnes : Automatisation & Création Manuelle -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Bannière d'Information Automatisation (7 colonnes sur desktop) -->
+        <div class="lg:col-span-7 bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100/50 border border-emerald-200/80 rounded-3xl p-6 shadow-sm flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-emerald-200 shrink-0">
+                <i class="fas fa-robot text-amber-300"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-extrabold text-emerald-950 uppercase tracking-wider">Génération & Synchronisation Automatique</h3>
+                    <span class="px-2 py-0.5 bg-emerald-200 text-emerald-900 text-[9px] font-black rounded-md">ACTIF</span>
+                </div>
+                <p class="text-xs text-emerald-800 leading-relaxed mt-1.5 font-medium">
+                    Chaque fiche d'émargement hebdomadaire est <b>automatiquement générée et synchronisée</b> dès que le Chef des Études valide un nouvel emploi du temps. Les pointages des enseignants y sont directement rattachés, archivés et téléchargeables en PDF officiel.
+                </p>
+            </div>
+        </div>
+
+        <!-- Formulaire de Création Rapide (5 colonnes sur desktop) -->
+        <div class="lg:col-span-5 bg-white border border-gray-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-black text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fas fa-calendar-plus text-emerald-600"></i> Créer Fiche Hebdo Manuelle
+                </h3>
+                <span class="text-[10px] text-gray-400 font-semibold">Optionnel</span>
+            </div>
+
+            <form method="POST" action="{% url 'cours:creer_fiche_presence_enseignant' %}" class="space-y-3">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block mb-1">Lundi (Début)</label>
+                        <input type="date" name="semaine_du" required class="w-full text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider block mb-1">Samedi (Fin)</label>
+                        <input type="date" name="semaine_au" required class="w-full text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-emerald-700 to-teal-600 hover:from-emerald-800 hover:to-teal-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-200 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2">
+                    <i class="fas fa-plus-circle"></i> Générer / Pré-remplir la Fiche
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau d'archivage des fiches -->
+    <div class="bg-white border border-gray-200/80 rounded-3xl shadow-sm overflow-hidden">
+        <div class="p-5 bg-gray-50/70 border-b border-gray-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+                <h3 class="text-sm font-black text-gray-900 flex items-center gap-2">
+                    <i class="fas fa-archive text-amber-500"></i> Archives des Fiches Hebdomadaires Enseignants
+                </h3>
+                <p class="text-xs text-gray-500 mt-0.5">Consultez, modifiez ou téléchargez les synthèses d'émargement officiel</p>
+            </div>
+            <span class="px-3 py-1 bg-gray-200/70 text-gray-700 text-xs font-bold rounded-full border border-gray-300/60">
+                {{ fiches|length }} fiche(s) archivée(s)
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50/90 text-[10px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-200">
+                        <th class="px-6 py-4">Semaine d'Émargement</th>
+                        <th class="px-6 py-4">Année Académique</th>
+                        <th class="px-6 py-4 text-center">Pointages Effectués</th>
+                        <th class="px-6 py-4 text-center">Statut</th>
+                        <th class="px-6 py-4 text-center">Responsable Pointage</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-xs font-medium text-gray-700">
+                    {% for f in fiches %}
+                    <tr class="hover:bg-emerald-50/30 transition-colors">
+                        <td class="px-6 py-4 font-bold text-gray-900 flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shrink-0">
+                                <i class="far fa-calendar-alt"></i>
+                            </div>
+                            <div>
+                                <span class="block text-xs font-black text-gray-900">Semaine du {{ f.semaine_du|date:"d/m/Y" }} au {{ f.semaine_au|date:"d/m/Y" }}</span>
+                                <span class="text-[10px] text-gray-400 font-medium">Créée le {{ f.date_creation|date:"d/m/Y H:i" }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-gray-600 font-bold">
+                            {{ f.annee_academique }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80">
+                                <i class="fas fa-list-ol text-[10px]"></i>
+                                {{ f.pointages.count }} créneau(x) émargé(s)
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if f.statut == 'VALIDE' %}
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                <i class="fas fa-lock"></i> Validé & Archivé
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                                <i class="fas fa-edit"></i> Brouillon
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center text-gray-500 font-medium">
+                            {{ f.rempli_par.get_full_name|default:f.rempli_par.username|default:"Scolarité" }}
+                        </td>
+                        <td class="px-6 py-4 text-right space-x-2">
+                            <a href="{% url 'cours:saisir_fiche_presence_enseignant' f.pk %}" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl border border-emerald-200/80 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fas fa-pen-square text-emerald-600"></i> Émarger / Modifier
+                            </a>
+                            <a href="{% url 'cours:exporter_fiche_presence_enseignant_pdf' f.pk %}" target="_blank" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl border border-rose-200/80 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fas fa-file-pdf text-rose-600"></i> PDF
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-16 text-center text-gray-400">
+                            <div class="w-16 h-16 rounded-3xl bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-3 text-2xl">
+                                <i class="fas fa-folder-open opacity-60"></i>
+                            </div>
+                            <h4 class="text-sm font-bold text-gray-700">Aucune fiche d'émargement enregistrée</h4>
+                            <p class="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                                Dès que le Chef des Études validera un emploi du temps, la première fiche hebdo s'affichera ici automatiquement.
+                            </p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

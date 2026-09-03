@@ -209,7 +209,7 @@
             Semaine du <span style="border-bottom: 1px solid #000; padding: 0 10px;">{{ semaine_du|date:"d/m/Y" }}</span> au <span style="border-bottom: 1px solid #000; padding: 0 10px;">{{ semaine_au|date:"d/m/Y" }}</span>
         </div>
 
-        <!-- Grille de Présence Lun-Sam (4 colonnes par jour) -->
+        <!-- Grille de Présence Lun-Sam (4 colonnes par jour + Total Abs.) -->
         <table class="grid-table">
             <thead>
                 <tr>
@@ -231,6 +231,11 @@
                     <td class="col-prenom">{{ e.prenom }}</td>
                     <td class="col-matr">{{ e.matricule }}</td>
                     
+                    {% for val in e.slots_flat %}
+                    <td class="slot-cell" style="text-align: center; font-weight: bold; {% if val == 'A' %}color: #dc2626; font-size: 8px;{% endif %}">
+                        {% if val == 'A' %}A{% elif val %}{{ val }}{% endif %}
+                    </td>
+                    {% empty %}
                     <!-- Lun (4 slots) -->
                     <td class="slot-cell"></td><td class="slot-cell"></td><td class="slot-cell"></td><td class="slot-cell"></td>
                     <!-- Mar (4 slots) -->
@@ -243,10 +248,11 @@
                     <td class="slot-cell"></td><td class="slot-cell"></td><td class="slot-cell"></td><td class="slot-cell"></td>
                     <!-- Sam (4 slots) -->
                     <td class="slot-cell"></td><td class="slot-cell"></td><td class="slot-cell"></td><td class="slot-cell"></td>
+                    {% endfor %}
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="27" style="padding: 15px; color: #64748b;">Aucun étudiant inscrit dans cette classe.</td>
+                    <td colspan="28" style="padding: 15px; color: #64748b;">Aucun étudiant inscrit dans cette classe.</td>
                 </tr>
                 {% endfor %}
             </tbody>

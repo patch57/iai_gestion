@@ -144,42 +144,6 @@
 
         <!-- Procès-Verbaux & Notes Publiées -->
         <div class="lg:col-span-2 space-y-8">
-            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-                <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white flex justify-between items-center">
-                    <h3 class="font-bold text-lg"><i class="fas fa-user-secret mr-2"></i>Procès-Verbaux d'Anonymat</h3>
-                </div>
-                <div class="p-6">
-                    <p class="text-sm text-gray-500 mb-4">Ces procès-verbaux sont transmis confidentiellement par le Chef de Service de l'Anonymat pour délibération.</p>
-                    
-                    <!-- Liste réelle de PV d'anonymat -->
-                    <div class="divide-y divide-gray-100">
-                        {% for pv in pvs %}
-                        <div class="py-4 flex justify-between items-center">
-                            <div>
-                                <h4 class="font-bold text-gray-800">{{ pv.titre }}</h4>
-                                <p class="text-xs text-gray-400">Transmis par le Chef de l'Anonymat le {{ pv.date_transmission|date:"d/m/Y à H:i" }}</p>
-                            </div>
-                            <div class="flex space-x-2">
-                                {% if pv.fiche_anonymat %}
-                                <a href="{% url 'notes:detail_pv' pk=pv.pk %}" class="text-green-700 hover:text-green-950 bg-green-50 hover:bg-green-150 px-4 py-2 rounded-xl text-xs font-bold transition duration-200 border border-green-100 flex items-center">
-                                    <i class="fas fa-eye mr-1"></i> Consulter / Imprimer
-                                </a>
-                                {% elif pv.fichier_excel %}
-                                <a href="{{ pv.fichier_excel.url }}" download class="text-blue-700 hover:text-blue-950 bg-blue-50 hover:bg-blue-150 px-4 py-2 rounded-xl text-xs font-bold transition duration-200 border border-blue-100 flex items-center">
-                                    <i class="fas fa-download mr-1"></i> Télécharger
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="text-center py-8 text-gray-400">
-                            <i class="fas fa-envelope-open-text text-3xl mb-2 block"></i>
-                            <p class="text-xs font-medium">Aucun procès-verbal de notes reçu pour l'instant.</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
 
             <!-- Notes d'Information Diffusées -->
             <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">

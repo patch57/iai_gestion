@@ -117,10 +117,11 @@ class SidebarRestrictionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode('utf-8')
         
-        # Les liens doivent être présents pour le personnel
+        # Les liens d'administration étudiants & professeurs doivent être présents
         self.assertIn('href="/etudiants/"', content)
         self.assertIn('href="/professeurs/"', content)
-        self.assertIn('href="/inscriptions/"', content)
+        # Inscriptions est masqué pour le Chef de la Scolarité selon la règle métier
+        self.assertNotIn('href="/inscriptions/"', content)
 
 
 class NoteInformationTestCase(TestCase):
@@ -486,6 +487,58 @@ class TransitionAnneeTestCase(TestCase):
         
         # Vérifier que la nouvelle année 2026-2027 est créée et active suite à l'appel POST
         self.assertTrue(AA_etud.objects.filter(code='2026-2027', est_active=True).exists())
+
+
+class NotificationServiceTestCase(TestCase):
+    def setUp(self):
+        self.directeur = Utilisateur.objects.create_user(
+            username='dir_test',
+            email='dir@test.com',
+            password='password123',
+            type_utilisateur='DIRECTEUR'
+        )
+        self.scolarite = Utilisateur.objects.create_user(
+            username='scol_test',
+            email='scol@test.com',
+            password='password123',
+            type_utilisateur='CHEF_SCOLARITE'
+        )
+        self.etudiant_user = Utilisateur.objects.create_user(
+            username='etud_test',
+            email='etud@test.com',
+            password='password123',
+            type_utilisateur='ETUDIANT'
+        )
+        self.client = Client()
+
+    def test_notification_service_role_dispatch(self):
+        """Vérifie que NotificationService envoie bien la notification aux bons rôles"""
+        from apps.tableau_bord.services_notification import NotificationService
+        from apps.tableau_bord.models import Notification
+
+        # Envoyer notification au Directeur
+        NotificationService.notifier_directeur("Alerte Direction", "Message pour la direction", type_notif='WARNING')
+        
+        # Envoyer notification à la Scolarité
+        NotificationService.notifier_chef_scolarite("Alerte Scolarité", "Nouveau dossier étudiant", type_notif='INFO')
+
+        self.assertEqual(Notification.objects.filter(utilisateur=self.directeur).count(), 1)
+        self.assertEqual(Notification.objects.filter(utilisateur=self.scolarite).count(), 1)
+        self.assertEqual(Notification.objects.filter(utilisateur=self.etudiant_user).count(), 0)
+
+    def test_api_notifications_non_lues(self):
+        """Vérifie l'API AJAX retournant les notifications non lues"""
+        from apps.tableau_bord.services_notification import NotificationService
+        NotificationService.notifier_utilisateur(self.etudiant_user, "Test Titre", "Message test", type_notif='SUCCESS')
+
+        self.client.login(username='etud_test', password='password123')
+        response = self.client.get(reverse('tableau_bord:api_notifications_non_lues'))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['notifications'][0]['titre'], "Test Titre")
+
 
 
 

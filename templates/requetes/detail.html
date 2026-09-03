@@ -2,172 +2,306 @@
 {% load static %}
 {% load crispy_forms_tags %}
 
-{% block title %}Détail de la Requête #{{ requete.id }} - IAI-Cameroun{% endblock %}
+{% block title %}{{ titre }} | IAI-Gestion{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 py-8 animate-fadeInUp">
-    <!-- Retour -->
-    <div class="mb-6">
-        <a href="{% url 'requetes:liste_requetes' %}" class="inline-flex items-center text-sm font-bold text-gray-500 hover:text-green-600 transition">
-            <i class="fas fa-arrow-left mr-2"></i> Retour à la liste
-        </a>
-    </div>
+<div class="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto space-y-6">
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Informations & Traitement -->
-        <div class="lg:col-span-2 space-y-8">
-            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
-                <!-- Entête du ticket -->
-                <div class="flex flex-wrap justify-between items-start gap-4 border-b pb-4">
-                    <div>
-                        <span class="text-xs font-mono font-bold text-gray-400 uppercase">Requête #{{ requete.id }}</span>
-                        <h1 class="text-2xl font-black text-gray-800 mt-1">{{ requete.titre }}</h1>
-                    </div>
-                    <div class="flex gap-2">
-                        <span class="px-3 py-1 text-xs font-bold rounded-full 
-                            {% if requete.nature == 'SCOLARITE' %}bg-green-100 text-green-700
-                            {% elif requete.nature == 'ETUDES' %}bg-blue-100 text-blue-700
-                            {% elif requete.nature == 'ANONYMAT' %}bg-yellow-100 text-yellow-800
-                            {% else %}bg-purple-100 text-purple-700{% endif %}">
-                            {{ requete.get_nature_display }}
-                        </span>
-                        <span class="px-3 py-1 text-xs font-bold rounded-full
-                            {% if requete.statut == 'SOUMIS' %}bg-gray-100 text-gray-600
-                            {% elif requete.statut == 'EN_COURS' %}bg-blue-100 text-blue-700
-                            {% elif requete.statut == 'ESCALADE' %}bg-red-100 text-red-700
-                            {% elif requete.statut == 'RENVOYE' %}bg-orange-100 text-orange-700
-                            {% else %}bg-green-100 text-green-700{% endif %}">
-                            {{ requete.get_statut_display }}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Description -->
-                <div>
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Description de la demande</h3>
-                    <div class="bg-gray-50 rounded-2xl p-4 text-gray-700 text-sm whitespace-pre-line border border-gray-100">
-                        {{ requete.description }}
-                    </div>
-                </div>
-
-                <!-- Pièce Jointe -->
-                {% if requete.piece_jointe %}
-                <div class="flex items-center justify-between bg-green-50/50 rounded-2xl p-4 border border-green-100">
-                    <div class="flex items-center gap-3 text-green-800">
-                        <i class="fas fa-file-alt text-2xl"></i>
-                        <div>
-                            <p class="font-bold text-sm">Pièce jointe fournie</p>
-                            <span class="text-xs text-green-600 font-semibold">{{ requete.get_nom_fichier|default:"Visualiser le justificatif" }}</span>
-                        </div>
-                    </div>
-                    <a href="{{ requete.piece_jointe.url }}" target="_blank" class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition">
-                        Télécharger
-                    </a>
-                </div>
-                {% endif %}
-
-                <!-- Réponse Interne (si escaladée/renvoyée) -->
-                {% if requete.reponse_interne %}
-                <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-2xl p-4 text-yellow-800">
-                    <p class="font-bold text-sm"><i class="fas fa-sticky-note mr-1.5"></i>Instructions ou notes d'arbitrage interne :</p>
-                    <p class="text-xs mt-1 italic">{{ requete.reponse_interne }}</p>
-                </div>
-                {% endif %}
-
-                <!-- Réponse Finale -->
-                {% if requete.reponse %}
-                <div class="border-t pt-6 space-y-3">
-                    <h3 class="text-sm font-black text-gray-800"><i class="fas fa-reply mr-2 text-green-600"></i>Réponse Finale de l'Administration</h3>
-                    <div class="bg-green-50 border border-green-100 rounded-2xl p-5 text-gray-800 text-sm whitespace-pre-line">
-                        {{ requete.reponse }}
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Panel d'actions pour le personnel -->
-            {% if form_reponse or form_escalade or form_renvoi %}
-            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 space-y-6">
-                <h2 class="text-lg font-black text-gray-800"><i class="fas fa-toolbox text-green-600 mr-2"></i>Actions de Traitement</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    <!-- Formulaire Répondre -->
-                    {% if form_reponse %}
-                    <div class="space-y-4 md:col-span-2">
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-check-circle mr-2 text-green-600"></i>Apporter la réponse finale</h3>
-                        <form method="POST" action="{% url 'requetes:repondre_requete' requete.id %}" class="space-y-4">
-                            {% csrf_token %}
-                            {% crispy form_reponse %}
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    <!-- Formulaire Escalader -->
-                    {% if form_escalade %}
-                    <div class="space-y-4 pt-6 border-t md:border-t-0 md:pt-0">
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>Escalader au Directeur</h3>
-                        <p class="text-xs text-gray-500">Si la requête surpasse l'entendement de votre service, transférez-la au Chef de Centre.</p>
-                        <form method="POST" action="{% url 'requetes:escalader_requete' requete.id %}" class="space-y-4">
-                            {% csrf_token %}
-                            {% crispy form_escalade %}
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    <!-- Formulaire Renvoyer (Directeur) -->
-                    {% if form_renvoi %}
-                    <div class="space-y-4 md:col-span-2 border-t pt-6">
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-2"><i class="fas fa-reply mr-2 text-yellow-600"></i>Renvoyer la requête à qui de droit</h3>
-                        <p class="text-xs text-gray-500">Transférer ce ticket à un membre du personnel pour qu'il réponde définitivement à l'étudiant.</p>
-                        <form method="POST" action="{% url 'requetes:renvoyer_requete' requete.id %}" class="space-y-4">
-                            {% csrf_token %}
-                            {% crispy form_renvoi %}
-                        </form>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
+        <!-- Bouton Retour -->
+        <div>
+            <a href="{% url 'requetes:liste_requetes' %}" class="inline-flex items-center text-xs font-bold text-slate-500 hover:text-slate-800 transition bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                <i class="fas fa-arrow-left mr-2"></i> Retour au suivi des requêtes
+            </a>
         </div>
 
-        <!-- Suivi / Historique -->
-        <div class="space-y-6">
-            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 space-y-4">
-                <h3 class="font-bold text-lg text-gray-800"><i class="fas fa-history text-green-600 mr-2"></i>Suivi de Traitement</h3>
-                <div class="relative border-l-2 border-gray-100 pl-4 space-y-6 text-sm">
-                    {% for action in requete.historique %}
-                    <div class="relative">
-                        <!-- Dot indication -->
-                        <span class="absolute -left-[21px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white bg-green-500 shadow-sm"></span>
+        <!-- Alerte d'escalade au Directeur -->
+        {% if requete.statut == 'ESCALADE' %}
+        <div class="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white rounded-2xl p-5 shadow-lg border border-amber-400 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl text-amber-100 flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle animate-bounce"></i>
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-base tracking-wide flex items-center gap-2">
+                        Requête Escaladée à l'Arbitrage du Directeur / Représentant Résident
+                    </h3>
+                    <p class="text-xs text-amber-100 mt-0.5">
+                        Ce ticket a été transféré par le service compétent. Vous pouvez répondre directement à l'expéditeur ou réassigner la requête avec consignes.
+                    </p>
+                </div>
+            </div>
+            <span class="px-3 py-1 bg-white/20 backdrop-blur-md text-white font-bold text-xs rounded-full border border-white/30 self-start md:self-auto">
+                Priorité Haute
+            </span>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Colonne Principale (Contenu & Formulaires de Réponse) -->
+            <div class="lg:col-span-2 space-y-6">
+
+                <!-- Fiche de la Requête -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-6">
+                    <!-- En-tête -->
+                    <div class="flex flex-wrap justify-between items-start gap-4 border-b border-slate-100 pb-4">
                         <div>
-                            <div class="flex justify-between items-start">
-                                <span class="font-bold text-gray-800">{{ action.action }}</span>
-                                <span class="text-[10px] text-gray-400">{{ action.date|slice:":10" }}</span>
+                            <span class="text-xs font-mono font-bold text-slate-400">Requête N° #{{ requete.id }}</span>
+                            <h1 class="text-xl font-bold text-slate-900 mt-1">{{ requete.titre }}</h1>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 text-xs font-bold rounded-full 
+                                {% if requete.nature == 'SCOLARITE' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                                {% elif requete.nature == 'ETUDES' %}bg-blue-50 text-blue-700 border border-blue-200
+                                {% elif requete.nature == 'ANONYMAT' %}bg-purple-50 text-purple-700 border border-purple-200
+                                {% else %}bg-slate-100 text-slate-700 border border-slate-200{% endif %}">
+                                {{ requete.get_nature_display }}
+                            </span>
+
+                            <span class="px-3 py-1 text-xs font-bold rounded-full
+                                {% if requete.statut == 'SOUMIS' %}bg-slate-100 text-slate-700
+                                {% elif requete.statut == 'EN_COURS' %}bg-blue-50 text-blue-700 border border-blue-200
+                                {% elif requete.statut == 'ESCALADE' %}bg-amber-100 text-amber-800 border border-amber-300
+                                {% elif requete.statut == 'RENVOYE' %}bg-orange-50 text-orange-800 border border-orange-200
+                                {% else %}bg-emerald-100 text-emerald-800 border border-emerald-300{% endif %}">
+                                {{ requete.get_statut_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Corps / Description -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Description transmise par l'expéditeur</h4>
+                        <div class="bg-slate-50/80 rounded-xl p-4 text-slate-800 text-sm leading-relaxed whitespace-pre-line border border-slate-200/60 font-sans">
+                            {{ requete.description }}
+                        </div>
+                    </div>
+
+                    <!-- Pièce Jointe -->
+                    {% if requete.piece_jointe %}
+                    <div class="flex items-center justify-between bg-indigo-50/50 rounded-xl p-4 border border-indigo-100">
+                        <div class="flex items-center gap-3 text-indigo-900">
+                            <i class="fas fa-paperclip text-2xl text-indigo-600"></i>
+                            <div>
+                                <p class="font-bold text-xs">Pièce jointe justificative</p>
+                                <span class="text-xs text-indigo-600 font-mono">{{ requete.get_nom_fichier|default:"Document joint" }}</span>
                             </div>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ action.auteur }} ({{ action.role }})</p>
-                            {% if action.details %}
-                            <p class="text-xs text-gray-500 mt-1 italic">{{ action.details }}</p>
+                        </div>
+                        <a href="{{ requete.piece_jointe.url }}" target="_blank" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5">
+                            <i class="fas fa-download"></i> Télécharger
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Notes / Instructions d'arbitrage interne (CONFIDENTIEL ADMINISTRATION) -->
+                    {% if requete.reponse_interne and user.type_utilisateur not in 'ETUDIANT APPRENANT' %}
+                    <div class="bg-amber-50/80 border-l-4 border-amber-500 rounded-xl p-4 text-amber-900 space-y-1.5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <p class="font-bold text-xs flex items-center gap-1.5 text-amber-900">
+                                <i class="fas fa-user-lock text-amber-600"></i> Consignes d'arbitrage interne :
+                            </p>
+                            <span class="px-2 py-0.5 bg-amber-200/80 text-amber-900 font-bold text-[10px] rounded uppercase tracking-wider">
+                                🔒 Confidentiel Administration
+                            </span>
+                        </div>
+                        <p class="text-xs italic leading-relaxed text-amber-800 pl-4">{{ requete.reponse_interne }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Réponse Finale Officielle (Affichée à l'expéditeur & à tous) -->
+                    {% if requete.reponse %}
+                    <div class="border-t border-slate-100 pt-5 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-extrabold text-emerald-800 flex items-center gap-2">
+                                <i class="fas fa-check-circle text-emerald-600"></i> Réponse Officielle de l'Administration
+                            </h3>
+                            <span class="text-xs text-slate-400 font-mono">Dossier Traité & Clôturé</span>
+                        </div>
+                        <div class="bg-emerald-50/60 border border-emerald-200 rounded-xl p-5 text-slate-900 text-sm leading-relaxed whitespace-pre-line shadow-sm">
+                            {{ requete.reponse }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- SECTION ACTIONS DE TRAITEMENT (DIRECTEUR & PERSONNEL) -->
+                {% if form_reponse or form_escalade or form_renvoi %}
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-6">
+                    <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+                        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fas fa-tools text-indigo-600"></i> Espace d'Action et de Réponse
+                        </h2>
+                        {% if is_directeur %}
+                        <span class="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-[11px] font-bold rounded-md">
+                            Directeur / Représentant Résident
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    {% if is_directeur %}
+                    <!-- Interface Dédiée Directeur : 2 Choix clairs -->
+                    <div class="space-y-6">
+                        <!-- Option A : Répondre directement à l'expéditeur -->
+                        <div class="bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border border-emerald-200 rounded-2xl p-5 space-y-4 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                                    <i class="fas fa-paper-plane text-emerald-600"></i> Option 1 : Répondre et Trancher directement (Envoyer à l'expéditeur)
+                                </h3>
+                                <span class="px-2 py-0.5 bg-emerald-600 text-white font-bold text-[10px] rounded">Recommandé</span>
+                            </div>
+                            <p class="text-xs text-slate-600">
+                                Saisissez la réponse finale officielle de la Direction. L'expéditeur ({{ requete.auteur.get_full_name }}) recevra directement cette décision dans son espace et par e-mail.
+                            </p>
+                            
+                            <form method="POST" action="{% url 'requetes:repondre_requete' requete.id %}" class="space-y-3">
+                                {% csrf_token %}
+                                <textarea name="reponse" rows="4" required 
+                                          placeholder="Rédigez la décision de la Direction destinée à l'expéditeur..." 
+                                          class="w-full border border-emerald-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white bg-white/90"></textarea>
+
+                                <div class="flex justify-end">
+                                    <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition flex items-center gap-2">
+                                        <i class="fas fa-check-circle"></i> Transmettre la réponse officielle à l'expéditeur
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Option B : Renvoyer au personnel avec consignes -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+                            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fas fa-reply text-slate-600"></i> Option 2 : Renvoyer avec consignes d'arbitrage au service compétent
+                            </h3>
+                            <p class="text-xs text-slate-500">
+                                Assignez le ticket à un membre du personnel avec vos instructions pour qu'il procède à l'exécution ou réponde à l'étudiant.
+                            </p>
+
+                            <form method="POST" action="{% url 'requetes:renvoyer_requete' requete.id %}" class="space-y-4">
+                                {% csrf_token %}
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Attribuer à :</label>
+                                        {{ form_renvoi.assigne_a }}
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1">Instructions / Consignes internes :</label>
+                                        {{ form_renvoi.reponse_interne }}
+                                    </div>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-2">
+                                        <i class="fas fa-share"></i> Transmettre au personnel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% else %}
+                    <!-- Interface Personnel Standard (Chef Scolarité, Etudes, Comptabilité, etc.) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {% if form_reponse %}
+                        <div class="space-y-3">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b pb-2">Apporter la réponse finale</h3>
+                            <form method="POST" action="{% url 'requetes:repondre_requete' requete.id %}" class="space-y-3">
+                                {% csrf_token %}
+                                {{ form_reponse.reponse }}
+                                <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow transition">
+                                    Valider et répondre à l'étudiant
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                        {% if form_escalade %}
+                        <div class="space-y-3 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+                            <h3 class="text-xs font-bold text-amber-700 uppercase tracking-wider border-b border-amber-100 pb-2">
+                                <i class="fas fa-exclamation-triangle"></i> Escalader au Directeur
+                            </h3>
+                            <p class="text-xs text-slate-500">Transférez cette requête au Directeur s'il s'agit d'un cas complexe nécessitant un arbitrage supérieur.</p>
+                            <form method="POST" action="{% url 'requetes:escalader_requete' requete.id %}" class="space-y-3">
+                                {% csrf_token %}
+                                {{ form_escalade.commentaire_interne }}
+                                <button type="submit" class="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow transition">
+                                    Escalader au Directeur
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- Colonne Latérale (Informations Expéditeur & Chronologie Suivi) -->
+            <div class="space-y-6">
+
+                <!-- Profil Expéditeur (Auteur) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fas fa-user-graduate text-emerald-600"></i> Expéditeur de la demande
+                    </h3>
+
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-full bg-slate-900 text-white font-extrabold text-sm flex items-center justify-center shadow-md">
+                            {{ requete.auteur.first_name|slice:":1"|upper }}{{ requete.auteur.last_name|slice:":1"|upper }}
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-sm">{{ requete.auteur.get_full_name|default:requete.auteur.username }}</h4>
+                            <p class="text-xs text-slate-400 font-mono">{{ requete.auteur.email }}</p>
+                            {% if requete.auteur.matricule %}
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 font-mono text-[11px] font-bold rounded border border-emerald-200">
+                                {{ requete.auteur.matricule }}
+                            </span>
                             {% endif %}
                         </div>
                     </div>
-                    {% endfor %}
                 </div>
-            </div>
-            
-            <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 space-y-4">
-                <h3 class="font-bold text-sm text-gray-400 uppercase tracking-wider"><i class="fas fa-user-circle text-green-600 mr-2"></i>Auteur de la requête</h3>
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center font-bold text-white shadow-inner">
-                        {{ requete.auteur.first_name|first|upper }}{{ requete.auteur.last_name|first|upper }}
-                    </div>
-                    <div>
-                        <p class="font-bold text-gray-800">{{ requete.auteur.get_full_name }}</p>
-                        <p class="text-xs text-gray-400">{{ requete.auteur.email }}</p>
-                        <p class="text-xs text-green-600 font-mono">{{ requete.auteur.matricule }}</p>
+
+                <!-- Chronologie / Historique de Suivi -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fas fa-history text-indigo-600"></i> Historique du traitement
+                    </h3>
+
+                    <div class="relative border-l-2 border-slate-100 pl-4 space-y-5 text-xs">
+                        {% for action in requete.historique %}
+                        {% if user.type_utilisateur not in 'ETUDIANT APPRENANT' or not action.est_interne and 'Escalade' not in action.action and 'Renvoi' not in action.action %}
+                        <div class="relative">
+                            <span class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full {% if action.est_interne or 'Escalade' in action.action or 'Renvoi' in action.action %}bg-amber-500{% else %}bg-indigo-600{% endif %} border-2 border-white ring-2 ring-indigo-100"></span>
+                            <div>
+                                <div class="flex justify-between items-start">
+                                    <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                                        {{ action.action }}
+                                        {% if action.est_interne or 'Escalade' in action.action or 'Renvoi' in action.action %}
+                                        {% if user.type_utilisateur not in 'ETUDIANT APPRENANT' %}
+                                        <span class="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">🔒 Interne</span>
+                                        {% endif %}
+                                        {% endif %}
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ action.date|slice:":10" }}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">{{ action.auteur }} ({{ action.role }})</p>
+                                {% if action.details %}
+                                {% if user.type_utilisateur not in 'ETUDIANT APPRENANT' %}
+                                <p class="text-[11px] text-slate-600 mt-1 italic bg-slate-50 p-2 rounded-lg border border-slate-100">{{ action.details }}</p>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
                     </div>
                 </div>
+
             </div>
+
         </div>
+
     </div>
 </div>
 {% endblock %}

@@ -32,8 +32,18 @@ urlpatterns = [
     path('<int:inscription_id>/documents/ajouter/', views.ajouter_document, name='ajouter_document'),
     path('documents/<int:pk>/supprimer/', views.supprimer_document, name='supprimer_document'),
     
-    # Certificats
-    path('certificat/<int:etudiant_id>/', views.certificat_scolarite, name='certificat_scolarite'),
+    # Certificats de Scolarité
+    path('certificats/', views.liste_certificats, name='liste_certificats'),
+    path('certificats/imprimer-groupe/', views.imprimer_certificats_masse, name='imprimer_certificats_masse'),
+    path('certificat/delivrer/', views.delivrer_certificat_scolarite, name='delivrer_certificat_scolarite_choix'),
+    path('certificat/delivrer/<int:etudiant_id>/', views.delivrer_certificat_scolarite, name='delivrer_certificat_scolarite'),
+
+
+    path('certificat/apercu/<uuid:token>/', views.apercu_certificat_scolarite, name='apercu_certificat_scolarite'),
+    path('certificat/annuler/<uuid:token>/', views.annuler_certificat_scolarite, name='annuler_certificat_scolarite'),
+    path('certificat/verifier/<uuid:token>/', views.verifier_certificat_public, name='verifier_certificat_public'),
+    path('certificat/<int:etudiant_id>/', views.delivrer_certificat_scolarite, name='certificat_scolarite'),
+
     
     # Statistiques
     path('statistiques/', views.statistiques_financieres, name='statistiques_financieres'),

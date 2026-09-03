@@ -42,9 +42,11 @@ def generer_carte_etudiant_pdf(etudiant, domain_url="http://localhost:8000"):
         bottomMargin=2 * mm
     )
     
-    date_str = etudiant.date_creation.strftime('%Y%m%d') if etudiant.date_creation else '20260101'
-    hash_doc = generer_hash_document('CARD', etudiant.id, date_str)
-    url_verif = f"{domain_url}/paiements/verifier-document/?hash={hash_doc}&type=carte&id={etudiant.id}"
+    if not getattr(etudiant, 'verification_token', None):
+        import uuid
+        etudiant.verification_token = uuid.uuid4()
+        etudiant.save(update_fields=['verification_token'])
+    url_verif = f"{domain_url}/etudiants/verifier/{etudiant.verification_token}/"
     
     styles = getSampleStyleSheet()
     
@@ -539,4 +541,572 @@ def generer_fiche_renseignement_pdf(etudiant, fiche=None, domain_url="http://loc
     doc.build(elements, onFirstPage=add_decorations)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def generer_emploi_du_temps_pdf(emploi, domain_url="http://localhost:8000"):
+    """
+    Génère la grille officielle de l'emploi du temps hebdomadaire au format PDF (A4 Paysage).
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=8 * mm,
+        bottomMargin=8 * mm
+    )
+
+    styles = getSampleStyleSheet()
+    COLOR_PRIMARY = colors.HexColor('#047857')
+    COLOR_DARK = colors.HexColor('#0F172A')
+
+    title_style = ParagraphStyle(
+        'EdtTitle',
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=13,
+        alignment=1,
+        textColor=COLOR_PRIMARY
+    )
+    sub_title = ParagraphStyle(
+        'EdtSubTitle',
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=11,
+        alignment=1,
+        textColor=COLOR_DARK
+    )
+    cell_head = ParagraphStyle('CellHead', fontName='Helvetica-Bold', fontSize=8, leading=9, textColor=colors.white, alignment=1)
+    cell_body = ParagraphStyle('CellBody', fontName='Helvetica', fontSize=7, leading=8.5, textColor=COLOR_DARK)
+    cell_bold = ParagraphStyle('CellBold', fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=COLOR_DARK)
+
+    elements = []
+
+    # En-tête
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.png')
+    logo_header = Image(logo_path, width=14 * mm, height=14 * mm) if os.path.exists(logo_path) else Paragraph("", title_style)
+
+    h_data = [
+        [logo_header, Paragraph("<b>INSTITUT AFRICAIN D'INFORMATIQUE — CENTRE DE DOUALA</b><br/>"
+                                f"<font color='#047857'><b>{emploi.titre_semaine.upper()} • {emploi.get_niveau_display().upper()} - {emploi.filiere.code}</b></font>", title_style)]
+    ]
+    h_table = Table(h_data, colWidths=[18 * mm, 259 * mm])
+    h_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+    ]))
+    elements.append(h_table)
+    elements.append(Spacer(1, 3 * mm))
+
+    # Matrice de créneaux
+    jours = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI']
+    plages = [
+        ('P1', '07:30 - 09:30'),
+        ('P2', '09:30 - 11:30'),
+        ('PAUSE', '11:30 - 12:45'),
+        ('P3', '12:45 - 14:45'),
+        ('P4', '14:45 - 16:45'),
+    ]
+
+    creneaux_dict = {(c.jour, c.plage): c for c in emploi.creneaux.all()}
+
+    table_data = []
+    # Header row
+    head_row = [Paragraph("<b>HEURES</b>", cell_head)] + [Paragraph(f"<b>{j}</b>", cell_head) for j in jours]
+    table_data.append(head_row)
+
+    for p_code, p_label in plages:
+        if p_code == 'PAUSE':
+            pause_row = [Paragraph(f"<b>{p_label}</b>", cell_bold)] + [Paragraph("<b>PAUSE DEJEUNER</b>", cell_bold)] * 6
+            table_data.append(pause_row)
+        else:
+            row = [Paragraph(f"<b>{p_label}</b>", cell_bold)]
+            for j in jours:
+                creneau = creneaux_dict.get((j, p_code))
+                if creneau and creneau.intitule:
+                    text = f"<b>{creneau.intitule}</b>"
+                    if creneau.enseignant_nom:
+                        text += f"<br/>Ens: {creneau.enseignant_nom}"
+                    if creneau.salle_nom:
+                        text += f"<br/>Salle: {creneau.salle_nom}"
+                    row.append(Paragraph(text, cell_body))
+                else:
+                    row.append(Paragraph("-", cell_body))
+            table_data.append(row)
+
+    t_grid = Table(table_data, colWidths=[35 * mm] + [40 * mm] * 6)
+    t_grid.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), COLOR_PRIMARY),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('BACKGROUND', (1,3), (-1,3), colors.HexColor('#FEF3C7')),  # Pause row
+        ('PADDING', (0,0), (-1,-1), 3),
+    ]))
+    elements.append(t_grid)
+    elements.append(Spacer(1, 4 * mm))
+
+    # Pied de page avec signatures
+    sig_data = [
+        [
+            Paragraph("<b>Directeur Adjoint GL</b>", sub_title),
+            Paragraph("<b>Directeur Adjoint SR</b>", sub_title),
+            Paragraph("<b>Chef des Études</b>", sub_title),
+            Paragraph("<b>Représentant Résident</b>", sub_title),
+        ]
+    ]
+    t_sig = Table(sig_data, colWidths=[69 * mm] * 4, rowHeights=[15 * mm])
+    t_sig.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#94A3B8')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+    ]))
+    elements.append(t_sig)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generer_fiche_presence_enseignant_pdf(fiche, domain_url="http://localhost:8000"):
+    """
+    Génère le document PDF officiel de Fiche Hebdomadaire d'Émargement & Présence Enseignants.
+    IAI-Cameroun - Centre de Douala.
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    COLOR_PRIMARY = colors.HexColor('#047857')    # Vert IAI
+    COLOR_SECONDARY = colors.HexColor('#0284C7')  # Bleu IAI
+    COLOR_DARK = colors.HexColor('#1E293B')
+
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=13,
+        leading=16,
+        textColor=COLOR_PRIMARY,
+        alignment=1  # Centré
+    )
+
+    sub_title = ParagraphStyle(
+        'SubTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=12,
+        textColor=COLOR_DARK,
+        alignment=1
+    )
+
+    cell_body = ParagraphStyle(
+        'CellBody',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        alignment=1
+    )
+
+    cell_bold = ParagraphStyle(
+        'CellBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        alignment=1
+    )
+
+    # 1. En-tête officiel avec Logo centré en haut
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.png')
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.jpg')
+
+    if os.path.exists(logo_path):
+        logo_header = Image(logo_path, width=20 * mm, height=20 * mm)
+        logo_table = Table([[logo_header]], colWidths=[277 * mm])
+        logo_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(logo_table)
+
+    semaine_du_str = fiche.semaine_du.strftime('%d/%m/%Y')
+    semaine_au_str = fiche.semaine_au.strftime('%d/%m/%Y')
+
+    header_center_text = (
+        "<b>INSTITUT AFRICAIN D'INFORMATIQUE (I.A.I)</b><br/>"
+        "<font size=8 color='#334155'>Établissement Inter – États d’Enseignement Supérieur — Représentation du Cameroun</font><br/>"
+        "<font size=8.5 color='#1E293B'><b>CENTRE D’EXCELLENCE TECHNOLOGIQUE PAUL BIYA</b></font><br/>"
+        "<font size=7 color='#475569'>BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57 / 242 72 99 58 / 691 902 120 Site: www.iaicameroun.com</font><br/><br/>"
+        "<font color='#047857' size=11><b>FICHE HEBDOMADAIRE D'ÉMARGEMENT & PRÉSENCE DES ENSEIGNANTS</b></font><br/>"
+        f"<font color='#1E293B' size=9.5><b>Semaine du :</b> {semaine_du_str} &nbsp;&nbsp; <b>au :</b> {semaine_au_str} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>Année :</b> {fiche.annee_academique}</font>"
+    )
+
+    header_table = Table(
+        [[Paragraph(header_center_text, title_style)]],
+        colWidths=[277 * mm]
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 4 * mm))
+
+    # 2. Tableau des Pointages de Présence Enseignants
+    pointages = fiche.pointages.all().select_related('enseignant', 'creneau', 'creneau__emploi_du_temps', 'creneau__emploi_du_temps__filiere')
+
+    table_data = [
+        [
+            Paragraph("<b>Jour / Date</b>", cell_bold),
+            Paragraph("<b>Plage Horaire</b>", cell_bold),
+            Paragraph("<b>Matière / Cours</b>", cell_bold),
+            Paragraph("<b>Enseignant</b>", cell_bold),
+            Paragraph("<b>Filière & Salle</b>", cell_bold),
+            Paragraph("<b>Durée</b>", cell_bold),
+            Paragraph("<b>Émargement / Statut</b>", cell_bold),
+            Paragraph("<b>Observations</b>", cell_bold),
+        ]
+    ]
+
+    PLAGE_LABELS = {
+        'P1': '07h30 - 09h30',
+        'P2': '09h30 - 11h30',
+        'P3': '12h45 - 14h45',
+        'P4': '14h45 - 16h45',
+    }
+
+    total_heures = 0.0
+    total_present = 0
+
+    if pointages.exists():
+        for p in pointages:
+            dur = float(p.heures_effectuees or 2.0)
+            total_heures += dur
+            if p.statut == 'PRESENT':
+                total_present += 1
+
+            jour_str = p.creneau.get_jour_display() if p.creneau else p.date_seance.strftime('%A')
+            plage_str = PLAGE_LABELS.get(p.creneau.plage if p.creneau else '', p.creneau.get_plage_display() if p.creneau else '-')
+            matiere_str = p.creneau.intitule if p.creneau else '-'
+            prof_str = p.enseignant.get_nom_complet()
+            filiere_str = f"{p.creneau.emploi_du_temps.filiere.code} ({p.creneau.emploi_du_temps.salle.nom if p.creneau.emploi_du_temps.salle else ''})" if (p.creneau and p.creneau.emploi_du_temps) else '-'
+
+            statut_display = p.get_statut_display()
+            if p.statut == 'PRESENT':
+                statut_html = f"<font color='#047857'><b>{statut_display}</b></font>"
+            elif p.statut == 'ABSENT':
+                statut_html = f"<font color='#B91C1C'><b>{statut_display}</b></font>"
+            else:
+                statut_html = f"<font color='#D97706'><b>{statut_display}</b></font>"
+
+            table_data.append([
+                Paragraph(jour_str, cell_body),
+                Paragraph(plage_str, cell_body),
+                Paragraph(f"<b>{matiere_str}</b>", cell_body),
+                Paragraph(prof_str, cell_body),
+                Paragraph(filiere_str, cell_body),
+                Paragraph(f"{dur:g}h", cell_body),
+                Paragraph(statut_html, cell_body),
+                Paragraph(p.observations or '-', cell_body),
+            ])
+    else:
+        table_data.append([
+            Paragraph("Aucun pointage d'émargement répertorié pour cette semaine.", cell_body),
+            Paragraph("", cell_body), Paragraph("", cell_body), Paragraph("", cell_body),
+            Paragraph("", cell_body), Paragraph("", cell_body), Paragraph("", cell_body), Paragraph("", cell_body)
+        ])
+
+    t_grid = Table(table_data, colWidths=[32 * mm, 32 * mm, 55 * mm, 50 * mm, 35 * mm, 18 * mm, 35 * mm, 20 * mm])
+    t_grid.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), COLOR_PRIMARY),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('PADDING', (0,0), (-1,-1), 3),
+    ]))
+    elements.append(t_grid)
+    elements.append(Spacer(1, 4 * mm))
+
+    # 3. Statistiques & Signatures
+    taux = round((total_present / len(pointages) * 100), 1) if pointages.exists() else 0.0
+
+    summary_text = f"<b>Total Heures Programmées :</b> {total_heures:g} h | <b>Séances Effectuées :</b> {total_present} / {len(pointages)} | <b>Taux d'Assiduité :</b> {taux}% | <b>Statut Fiche :</b> {fiche.get_statut_display()}"
+    elements.append(Paragraph(summary_text, sub_title))
+    elements.append(Spacer(1, 6 * mm))
+
+    sig_data = [
+        [
+            Paragraph("<b>Le Chef de la Scolarité</b><br/><br/><br/><br/>_______________________", sub_title),
+            Paragraph("<b>Le Chef des Études</b><br/><br/><br/><br/>_______________________", sub_title),
+            Paragraph("<b>Le Directeur du Centre</b><br/><br/><br/><br/>_______________________", sub_title),
+        ]
+    ]
+    t_sig = Table(sig_data, colWidths=[92 * mm] * 3)
+    t_sig.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    elements.append(t_sig)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generer_liste_presence_etudiants_pdf(classe, semana_du, semana_au, etudiants, domain_url="http://localhost:8000"):
+    """
+    Génère le PDF officiel de LISTE DE PRÉSENCE ÉTUDIANTS par classe et semaine (Format A4 Paysage).
+    IAI-Cameroun - Centre de Douala.
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=8 * mm,
+        rightMargin=8 * mm,
+        topMargin=8 * mm,
+        bottomMargin=8 * mm
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    COLOR_PRIMARY = colors.HexColor('#047857')
+    COLOR_DARK = colors.HexColor('#1E293B')
+
+    title_style = ParagraphStyle(
+        'DocTitlePres',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=15,
+        textColor=COLOR_PRIMARY,
+        alignment=1
+    )
+
+    sub_title = ParagraphStyle(
+        'SubTitlePres',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=12,
+        textColor=COLOR_DARK,
+        alignment=1
+    )
+
+    # 1. Logo centré en haut
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.png')
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.jpg')
+
+    if os.path.exists(logo_path):
+        logo_header = Image(logo_path, width=18 * mm, height=18 * mm)
+        logo_table = Table([[logo_header]], colWidths=[281 * mm])
+        logo_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+        ]))
+        elements.append(logo_table)
+
+    header_center_text = (
+        "<b>INSTITUT AFRICAIN D'INFORMATIQUE (I.A.I)</b><br/>"
+        "<font size=7.5 color='#334155'>Établissement Inter – États d’Enseignement Supérieur — Représentation du Cameroun</font><br/>"
+        "<font size=8 color='#1E293B'><b>CENTRE D’EXCELLENCE TECHNOLOGIQUE PAUL BIYA</b></font><br/>"
+        "<font size=6.5 color='#475569'>BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57/ 242 72 99 58/ 691 902 120 Site web: www.iaicameroun.com Courriel: contact@iaicameroun.com</font><br/><br/>"
+        "<font color='#047857' size=11><b>LISTE DE PRESENCE</b></font><br/>"
+        f"<font color='#1E293B' size=9><b>Année Académique :</b> {getattr(getattr(classe, 'annee_academique', None), 'code', '2026-2027')} &nbsp;&nbsp;&nbsp;&nbsp; <b>Centre de formation :</b> Douala &nbsp;&nbsp;&nbsp;&nbsp; <b>Niveau :</b> {getattr(getattr(classe, 'niveau', None), 'numero', 1)} &nbsp;&nbsp;&nbsp;&nbsp; <b>Classe :</b> {getattr(classe, 'nom', '')}</font><br/>"
+        f"<font color='#334155' size=8.5><b>Semaine du</b> {semana_du.strftime('%d/%m/%Y')} <b>au</b> {semana_au.strftime('%d/%m/%Y')}</font>"
+    )
+
+    header_table = Table([[Paragraph(header_center_text, title_style)]], colWidths=[281 * mm])
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 3 * mm))
+
+    # 2. Tableau Grille des étudiants (NOMS, PRENOMS, MATR., Lun (4), Mar (4), Mer (4), Jeu (4), Ven (4), Sam (4))
+    headers = ['NOMS', 'PRENOMS', 'MATR.', 'Lun.', '', '', '', 'Mar.', '', '', '', 'Mer.', '', '', '', 'Jeu.', '', '', '', 'Ven.', '', '', '', 'Sam.', '', '', '']
+    table_data = [headers]
+
+    for et in etudiants:
+        row = [
+            et.nom,
+            et.prenom,
+            et.matricule or '',
+            '', '', '', '',
+            '', '', '', '',
+            '', '', '', '',
+            '', '', '', '',
+            '', '', '', '',
+            '', '', '', ''
+        ]
+        table_data.append(row)
+
+    if len(table_data) == 1:
+        table_data.append(['Aucun étudiant inscrit', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+
+    col_widths = [45 * mm, 40 * mm, 30 * mm] + [6 * mm] * 24
+    t_grid = Table(table_data, colWidths=col_widths, repeatRows=1)
+    t_grid.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 7.5),
+        ('SPAN', (3,0), (6,0)),
+        ('SPAN', (7,0), (10,0)),
+        ('SPAN', (11,0), (14,0)),
+        ('SPAN', (15,0), (18,0)),
+        ('SPAN', (19,0), (22,0)),
+        ('SPAN', (23,0), (26,0)),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#475569')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (2,-1), 'LEFT'),
+        ('ALIGN', (3,0), (-1,-1), 'CENTER'),
+        ('FONTSIZE', (0,1), (-1,-1), 7),
+        ('PADDING', (0,0), (-1,-1), 2),
+    ]))
+    elements.append(t_grid)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generer_notes_annuelles_discipline_pdf(classe, data_results, domain_url="http://localhost:8000"):
+    """
+    Génère le PDF officiel des NOTES ANNUELLES DE DISCIPLINE (Format A4 Portrait).
+    IAI-Cameroun - Centre de Douala.
+    """
+    from django.utils import timezone
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    COLOR_PRIMARY = colors.HexColor('#047857')
+    COLOR_DARK = colors.HexColor('#1E293B')
+
+    title_style = ParagraphStyle(
+        'DocTitleDisc',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=15,
+        textColor=COLOR_PRIMARY,
+        alignment=1
+    )
+
+    date_style = ParagraphStyle(
+        'DateRightDisc',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.5,
+        alignment=2
+    )
+
+    # 1. Logo centré en haut
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.png')
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.jpg')
+
+    if os.path.exists(logo_path):
+        logo_header = Image(logo_path, width=18 * mm, height=18 * mm)
+        logo_table = Table([[logo_header]], colWidths=[190 * mm])
+        logo_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+        ]))
+        elements.append(logo_table)
+
+    date_str = timezone.now().strftime('%d/%m/%Y')
+    header_center_text = (
+        "<b>INSTITUT AFRICAIN D'INFORMATIQUE (I.A.I)</b><br/>"
+        "<font size=7.5 color='#334155'>Établissement Inter – États d’Enseignement Supérieur — Représentation du Cameroun</font><br/>"
+        "<font size=8 color='#1E293B'><b>CENTRE D’EXCELLENCE TECHNOLOGIQUE PAUL BIYA</b></font><br/>"
+        "<font size=6.5 color='#475569'>BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 57/ 242 72 99 58/ 691 902 120 Site web: www.iaicameroun.com E-mail: contact@iaicameroun.com</font><br/><br/>"
+    )
+    elements.append(Paragraph(header_center_text, title_style))
+    elements.append(Paragraph(f"Douala le {date_str}", date_style))
+    elements.append(Spacer(1, 2 * mm))
+
+    title_text = (
+        "<font color='#047857' size=12><b>NOTES ANNUELLES DE DISCIPLINE</b></font><br/>"
+        f"<font color='#1E293B' size=9><b>Année Académique :</b> {getattr(getattr(classe, 'annee_academique', None), 'code', '2026-2027')} &nbsp;&nbsp;&nbsp;&nbsp; <b>Classe :</b> {getattr(classe, 'nom', '')} &nbsp;&nbsp;&nbsp;&nbsp; <b>Campus :</b> Douala</font>"
+    )
+    elements.append(Paragraph(title_text, title_style))
+    elements.append(Spacer(1, 4 * mm))
+
+    # 2. Tableau des résultats (N°, NOMS, PRENOMS, HA, HJ, HNJ, DECISION)
+    headers = ['N°', 'NOMS', 'PRENOMS', 'HA', 'HJ', 'HNJ', 'DECISION']
+    table_data = [headers]
+
+    for item in data_results:
+        et = item['etudiant']
+        row = [
+            str(item['index']),
+            et.nom,
+            et.prenom,
+            str(item['ha']),
+            str(item['hj']),
+            str(item['hnj']),
+            item['decision']
+        ]
+        table_data.append(row)
+
+    if len(table_data) == 1:
+        table_data.append(['-', 'Aucun étudiant', '', '0', '0', '0', ''])
+
+    col_widths = [10 * mm, 60 * mm, 60 * mm, 15 * mm, 15 * mm, 15 * mm, 15 * mm]
+    t_disc = Table(table_data, colWidths=col_widths, repeatRows=1)
+    t_disc.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 8.5),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#475569')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,-1), 'CENTER'),
+        ('ALIGN', (1,1), (2,-1), 'LEFT'),
+        ('ALIGN', (3,0), (-1,-1), 'CENTER'),
+        ('FONTSIZE', (0,1), (-1,-1), 8),
+        ('PADDING', (0,0), (-1,-1), 3),
+        ('TEXTCOLOR', (6,1), (6,-1), colors.HexColor('#DC2626')),
+    ]))
+    elements.append(t_disc)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 

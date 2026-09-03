@@ -11,6 +11,16 @@ urlpatterns = [
     # Page principale
     path('', views.tableau_bord, name='tableau_bord'),
     path('accueil/', views.tableau_bord, name='accueil'),
+
+    # Tableaux de bord spécifiques par rôle
+    path('chef-comptabilite/', views.chef_comptabilite_dashboard, name='chef_comptabilite'),
+    path('chef-anonymat/', views.chef_anonymat_dashboard, name='chef_anonymat'),
+    path('chef-scolarite/', views.chef_scolarite_dashboard, name='chef_scolarite'),
+    path('chef-etudes/', views.chef_etudes_dashboard, name='chef_etudes'),
+    path('chef-formation-continue/', views.chef_formation_continue_dashboard, name='chef_formation_continue'),
+    path('enseignant/', views.enseignant_dashboard, name='enseignant'),
+    path('etudiant/', views.etudiant_dashboard, name='etudiant'),
+    path('apprenant/', views.apprenant_dashboard, name='apprenant'),
     
     # Statistiques et rapports
     path('statistiques/', views.statistiques, name='statistiques'),
@@ -64,6 +74,7 @@ urlpatterns = [
     # API pour les graphiques (AJAX)
     path('api/donnees/', views.api_donnees_dashboard, name='api_donnees_dashboard'),
     path('api/notifications-non-lues/', views.api_notifications_non_lues, name='api_notifications_non_lues'),
+    path('api/notifications/<int:pk>/marquer-lue/', views.api_marquer_notification_lue_ajax, name='api_marquer_notification_lue_ajax'),
     path('api/statistiques-rapides/', views.api_statistiques_rapides, name='api_statistiques_rapides'),
     # Notes d'information
     path('notes-info/<int:pk>/supprimer/', views.supprimer_note_info, name='supprimer_note_info'),

@@ -4,10 +4,14 @@ IAI-Cameroun - Centre de Douala
 """
 from django.urls import path
 from . import views
+from .views_verification import verifier_etudiant_public
 
 app_name = 'etudiants'
 
 urlpatterns = [
+    # Vérification publique QR Code (Accès direct)
+    path('verifier/<uuid:token>/', verifier_etudiant_public, name='verifier_etudiant_public'),
+    
     # Gestion des étudiants
     path('', views.liste_etudiants, name='liste_etudiants'),
     path('ajouter/', views.ajouter_etudiant, name='ajouter_etudiant'),

@@ -72,11 +72,18 @@
                 </form>
             {% endif %}
 
-            <button onclick="window.print()" class="bg-gray-800 hover:bg-black text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5 cursor-pointer">
-                <i class="fas fa-print"></i> Imprimer / Exporter PDF
+            <a href="{% url 'cours:exporter_emploi_du_temps_pdf' emploi.pk %}" class="bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
+                <i class="fas fa-file-pdf"></i> PDF Direct
+            </a>
+            <a href="{% url 'cours:exporter_emploi_du_temps_ics' emploi.pk %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5" title="Importer dans Google/Outlook Calendar">
+                <i class="fas fa-calendar-plus"></i> Exporter iCal (.ics)
+            </a>
+            <button onclick="window.print()" class="bg-gray-800 hover:bg-black text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                <i class="fas fa-print"></i> Imprimer
             </button>
         </div>
     </div>
+
 
     {% if emploi.statut == 'REJETE' and emploi.motif_rejet %}
     <div class="no-print bg-rose-50 border-l-4 border-rose-500 rounded-2xl p-4 mb-6 shadow-sm flex items-start gap-3">

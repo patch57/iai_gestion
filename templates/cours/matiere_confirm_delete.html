@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-md">
+    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 text-center">
+        <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+
+        <h2 class="text-xl font-bold text-gray-800 mb-2">Confirmer la suppression</h2>
+        <p class="text-sm text-gray-600 mb-6">
+            Êtes-vous sûr de vouloir supprimer la matière <strong class="text-gray-900">"{{ matiere.nom }}" ({{ matiere.code }})</strong> ?
+            Cette action est irréversible.
+        </p>
+
+        <form method="post" class="flex justify-center gap-3">
+            {% csrf_token %}
+            <a href="{% url 'cours:liste_matieres' %}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition">
+                Annuler
+            </a>
+            <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg shadow transition">
+                <i class="fas fa-trash-alt mr-1"></i> Supprimer
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

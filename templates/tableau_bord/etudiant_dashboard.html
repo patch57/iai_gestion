@@ -21,26 +21,7 @@
         </div>
     </div>
 
-    <!-- Alertes et Notifications -->
-    {% if penalites_info.total > 0 %}
-    <div class="mb-8 bg-red-50 border-l-4 border-red-500 rounded-2xl p-5 flex items-start shadow-md">
-        <i class="fas fa-exclamation-triangle text-red-500 text-2xl mr-4 mt-1"></i>
-        <div class="flex-1">
-            <h4 class="text-red-800 font-bold text-lg">Pénalités de retard accumulées !</h4>
-            <p class="text-red-700 mt-1">Vous avez accumulé un total de <span class="font-black text-red-900">{{ penalites_info.total }} FCFA</span> de pénalités en raison de retards de paiement.</p>
-            <ul class="list-disc pl-5 mt-2 text-sm text-red-700 space-y-1">
-                {% for detail in penalites_info.details %}
-                <li>{{ detail.tranche }} : {{ detail.semennes_retard|default:detail.semaines_retard }} semaine(s) de retard (limite: {{ detail.date_limite }}) -> +{{ detail.montant }} FCFA</li>
-                {% endfor %}
-            </ul>
-            <div class="mt-4">
-                <a href="{% url 'paiements:payer_penalites' %}" class="inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-md transition duration-200">
-                    <i class="fas fa-credit-card mr-2"></i> Payer mes pénalités en ligne (MTN / Orange Money)
-                </a>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+
 
     <!-- Notes d'information et communiqués officiels -->
     {% if notes_info %}
@@ -96,7 +77,7 @@
                             </p>
                         </div>
                         <div>
-                            {% if tranche.numero == 1 and etudiant.recu_preinscription_valide %}
+                            {% if tranche.est_validee %}
                             <span class="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm"><i class="fas fa-check-circle"></i> Validé</span>
                             {% else %}
                             <span class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-amber-200"><i class="fas fa-clock"></i> À régulariser</span>
@@ -117,110 +98,58 @@
                 </div>
             </div>
 
-            <!-- Pénalités Dues & Paiement Mobile Money -->
-            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-                <div class="bg-gradient-to-r from-rose-800 to-red-700 p-5 text-white flex justify-between items-center">
-                    <h3 class="font-bold text-lg"><i class="fas fa-exclamation-triangle mr-2"></i>Pénalités de Retard Dues</h3>
-                    <span class="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase">Paiement MM</span>
+            <!-- Échéances de Remise Physique de TP / TD -->
+            <div class="bg-white rounded-3xl shadow-lg border border-amber-200 overflow-hidden">
+                <div class="bg-gradient-to-r from-amber-600 to-yellow-600 p-5 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-base flex items-center">
+                        <i class="fas fa-clipboard-check mr-2"></i> Remise Physique TP / TD
+                    </h3>
+                    <span class="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">Travaux</span>
                 </div>
-                <div class="p-6 space-y-4">
-                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center justify-between">
-                        <div>
-                            <span class="text-xs text-rose-600 font-bold uppercase tracking-wider block">Total Pénalités Dues</span>
-                            <span class="text-2xl font-black text-rose-700">{{ penalites_info.total|floatformat:0 }} FCFA</span>
+                <div class="p-5 space-y-3">
+                    {% if prochaines_echeances_tp_td %}
+                    {% for res in prochaines_echeances_tp_td %}
+                    <div class="p-3.5 rounded-2xl border border-amber-100 bg-amber-50/50 hover:bg-amber-50 transition space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full 
+                                {% if res.type_ressource == 'TP' %}bg-purple-100 text-purple-800 border border-purple-200
+                                {% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+                                {{ res.get_type_ressource_display }}
+                            </span>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                                    <i class="far fa-calendar-alt mr-1"></i>{{ res.date_limite_remise_physique|date:"d/m/Y" }}
+                                </span>
+                                {% if res.compte_a_rebours_display %}
+                                <span class="text-xs font-extrabold px-2 py-0.5 rounded-md border shadow-sm
+                                    {% if res.jours_restants_remise <= 1 %}bg-red-600 text-white border-red-700 animate-pulse
+                                    {% elif res.jours_restants_remise <= 5 %}bg-amber-500 text-white border-amber-600
+                                    {% else %}bg-emerald-600 text-white border-emerald-700{% endif %}">
+                                    <i class="far fa-hourglass mr-1"></i>{{ res.compte_a_rebours_display }}
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
-                        {% if penalites_info.total > 0 %}
-                        <a href="{% url 'inscriptions:liste_bourses' %}" class="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1.5">
-                            <i class="fas fa-mobile-alt"></i> Payer via Mobile Money
-                        </a>
-                        {% else %}
-                        <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1"><i class="fas fa-check-double"></i> Aucune Pénalité</span>
+                        <h4 class="font-bold text-gray-800 text-sm leading-snug">{{ res.titre }}</h4>
+                        <p class="text-xs text-gray-500 font-medium">Cours : <strong class="text-gray-700">{{ res.cours.matiere.nom }}</strong></p>
+                        {% if res.fichier %}
+                        <div class="pt-1 text-right">
+                            <a href="{{ res.fichier.url }}" target="_blank" class="inline-flex items-center text-xs font-bold text-amber-900 hover:text-amber-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-sm transition">
+                                <i class="fas fa-download mr-1"></i> Sujet PDF
+                            </a>
+                        </div>
                         {% endif %}
                     </div>
-
-                    {% if penalites_info.details %}
-                    <div class="space-y-2">
-                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Détail des retards cumulés :</p>
-                        {% for detail in penalites_info.details %}
-                        <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs flex justify-between items-center">
-                            <div>
-                                <span class="font-bold text-gray-800">{{ detail.tranche }}</span>
-                                <span class="text-gray-500 block">Date limite : {{ detail.date_limite|date:"d/m/Y" }} ({{ detail.semaines_retard }} sem. de retard)</span>
-                            </div>
-                            <span class="font-black text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100">+ {{ detail.montant|floatformat:0 }} FCFA</span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Historique des Paiements de Pénalités -->
-            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-                <div class="bg-gradient-to-r from-gray-800 to-gray-700 p-5 text-white flex justify-between items-center">
-                    <h3 class="font-bold text-lg"><i class="fas fa-history mr-2"></i>Historique des Pénalités Payées</h3>
-                    <span class="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase">Reçus MM</span>
-                </div>
-                <div class="p-6">
-                    {% if penalites_reglees or transactions_penalites %}
-                    <div class="space-y-3">
-                        {% for p in penalites_reglees %}
-                        <div class="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs flex justify-between items-center">
-                            <div>
-                                <span class="font-bold text-emerald-900">Pénalité — {{ p.get_tranche_display }}</span>
-                                <span class="text-gray-500 block">Réglé le : {{ p.date_paiement|default:p.date_calcul|date:"d/m/Y" }}</span>
-                            </div>
-                            <span class="font-black text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm">
-                                <i class="fas fa-check-circle text-emerald-500 mr-1"></i> {{ p.montant_total|floatformat:0 }} FCFA
-                            </span>
-                        </div>
-                        {% endfor %}
-
-                        {% for t in transactions_penalites %}
-                        <div class="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs flex justify-between items-center">
-                            <div>
-                                <span class="font-bold text-emerald-900">Transaction Mobile Money</span>
-                                <span class="text-gray-500 block">Réf : {{ t.transaction_id }} | {{ t.date_creation|date:"d/m/Y H:i" }}</span>
-                            </div>
-                            <span class="font-black text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm">
-                                <i class="fas fa-check-circle text-emerald-500 mr-1"></i> {{ t.montant|floatformat:0 }} FCFA
-                            </span>
-                        </div>
-                        {% endfor %}
-                    </div>
+                    {% endfor %}
                     {% else %}
-                    <p class="text-xs text-gray-500 text-center py-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <i class="fas fa-info-circle mr-1 text-gray-400"></i> Aucun historique de règlement de pénalité trouvé.
-                    </p>
+                    <div class="text-center py-4 text-gray-400 text-xs">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mb-1 block"></i>
+                        Aucune échéance de remise physique en attente pour vos cours.
+                    </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Upload Reçu -->
-            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
-                <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-file-upload mr-2 text-green-600"></i>Téléverser un Reçu</h3>
-                <form method="POST" enctype="multipart/form-data" class="space-y-4">
-                    {% csrf_token %}
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Sélectionner la tranche</label>
-                        <select name="tranche_num" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 font-semibold text-sm">
-                            <option value="1">Pré-inscription (71 000 FCFA)</option>
-                            <option value="2">1ère Tranche (175 000 FCFA)</option>
-                            <option value="3">2ème Tranche (115 000 FCFA)</option>
-                            <option value="4">3ème Tranche (100 000 FCFA)</option>
-                            <option value="totalite">Totalité (Scolarité complète - 461 000 FCFA)</option>
-                            <option value="autre">Autre (Paiement libre / partiel)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Fichier du reçu (PDF, JPG, PNG)</label>
-                        <input type="file" name="recu_fichier" required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
-                    </div>
-                    <button type="submit" class="w-full bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200">
-                        Soumettre le Reçu
-                    </button>
-                </form>
-            </div>
         </div>
 
         <!-- Colonne Droite: Cours, Emploi du Temps, Notes, Absences -->
@@ -285,6 +214,25 @@
                         </button>
                         {% endif %}
                     </div>
+                </div>
+            </div>
+
+            <!-- Bandeau automatique pour l'espace étudiant -->
+            <div class="bg-gradient-to-r from-emerald-800 to-emerald-700 rounded-3xl shadow-lg p-6 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-2xl font-black">
+                        <i class="fas fa-door-open text-emerald-300"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-black">Votre Programme Quotidien du Jour</h2>
+                        <p class="text-xs text-emerald-100 font-semibold mt-0.5">
+                            Salle : <span class="font-bold text-white">{% if etudiant.salle %}{{ etudiant.salle.nom }} ({{ etudiant.salle.code }}){% elif etudiant.filiere %}{{ etudiant.filiere.nom }}{% else %}Votre Salle attribuée{% endif %}</span>
+                            | <i class="fas fa-calendar-alt ml-1 mr-0.5"></i> Journée du <span class="font-bold text-white">{{ nom_jour_actuel }}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-bold bg-white/10 px-4 py-2.5 rounded-xl border border-white/20 shadow-xs">
+                    <i class="fas fa-check-circle text-emerald-300 text-sm"></i> Programme personnalisé pour votre salle
                 </div>
             </div>
 
@@ -358,42 +306,17 @@
                     <div class="w-14 h-14 mx-auto bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-2xl shadow-inner">
                         <i class="fas fa-calendar-times"></i>
                     </div>
-                    <h4 class="font-bold text-gray-800 text-base">Aucun cours au programme aujourd'hui ({{ nom_jour_actuel }})</h4>
+                    <h4 class="font-bold text-gray-800 text-base">
+                        Aucun cours au programme aujourd'hui ({{ nom_jour_actuel }}) pour la classe 
+                        <span class="text-emerald-700 font-extrabold">{% if etudiant.salle %}{{ etudiant.salle.nom }} ({{ etudiant.salle.code }}){% elif etudiant.filiere %}{{ etudiant.filiere.nom }}{% else %}de votre classe{% endif %}</span>
+                    </h4>
                     <p class="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
-                        Aujourd'hui est un jour sans cours (Férié, Repos ou Dimanche). Le programme de la journée suivante sera automatiquement chargé ici dès minuit.
+                        Aucune séance de cours n'est planifiée aujourd'hui pour votre salle de classe <strong>{% if etudiant.salle %}{{ etudiant.salle.nom }}{% else %}attribuée{% endif %}</strong>. Le programme de la journée suivante sera automatiquement chargé ici dès minuit.
                     </p>
                 </div>
                 {% endif %}
             </div>
 
-            <!-- Téléchargement des cours (Supports pédagogiques) -->
-            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-                <div class="bg-gradient-to-r from-green-800 to-green-700 p-5 text-white flex justify-between items-center">
-                    <h3 class="font-bold text-lg"><i class="fas fa-graduation-cap mr-2"></i>Supports Pédagogiques (Cours, TP, TD)</h3>
-                </div>
-                <div class="p-6">
-                    {% if ressources %}
-                    <div class="divide-y divide-gray-100">
-                        {% for ressource in ressources %}
-                        <div class="py-4 flex justify-between items-center">
-                            <div>
-                                <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full uppercase">{{ ressource.get_type_ressource_display }}</span>
-                                <h4 class="font-bold text-gray-800 mt-1">{{ ressource.titre }}</h4>
-                                <p class="text-xs text-gray-400 mt-0.5">Matière: {{ ressource.cours.matiere.nom }}</p>
-                            </div>
-                            {% if ressource.fichier %}
-                            <a href="{{ ressource.fichier.url }}" download class="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 p-2.5 rounded-xl transition duration-200">
-                                <i class="fas fa-download text-lg"></i>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="text-gray-500 text-center py-6">Aucun support de cours n'a été publié pour votre filière.</p>
-                    {% endif %}
-                </div>
-            </div>
 
             <!-- Notes & Absences -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -427,25 +350,7 @@
                     {% endif %}
                 </div>
 
-                <!-- Notes académiques -->
-                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
-                    <h3 class="font-bold text-lg text-gray-800 mb-4"><i class="fas fa-poll text-green-600 mr-2"></i>Mes Notes</h3>
-                    {% if notes %}
-                    <div class="space-y-3">
-                        {% for note in notes %}
-                        <div class="flex justify-between items-center p-3 rounded-2xl bg-green-50/50 border border-green-100">
-                            <div>
-                                <p class="font-semibold text-gray-800">{{ note.evaluation.cours.matiere.nom }}</p>
-                                <p class="text-xs text-gray-500">{{ note.evaluation.titre }}</p>
-                            </div>
-                            <span class="font-black text-green-700 text-lg">{{ note.valeur }}/20</span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="text-gray-500 text-center py-6 text-sm">Aucune note n'a encore été publiée.</p>
-                    {% endif %}
-                </div>
+
             </div>
         </div>
     </div>

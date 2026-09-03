@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Statistiques Évaluations - IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header avec filtres -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <span class="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                    <i class="fas fa-file-signature text-xl"></i>
+                </span>
+                Analyse des Évaluations (CC, TP & Examens)
+            </h1>
+            <p class="text-sm text-gray-500 mt-1">Détails des notes, taux de réussite et statistiques par épreuve.</p>
+        </div>
+
+        <form method="GET" class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Rechercher matière/titre..." class="px-3 py-2 bg-gray-50 border border-gray-200 text-sm rounded-lg text-gray-700 focus:ring-purple-500 focus:border-purple-500">
+
+            <select name="type_id" onchange="this.form.submit()" class="px-3 py-2 bg-gray-50 border border-gray-200 text-sm font-semibold rounded-lg text-gray-700 focus:ring-purple-500 focus:border-purple-500">
+                <option value="">Tous les types</option>
+                {% for t in types_eval %}
+                <option value="{{ t.id }}" {% if selected_type == t.id %}selected{% endif %}>{{ t.nom }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="filiere_id" onchange="this.form.submit()" class="px-3 py-2 bg-gray-50 border border-gray-200 text-sm font-semibold rounded-lg text-gray-700 focus:ring-purple-500 focus:border-purple-500">
+                <option value="">Toutes les filières</option>
+                {% for f in filieres %}
+                <option value="{{ f.id }}" {% if selected_filiere == f.id %}selected{% endif %}>{{ f.code }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <!-- Banner KPI -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Moyenne Globale des Épreuves</p>
+                <h3 class="text-2xl font-bold text-purple-600 mt-1">{{ moyenne_globale_evals }}/20</h3>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-calculator"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Évaluations Répertoriées</p>
+                <h3 class="text-2xl font-bold text-gray-900 mt-1">{{ total_evaluations }}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">
+                <i class="fas fa-list"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau Évaluations -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
+                    <tr>
+                        <th class="px-6 py-4">Évaluation / Matière</th>
+                        <th class="px-6 py-4 text-center">Type</th>
+                        <th class="px-6 py-4 text-center">Filière</th>
+                        <th class="px-6 py-4 text-center">Notes Saisies</th>
+                        <th class="px-6 py-4 text-center">Note Min</th>
+                        <th class="px-6 py-4 text-center">Note Max</th>
+                        <th class="px-6 py-4 text-center">Moyenne</th>
+                        <th class="px-6 py-4 text-center">Taux de Réussite</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in evaluations %}
+                    <tr class="hover:bg-gray-50/80 transition">
+                        <td class="px-6 py-4 font-semibold text-gray-900">
+                            <p class="text-sm font-bold text-gray-900">{{ item.evaluation.titre }}</p>
+                            <p class="text-xs text-gray-500">{{ item.evaluation.cours.matiere.nom }}</p>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700">
+                                {{ item.evaluation.type_evaluation.nom }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center font-bold text-gray-700">
+                            {{ item.evaluation.cours.filiere.code }}
+                        </td>
+                        <td class="px-6 py-4 text-center font-medium">{{ item.nombre_notes }}</td>
+                        <td class="px-6 py-4 text-center text-rose-600 font-semibold">{{ item.min }}/20</td>
+                        <td class="px-6 py-4 text-center text-emerald-600 font-semibold">{{ item.max }}/20</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold {% if item.moyenne >= 12 %}bg-emerald-100 text-emerald-800{% elif item.moyenne >= 10 %}bg-blue-100 text-blue-800{% else %}bg-rose-100 text-rose-800{% endif %}">
+                                {{ item.moyenne }}/20
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="font-bold text-emerald-600">{{ item.taux_reussite }}%</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-8 text-center text-gray-400">
+                            Aucune évaluation trouvée pour les critères de recherche.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

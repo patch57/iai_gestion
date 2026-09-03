@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-5xl">
+    <!-- En-tête -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-file-signature text-emerald-600"></i> Délivrance des Certificats de Scolarité
+            </h1>
+            <p class="text-sm text-gray-600">Émission officielle réservée au Chef de la Scolarité</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'inscriptions:liste_certificats' %}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition text-sm flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Registre des certificats
+            </a>
+        </div>
+    </div>
+
+    <!-- Onglets / Modes d'Émission -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                <i class="fas fa-check-circle"></i> {{ etudiants_eligibles|length }} Étudiant(s) Éligible(s)
+            </span>
+            {% if etudiants_non_eligibles %}
+            <span class="px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg text-xs font-semibold border border-amber-200">
+                ⚠️ {{ etudiants_non_eligibles|length }} Non encore éligible(s)
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="text-xs">
+            {% if afficher_tous %}
+            <a href="{% url 'inscriptions:delivrer_certificat_scolarite_choix' %}" class="text-emerald-700 hover:underline font-bold">
+                <i class="fas fa-filter"></i> Restreindre aux étudiants éligibles uniquement
+            </a>
+            {% else %}
+            <a href="{% url 'inscriptions:delivrer_certificat_scolarite_choix' %}?tous=1" class="text-gray-500 hover:text-gray-700 underline font-medium">
+                <i class="fas fa-users-cog"></i> Afficher tous les étudiants (y compris non éligibles)
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- MODE 1 : Sélection Rapide Individuelle -->
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-emerald-100 mb-6">
+        <label for="select_etudiant" class="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">
+            <i class="fas fa-user-graduate"></i> Émission Individuelle (Sélectionner 1 étudiant) :
+        </label>
+        <select id="select_etudiant" onchange="if(this.value) window.location.href='{% url 'inscriptions:delivrer_certificat_scolarite_choix' %}?etudiant_id='+this.value;' " class="w-full border border-gray-300 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30">
+            <option value="">-- Choisir un étudiant éligible dans la liste ({{ etudiants_liste|length }} disponible(s)) --</option>
+            {% for etu in etudiants_liste %}
+            <option value="{{ etu.id }}" {% if etudiant and etudiant.id == etu.id %}selected{% endif %}>
+                🎓 {{ etu.get_nom_complet }} — {{ etu.filiere.code }} (Matricule: {{ etu.matricule|default:"Sans matricule" }} — Payé: {{ etu.total_paye|floatformat:0 }} FCFA)
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if etudiant %}
+    <!-- Formulaire d'Émission Individuelle -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="md:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-4">
+            <div class="text-center pb-4 border-b border-gray-100">
+                <div class="w-20 h-20 bg-emerald-100 text-emerald-700 rounded-full mx-auto flex items-center justify-center font-bold text-2xl mb-2 shadow-inner">
+                    {{ etudiant.utilisateur.get_initiales|default:"ET" }}
+                </div>
+                <h3 class="font-bold text-gray-800 text-lg">{{ etudiant.get_nom_complet }}</h3>
+                <p class="text-sm text-emerald-600 font-mono font-semibold">{{ etudiant.matricule }}</p>
+                <span class="inline-block mt-2 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200">
+                    {{ etudiant.filiere.nom }}
+                </span>
+            </div>
+
+            <div class="space-y-3">
+                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Bilan Éligibilité</h4>
+                <div class="p-3 rounded-lg border {% if est_a_jour_financierement %}bg-green-50 border-green-200 text-green-800{% else %}bg-amber-50 border-amber-200 text-amber-800{% endif %} space-y-1">
+                    <div class="flex items-center justify-between text-sm font-semibold">
+                        <span>Paiements Validés :</span>
+                        <span>{{ total_paye|floatformat:0 }} / {{ seuil_minimal|floatformat:0 }} FCFA</span>
+                    </div>
+                    <p class="text-xs">
+                        {% if est_a_jour_financierement %}
+                        ✅ Éligibilité financière confirmée.
+                        {% else %}
+                        ⚠️ Solde exigible non atteint.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+                <i class="fas fa-stamp text-emerald-600"></i> Émettre le Certificat pour {{ etudiant.prenom }}
+            </h3>
+
+            <form method="POST" class="space-y-5">
+                {% csrf_token %}
+                <input type="hidden" name="etudiant_id" value="{{ etudiant.id }}">
+
+                <div>
+                    <label for="motif" class="block text-sm font-semibold text-gray-700 mb-1">Motif / Destination <span class="text-red-500">*</span></label>
+                    <select id="motif" name="motif" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500">
+                        <option value="Usage administratif">Usage administratif général</option>
+                        <option value="Demande de Visa / Consulat">Demande de Visa / Consulat</option>
+                        <option value="Demande de Bourse d'étude">Demande de Bourse d'étude</option>
+                        <option value="Dossier bancaire / Emploi">Dossier bancaire / Emploi</option>
+                    </select>
+                </div>
+
+                {% if not est_a_jour_financierement %}
+                <div class="p-4 bg-amber-50 border border-amber-300 rounded-xl space-y-3">
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" id="force_derogation" name="force_derogation" class="mt-1 h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                        <label for="force_derogation" class="text-sm font-bold text-amber-900 cursor-pointer">
+                            Accorder une dérogation administrative exceptionnelle
+                        </label>
+                    </div>
+                    <div class="pl-7">
+                        <textarea id="motif_derogation" name="motif_derogation" rows="2" placeholder="Motif obligatoire de la dérogation..." class="w-full border border-amber-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-amber-500"></textarea>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="pt-2 flex justify-end gap-3">
+                    <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow hover:shadow-lg transition text-sm flex items-center gap-2">
+                        <i class="fas fa-check-circle"></i> Générer & Afficher le Certificat
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- MODE 2 : ÉMISSION EN MASSE (PLUSIEURS ÉTUDIANTS À LA FOIS) -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+            <div>
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-copy text-emerald-600"></i> Émission en Masse (Sélection Multiple)
+                </h3>
+                <p class="text-xs text-gray-500">Cochez les étudiants éligibles pour générer et imprimer l'ensemble de leurs certificats en 1 seul clic.</p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="button" id="btn-select-all" onclick="toggleSelectAll()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition">
+                    <i class="fas fa-tasks"></i> Tout Sélectionner
+                </button>
+            </div>
+        </div>
+
+        <form method="POST" action="{% url 'inscriptions:delivrer_certificat_scolarite_choix' %}" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="emission_masse">
+
+            <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-50 text-gray-600 uppercase font-bold border-b border-gray-200">
+                        <tr>
+                            <th class="p-3 text-center w-10">
+                                <input type="checkbox" id="checkbox-master" onclick="toggleSelectAll()" class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                            </th>
+                            <th class="p-3">Étudiant</th>
+                            <th class="p-3">Matricule</th>
+                            <th class="p-3">Filière</th>
+                            <th class="p-3">Paiement Validé</th>
+                            <th class="p-3 text-center">Éligibilité</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for etu in etudiants_eligibles %}
+                        <tr class="hover:bg-emerald-50/40 transition">
+                            <td class="p-3 text-center">
+                                <input type="checkbox" name="etudiant_ids" value="{{ etu.id }}" class="chk-etudiant h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                            </td>
+                            <td class="p-3 font-bold text-gray-800">
+                                {{ etu.get_nom_complet }}
+                            </td>
+                            <td class="p-3 font-mono font-semibold text-emerald-700">
+                                {{ etu.matricule|default:"--" }}
+                            </td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-bold">
+                                    {{ etu.filiere.code }}
+                                </span>
+                            </td>
+                            <td class="p-3 font-semibold text-gray-700">
+                                {{ etu.total_paye|floatformat:0 }} FCFA
+                            </td>
+                            <td class="p-3 text-center">
+                                <span class="px-2.5 py-0.5 bg-green-100 text-green-800 text-[10px] font-bold rounded-full">
+                                    🟢 ÉLIGIBLE
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="p-6 text-center text-gray-500">
+                                Aucun étudiant éligible trouvé pour l'émission automatique.
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        {% if afficher_tous %}
+                        {% for etu in etudiants_non_eligibles %}
+                        <tr class="bg-amber-50/30 hover:bg-amber-50/60 transition">
+                            <td class="p-3 text-center">
+                                <input type="checkbox" name="etudiant_ids" value="{{ etu.id }}" class="chk-etudiant h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                            </td>
+                            <td class="p-3 font-bold text-gray-800">
+                                {{ etu.get_nom_complet }}
+                            </td>
+                            <td class="p-3 font-mono text-gray-500">
+                                {{ etu.matricule|default:"--" }}
+                            </td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-bold">
+                                    {{ etu.filiere.code }}
+                                </span>
+                            </td>
+                            <td class="p-3 text-amber-700 font-semibold">
+                                {{ etu.total_paye|floatformat:0 }} FCFA
+                            </td>
+                            <td class="p-3 text-center">
+                                <span class="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full">
+                                    ⚠️ NON ÉLIGIBLE
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div class="flex items-center gap-3">
+                    <label for="motif_masse" class="text-xs font-bold text-gray-700">Motif général :</label>
+                    <select id="motif_masse" name="motif" class="border border-gray-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-emerald-500">
+                        <option value="Usage administratif">Usage administratif général</option>
+                        <option value="Demande de Visa / Consulat">Demande de Visa / Consulat</option>
+                        <option value="Demande de Bourse d'étude">Demande de Bourse d'étude</option>
+                    </select>
+                </div>
+
+                {% if afficher_tous %}
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="force_derogation_masse" name="force_derogation" class="h-4 w-4 text-amber-600 border-gray-300 rounded">
+                    <label for="force_derogation_masse" class="text-xs font-bold text-amber-800">Forcer dérogation pour les non-éligibles cochés</label>
+                </div>
+                {% endif %}
+
+                <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition text-xs flex items-center gap-2 self-end md:self-auto">
+                    <i class="fas fa-print"></i> Générer & Imprimer la sélection en masse (PDF)
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleSelectAll() {
+    const master = document.getElementById('checkbox-master');
+    const checkboxes = document.querySelectorAll('.chk-etudiant');
+    checkboxes.forEach(chk => {
+        chk.checked = master.checked;
+    });
+}
+</script>
+{% endblock %}

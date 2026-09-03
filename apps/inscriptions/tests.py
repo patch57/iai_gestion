@@ -162,3 +162,34 @@ class BourseTestCase(TestCase):
         # L'accès doit être interdit (code HTTP 403)
         self.assertEqual(response.status_code, 403)
 
+    def test_certificat_scolarite_emission_et_verification(self):
+        """Tester le workflow complet d'émission, de hachage et de vérification d'un certificat de scolarité"""
+        from apps.inscriptions.models import CertificatScolarite
+        
+        # 1. Émission du certificat
+        certificat = CertificatScolarite.objects.create(
+            etudiant=self.etudiant,
+            annee_academique=self.annee,
+            emetteur=self.user,
+            motif="Usage administratif",
+            statut='VALIDE'
+        )
+        
+        self.assertTrue(certificat.numero_reference.startswith('IAI-CS-'))
+        self.assertTrue(len(certificat.hash_securite) == 64)  # SHA-256 length
+        
+        # 2. Rendu de la vue aperçu (Admin)
+        url_apercu = reverse('inscriptions:apercu_certificat_scolarite', kwargs={'token': certificat.token_verification})
+        response = self.client.get(url_apercu)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, certificat.numero_reference)
+        
+        # 3. Rendu de la vue publique de vérification
+        url_verifier = reverse('inscriptions:verifier_certificat_public', kwargs={'token': certificat.token_verification})
+        client_anonyme = Client()
+        response_pub = client_anonyme.get(url_verifier)
+        self.assertEqual(response_pub.status_code, 200)
+        self.assertContains(response_pub, "DOCUMENT AUTHENTIQUE & VALIDE")
+        self.assertContains(response_pub, self.etudiant.get_nom_complet())
+
+

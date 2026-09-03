@@ -15,11 +15,25 @@ class SalleAdmin(admin.ModelAdmin):
     search_fields = ['code', 'nom']
 
 
+from django.utils.html import format_html
+
+
 @admin.register(Matiere)
 class MatiereAdmin(admin.ModelAdmin):
-    list_display = ['code', 'nom', 'credits', 'heures_cours', 'heures_td', 'heures_tp', 'semestre']
+    list_display = ['code', 'nom', 'credits', 'heures_cours', 'heures_td', 'heures_tp', 'badge_semestre', 'est_optionnelle']
     list_filter = ['semestre', 'est_optionnelle']
     search_fields = ['code', 'nom']
+    list_editable = ['credits', 'est_optionnelle']
+    ordering = ['semestre', 'code']
+
+    @admin.display(description="Semestre")
+    def badge_semestre(self, obj):
+        if obj.semestre == 1:
+            return format_html('<span style="background-color: #2563EB; color: white; padding: 3px 9px; border-radius: 12px; font-weight: 600; font-size: 11px;">Semestre 1</span>')
+        elif obj.semestre == 2:
+            return format_html('<span style="background-color: #059669; color: white; padding: 3px 9px; border-radius: 12px; font-weight: 600; font-size: 11px;">Semestre 2</span>')
+        return f"Semestre {obj.semestre}"
+
 
 
 @admin.register(Cours)

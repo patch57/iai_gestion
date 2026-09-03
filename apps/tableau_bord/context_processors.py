@@ -28,7 +28,7 @@ def site_config(request):
         
         # Configuration IAI
         'MONTANT_PREINSCRIPTION': 84000,
-        'MONTANT_TOTAL_ANNUEL': 500000,
+        'MONTANT_TOTAL_ANNUEL': 474000,
 
         'DEVISE': 'FCFA',
     }
@@ -160,18 +160,18 @@ def alertes_importantes(request):
                         'lien': '/paiements/',
                     })
             
-            # Alertes échéances de paiement (pour tous)
+            # Alertes échéances de paiement (pour tous - 2 semaines avant)
             from apps.paiements.models import TranchePaiement
             from datetime import timedelta
             echeances = TranchePaiement.objects.filter(
                 date_limite__gte=datetime.now().date(),
-                date_limite__lte=datetime.now().date() + timedelta(days=7),
+                date_limite__lte=datetime.now().date() + timedelta(days=14),
                 est_actif=True
             ).count()
             if echeances > 0:
                 alertes.append({
                     'type': 'info',
-                    'message': f'{echeances} échéance(s) de paiement dans les 7 prochains jours',
+                    'message': f'{echeances} échéance(s) de paiement dans les 2 prochaines semaines',
                     'icone': 'calendar',
                     'lien': '/paiements/tranches/',
                 })

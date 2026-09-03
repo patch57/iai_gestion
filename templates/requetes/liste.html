@@ -1,203 +1,353 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Suivi des Requêtes - IAI-Cameroun{% endblock %}
+{% block title %}{{ titre }} | IAI-Gestion{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-ticket-alt text-green-600 mr-2"></i>Gestion des Requêtes</h1>
-            <p class="text-gray-500 text-sm mt-1">
-                {% if user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}
-                Soumettez et suivez vos requêtes administratives et académiques.
-                {% else %}
-                Traitement, escalade et résolution des requêtes des étudiants.
-                {% endif %}
-            </p>
-        </div>
-        
-        <div class="flex flex-wrap gap-3">
-            {% if user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}
-            <a href="{% url 'requetes:creer_requete' %}" class="inline-flex items-center bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
-                <i class="fas fa-plus-circle mr-2 text-yellow-400"></i> Nouvelle requête
-            </a>
-            {% endif %}
-            
-            {% if user.type_utilisateur == 'ADMIN_SYSTEME' %}
-            <a href="{% url 'requetes:export_requetes_csv' %}" class="inline-flex items-center bg-green-700 hover:bg-green-800 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
-                <i class="fas fa-file-export mr-2"></i> Exporter en CSV
-            </a>
-            <!-- Trigger Modal Import -->
-            <button onclick="document.getElementById('import-modal').classList.remove('hidden')" class="inline-flex items-center bg-gray-800 hover:bg-gray-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
-                <i class="fas fa-file-import mr-2"></i> Importer après traitement
-            </button>
-            {% endif %}
-        </div>
-    </div>
+<div class="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto space-y-6">
 
-    <!-- Filtres -->
-    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-8">
-        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <!-- Recherche -->
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Recherche</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
-                        <i class="fas fa-search"></i>
-                    </span>
-                    <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Rechercher par objet, auteur..."
-                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 text-sm">
+        <!-- Banner Header avec distinction Directeur / Espace Utilisateur -->
+        <div class="bg-gradient-to-r {% if is_directeur %}from-slate-900 via-indigo-950 to-slate-900{% else %}from-emerald-800 via-teal-900 to-slate-900{% endif %} rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+                <i class="fas fa-ticket-alt text-9xl"></i>
+            </div>
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-3">
+                        {% if is_directeur %}
+                        <span class="px-3 py-1 bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-semibold rounded-full flex items-center gap-1.5 backdrop-blur-md">
+                            <i class="fas fa-user-shield text-amber-400"></i> Espace Direction & Arbitrage
+                        </span>
+                        {% elif user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}
+                        <span class="px-3 py-1 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold rounded-full flex items-center gap-1.5 backdrop-blur-md">
+                            <i class="fas fa-user-graduate"></i> Espace Étudiant
+                        </span>
+                        {% else %}
+                        <span class="px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold rounded-full flex items-center gap-1.5 backdrop-blur-md">
+                            <i class="fas fa-user-tie"></i> Espace Traitement Personnel
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                        <i class="fas fa-ticket-alt {% if is_directeur %}text-amber-400{% else %}text-emerald-400{% endif %}"></i> {{ titre }}
+                    </h1>
+                    <p class="text-slate-300 text-sm max-w-2xl">
+                        {% if is_directeur %}
+                        Supervision globale, arbitrage des requêtes escaladées et réponse directe aux étudiants et apprenants de l'IAI-Cameroun.
+                        {% elif user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}
+                        Soumettez vos demandes et suivez les réponses apportées par l'administration ou la Direction.
+                        {% else %}
+                        Consultez, traitez et escaladez au Directeur les demandes relevant de votre service.
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    {% if user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}
+                    <a href="{% url 'requetes:creer_requete' %}" 
+                       class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+                        <i class="fas fa-plus-circle text-amber-300"></i> Soumettre une requête
+                    </a>
+                    {% endif %}
+
+                    {% if is_directeur %}
+                    <a href="{% url 'requetes:export_requetes_csv' %}" 
+                       class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl font-semibold text-xs transition flex items-center gap-2">
+                        <i class="fas fa-file-export text-emerald-400"></i> Exporter CSV
+                    </a>
+                    <button type="button" onclick="document.getElementById('import-modal').classList.remove('hidden')" 
+                            class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-xs shadow-md transition flex items-center gap-2">
+                        <i class="fas fa-file-import"></i> Importer traitements
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Cartes Statistiques (Pour le Directeur et le Personnel) -->
+        {% if is_directeur or user.type_utilisateur not in 'ETUDIANT APPRENANT' %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Requêtes</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ total_requetes|default:"0" }}</h3>
+                    <p class="text-xs text-slate-500 mt-1"><i class="fas fa-layer-group text-slate-400 mr-1"></i>Toutes catégories</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 text-xl shadow-sm">
+                    <i class="fas fa-inbox"></i>
                 </div>
             </div>
 
-            <!-- Nature -->
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nature</label>
-                <select name="nature" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                    <option value="">Toutes</option>
-                    {% for code, label in natures %}
-                    <option value="{{ code }}" {% if request.GET.nature == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
+            <!-- Escaladées au Directeur -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border {% if nb_escaladees > 0 %}border-amber-200 bg-amber-50/20{% else %}border-slate-100{% endif %} flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Escaladées au Directeur</p>
+                    <h3 class="text-2xl font-bold text-amber-700 mt-1 flex items-center gap-2">
+                        {{ nb_escaladees|default:"0" }}
+                        {% if nb_escaladees > 0 %}
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
+                        {% endif %}
+                    </h3>
+                    <p class="text-xs text-amber-700/80 mt-1"><i class="fas fa-user-shield text-amber-500 mr-1"></i>En attente d'arbitrage</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-100/80 border border-amber-200 flex items-center justify-center text-amber-700 text-xl shadow-sm">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
             </div>
 
-            <!-- Statut -->
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Statut</label>
-                <select name="statut" class="w-full rounded-xl border border-gray-300 px-4 py-2 focus:ring-green-500 focus:border-green-500 text-sm">
-                    <option value="">Tous</option>
-                    {% for code, label in statuts %}
-                    <option value="{{ code }}" {% if request.GET.statut == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
+            <!-- En cours -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-blue-600 uppercase tracking-wider">En Cours / Renvoyées</p>
+                    <h3 class="text-2xl font-bold text-blue-700 mt-1">{{ nb_en_cours|default:"0" }}</h3>
+                    <p class="text-xs text-blue-600/80 mt-1"><i class="fas fa-hourglass-half text-blue-500 mr-1"></i>En cours de traitement</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 text-xl shadow-sm">
+                    <i class="fas fa-spinner"></i>
+                </div>
             </div>
 
-            <!-- Actions -->
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 rounded-xl text-sm transition">
-                    Filtrer
-                </button>
-                <a href="{% url 'requetes:liste_requetes' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
-                    Réinitialiser
-                </a>
-            </div>
-        </form>
-    </div>
-
-    <!-- Tableau -->
-    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        <th class="p-5">ID</th>
-                        <th class="p-5">Objet / Titre</th>
-                        <th class="p-5">Auteur</th>
-                        <th class="p-5">Nature</th>
-                        <th class="p-5">Date de Soumission</th>
-                        <th class="p-5">Statut</th>
-                        <th class="p-5">Assignée à</th>
-                        <th class="p-5 text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 text-sm">
-                    {% for r in requetes %}
-                    <tr class="hover:bg-gray-50/50 transition">
-                        <td class="p-5 font-bold text-gray-400">
-                            #{{ r.id }}
-                        </td>
-                        <td class="p-5">
-                            <span class="font-bold text-gray-800">{{ r.titre|truncatechars:40 }}</span>
-                        </td>
-                        <td class="p-5 text-gray-600">
-                            {{ r.auteur.get_full_name|default:r.auteur.username }}
-                        </td>
-                        <td class="p-5">
-                            <span class="px-2.5 py-1 text-xs font-bold rounded-full 
-                                {% if r.nature == 'SCOLARITE' %}bg-green-100 text-green-700
-                                {% elif r.nature == 'ETUDES' %}bg-blue-100 text-blue-700
-                                {% elif r.nature == 'ANONYMAT' %}bg-yellow-100 text-yellow-800
-                                {% else %}bg-purple-100 text-purple-700{% endif %}">
-                                {{ r.get_nature_display }}
-                            </span>
-                        </td>
-                        <td class="p-5 text-gray-500">
-                            {{ r.date_creation|date:"d M Y à H:i" }}
-                        </td>
-                        <td class="p-5">
-                            <span class="px-2.5 py-1 text-xs font-bold rounded-full
-                                {% if r.statut == 'SOUMIS' %}bg-gray-100 text-gray-600
-                                {% elif r.statut == 'EN_COURS' %}bg-blue-100 text-blue-700
-                                {% elif r.statut == 'ESCALADE' %}bg-red-100 text-red-700
-                                {% elif r.statut == 'RENVOYE' %}bg-orange-100 text-orange-700
-                                {% else %}bg-green-100 text-green-700{% endif %}">
-                                {{ r.get_statut_display }}
-                            </span>
-                        </td>
-                        <td class="p-5 text-gray-600">
-                            {{ r.assigne_a.get_full_name|default:"-" }}
-                        </td>
-                        <td class="p-5 text-right">
-                            <a href="{% url 'requetes:detail_requete' r.id %}" class="inline-flex bg-green-50 hover:bg-green-100 text-green-600 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm">
-                                <i class="fas fa-eye mr-1.5"></i> Détails
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="p-10 text-center text-gray-400">
-                            <i class="fas fa-ticket-alt text-4xl mb-3 block text-gray-200"></i>
-                            Aucune requête en cours.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Pagination -->
-        {% if requetes.has_other_pages %}
-        <div class="bg-gray-50 border-t border-gray-100 px-6 py-4 flex items-center justify-between">
-            <span class="text-xs font-semibold text-gray-400">Page {{ requetes.number }} sur {{ requetes.paginator.num_pages }}</span>
-            <div class="flex gap-2">
-                {% if requetes.has_previous %}
-                <a href="?page={{ requetes.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.nature %}&nature={{ request.GET.nature }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" class="bg-white border hover:bg-gray-50 text-gray-700 font-bold px-3 py-1.5 rounded-lg text-xs transition">
-                    Précédent
-                </a>
-                {% endif %}
-                {% if requetes.has_next %}
-                <a href="?page={{ requetes.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.nature %}&nature={{ request.GET.nature }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" class="bg-white border hover:bg-gray-50 text-gray-700 font-bold px-3 py-1.5 rounded-lg text-xs transition">
-                    Suivant
-                </a>
-                {% endif %}
+            <!-- Traitées -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Traitées / Répondues</p>
+                    <h3 class="text-2xl font-bold text-emerald-700 mt-1">{{ nb_traitees|default:"0" }}</h3>
+                    <p class="text-xs text-emerald-600/80 mt-1"><i class="fas fa-check-circle text-emerald-500 mr-1"></i>Réponse transmise</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 text-xl shadow-sm">
+                    <i class="fas fa-check-double"></i>
+                </div>
             </div>
         </div>
         {% endif %}
+
+        <!-- Filtres & Raccourcis -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+            <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Recherche -->
+                <div class="lg:col-span-2 relative">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Recherche par titre, auteur ou mot-clé</label>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                        <input type="text" name="q" value="{{ request.GET.q|default:'' }}" 
+                               placeholder="Titre, nom de l'étudiant, description..." 
+                               class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
+                    </div>
+                </div>
+
+                <!-- Nature -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Domaine / Nature</label>
+                    <select name="nature" class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
+                        <option value="">Tous les domaines</option>
+                        {% for code, label in natures %}
+                        <option value="{{ code }}" {% if request.GET.nature == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Statut -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Statut du traitement</label>
+                    <select name="statut" class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
+                        <option value="">Tous les statuts</option>
+                        <option value="ESCALADE" {% if request.GET.statut == 'ESCALADE' %}selected{% endif %}>🚨 Escaladées au Directeur</option>
+                        <option value="SOUMIS" {% if request.GET.statut == 'SOUMIS' %}selected{% endif %}>📩 Nouvellement Soumises</option>
+                        <option value="EN_COURS" {% if request.GET.statut == 'EN_COURS' %}selected{% endif %}>⏳ En cours de traitement</option>
+                        <option value="RENVOYE" {% if request.GET.statut == 'RENVOYE' %}selected{% endif %}>↩️ Renvoyées avec consignes</option>
+                        <option value="TRAITE" {% if request.GET.statut == 'TRAITE' %}selected{% endif %}>🟢 Traitées / Clôturées</option>
+                    </select>
+                </div>
+
+                <!-- Actions du Formulaire -->
+                <div class="lg:col-span-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm">
+                            <i class="fas fa-filter"></i> Filtrer
+                        </button>
+                        {% if request.GET.q or request.GET.statut or request.GET.nature %}
+                        <a href="{% url 'requetes:liste_requetes' %}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition">
+                            <i class="fas fa-undo"></i> Réinitialiser
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    {% if is_directeur %}
+                    <!-- Raccourci filtre Escaladées pour la Direction -->
+                    <a href="{% url 'requetes:liste_requetes' %}?statut=ESCALADE" 
+                       class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-exclamation-triangle text-amber-600"></i> Voir uniquement les escaladées ({{ nb_escaladees }})
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <!-- Tableau des Requêtes -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100/70 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                            <th class="p-4 w-12 text-center">N°</th>
+                            <th class="p-4">Objet & Titre</th>
+                            <th class="p-4">Expéditeur (Auteur)</th>
+                            <th class="p-4">Domaine</th>
+                            <th class="p-4">Date de soumission</th>
+                            <th class="p-4">Statut</th>
+                            <th class="p-4">Assignée à</th>
+                            <th class="p-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        {% for r in requetes %}
+                        <tr class="hover:bg-slate-50/80 transition {% if r.statut == 'ESCALADE' %}bg-amber-50/30 border-l-4 border-amber-500{% endif %}">
+                            <td class="p-4 text-center font-mono font-bold text-slate-400">
+                                #{{ r.id }}
+                            </td>
+                            <td class="p-4">
+                                <div>
+                                    <span class="font-bold text-slate-900 block text-sm">{{ r.titre }}</span>
+                                    <span class="text-slate-400 text-[11px] line-clamp-1 mt-0.5">{{ r.description|truncatechars:60 }}</span>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs">
+                                        {{ r.auteur.first_name|slice:":1"|upper }}{{ r.auteur.last_name|slice:":1"|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-slate-800">{{ r.auteur.get_full_name|default:r.auteur.username }}</p>
+                                        <p class="text-[10px] text-slate-400 font-mono">{{ r.auteur.email }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 text-[11px] font-bold rounded-lg border 
+                                    {% if r.nature == 'SCOLARITE' %}bg-emerald-50 text-emerald-700 border-emerald-200
+                                    {% elif r.nature == 'ETUDES' %}bg-blue-50 text-blue-700 border-blue-200
+                                    {% elif r.nature == 'ANONYMAT' %}bg-purple-50 text-purple-700 border-purple-200
+                                    {% else %}bg-slate-100 text-slate-700 border-slate-200{% endif %}">
+                                    {{ r.get_nature_display }}
+                                </span>
+                            </td>
+                            <td class="p-4 text-slate-600 font-medium">
+                                {{ r.date_creation|date:"d/m/Y à H:i" }}
+                            </td>
+                            <td class="p-4">
+                                {% if r.statut == 'ESCALADE' %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold rounded-full animate-pulse shadow-sm">
+                                    <i class="fas fa-exclamation-triangle text-amber-600"></i> Escaladée au Directeur
+                                </span>
+                                {% elif r.statut == 'SOUMIS' %}
+                                <span class="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 text-[11px] font-semibold rounded-full">
+                                    📩 Soumise
+                                </span>
+                                {% elif r.statut == 'EN_COURS' %}
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-bold rounded-full border border-blue-200">
+                                    ⏳ En cours
+                                </span>
+                                {% elif r.statut == 'RENVOYE' %}
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-800 text-[11px] font-bold rounded-full border border-orange-200">
+                                    ↩️ Renvoyée avec consignes
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-full border border-emerald-200">
+                                    🟢 Traitée / Répondue
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-slate-600">
+                                {% if r.assigne_a %}
+                                <span class="font-medium text-slate-700 flex items-center gap-1">
+                                    <i class="fas fa-user-check text-slate-400"></i> {{ r.assigne_a.get_full_name|default:r.assigne_a.username }}
+                                </span>
+                                {% else %}
+                                <span class="text-slate-400 italic">Non assignée</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-right">
+                                <a href="{% url 'requetes:detail_requete' r.id %}" 
+                                   class="px-3.5 py-1.5 {% if r.statut == 'ESCALADE' and is_directeur %}bg-amber-600 hover:bg-amber-700 text-white font-extrabold shadow-md shadow-amber-500/20{% else %}bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold{% endif %} rounded-lg transition text-xs inline-flex items-center gap-1.5">
+                                    <i class="fas fa-eye"></i> 
+                                    {% if is_directeur and r.statut == 'ESCALADE' %}
+                                    Arbitrer / Répondre
+                                    {% else %}
+                                    Consulter
+                                    {% endif %}
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="p-12 text-center text-slate-400">
+                                <div class="max-w-xs mx-auto space-y-3">
+                                    <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-300 text-2xl">
+                                        <i class="fas fa-inbox"></i>
+                                    </div>
+                                    <p class="font-semibold text-slate-600 text-sm">Aucune requête trouvée.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if requetes.has_other_pages %}
+            <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <span class="text-slate-500 font-medium">Page {{ requetes.number }} sur {{ requetes.paginator.num_pages }}</span>
+                <div class="flex items-center gap-1">
+                    {% if requetes.has_previous %}
+                    <a href="?page={{ requetes.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.nature %}&nature={{ request.GET.nature }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" 
+                       class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold shadow-sm transition">
+                        <i class="fas fa-chevron-left mr-1"></i> Précédent
+                    </a>
+                    {% endif %}
+                    {% if requetes.has_next %}
+                    <a href="?page={{ requetes.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.nature %}&nature={{ request.GET.nature }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" 
+                       class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold shadow-sm transition">
+                        Suivant <i class="fas fa-chevron-right ml-1"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
     </div>
 </div>
 
-{% if user.type_utilisateur == 'ADMIN_SYSTEME' %}
+{% if is_directeur %}
 <!-- Modal Import CSV -->
-<div id="import-modal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-3xl shadow-xl max-w-md w-full p-6 space-y-6 mx-4">
-        <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-file-import text-green-600 mr-2"></i>Importer des traitements</h3>
-            <button onclick="document.getElementById('import-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times"></i>
+<div id="import-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5 mx-4 border border-slate-100">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-file-import text-indigo-600"></i> Importer des traitements par lot
+            </h3>
+            <button type="button" onclick="document.getElementById('import-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                <i class="fas fa-times text-lg"></i>
             </button>
         </div>
         <form method="POST" action="{% url 'requetes:import_requetes_csv' %}" enctype="multipart/form-data" class="space-y-4">
             {% csrf_token %}
             <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">Sélectionnez le fichier CSV mis à jour :</label>
-                <input type="file" name="csv_file" accept=".csv" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                <label class="block text-xs font-semibold text-slate-600 mb-2">Sélectionnez le fichier CSV complété :</label>
+                <input type="file" name="csv_file" accept=".csv" required 
+                       class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
             </div>
-            <p class="text-xs text-gray-400">Le fichier CSV doit contenir la colonne ID de la requête, le statut et le texte de réponse pour effectuer la mise à jour par lot.</p>
-            <div class="flex justify-end gap-2 pt-4 border-t">
-                <button type="button" onclick="document.getElementById('import-modal').classList.add('hidden')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold">Annuler</button>
-                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Démarrer l'import</button>
+            <p class="text-xs text-slate-400 leading-relaxed">
+                Le fichier CSV doit contenir l'ID de la requête, le statut mis à jour et le texte de réponse pour finaliser les traitements en masse.
+            </p>
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onclick="document.getElementById('import-modal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Annuler</button>
+                <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md">Lancer l'importation</button>
             </div>
         </form>
     </div>

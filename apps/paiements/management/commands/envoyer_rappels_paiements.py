@@ -1,32 +1,82 @@
+from datetime import date, timedelta
 from django.core.management.base import BaseCommand
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
 from apps.etudiants.models import Etudiant
+from apps.paiements.models import TranchePaiement, RecuPaiement
 from apps.paiements.services import calculer_penalites_etudiant
 
 
 class Command(BaseCommand):
-    help = "Calcule et envoie par e-mail les pénalités de retard accumulées aux étudiants insolvables."
+    help = "Gère les rappels d'échéances (2 semaines avant) et les relances hebdomadaires de retard de scolarité dans le Dashboard et par Email/WhatsApp."
 
     def handle(self, *args, **options):
-        # Récupérer les étudiants actifs
+        aujourdhui = date.today()
         etudiants = Etudiant.objects.filter(statut__in=['PREINSCRIT', 'INSCRIT', 'ACTIF']).select_related('annee_academique', 'utilisateur')
         
-        compteur_insolvables = 0
-        compteur_emails_envoyes = 0
+        compteur_preventifs = 0
+        compteur_retards = 0
+        compteur_emails = 0
 
-        self.stdout.write("Analyse des retards de paiement en cours...")
+        self.stdout.write("Traitement des échéanciers et relances de paiement...")
 
         for etudiant in etudiants:
-            # Calculer les pénalités
+            annee_code = etudiant.annee_academique.code if etudiant.annee_academique else "2024-2025"
+            tranches = TranchePaiement.objects.filter(annee_academique=annee_code, est_actif=True).order_by('numero')
+            
+            # --- 1. RAPPELS PRÉVENTIFS (2 semaines / 14 jours avant l'échéance) ---
+            echeances_imminentes = []
+            for tranche in tranches:
+                # Vérifier si la tranche est réglée/validée
+                recu_valide = False
+                if tranche.numero == 1 and etudiant.recu_preinscription_valide:
+                    recu_valide = True
+                else:
+                    recu = RecuPaiement.objects.filter(etudiant=etudiant, tranche=tranche, statut='VALIDE').first()
+                    if recu:
+                        recu_valide = True
+
+                if not recu_valide and tranche.date_limite >= aujourdhui:
+                    jours_restants = (tranche.date_limite - aujourdhui).days
+                    if jours_restants <= 14:
+                        echeances_imminentes.append({
+                            'tranche': tranche,
+                            'jours_restants': jours_restants,
+                            'date_limite': tranche.date_limite,
+                            'montant': tranche.montant
+                        })
+
+            if echeances_imminentes and etudiant.utilisateur:
+                from apps.tableau_bord.models import Notification
+                for ech in echeances_imminentes:
+                    compteur_preventifs += 1
+                    titre_preventif = f"Rappel Échéance : {ech['tranche'].get_numero_display()}"
+                    msg_preventif = (
+                        f"Attention : La date limite pour le règlement de la {ech['tranche'].get_numero_display()} "
+                        f"({ech['montant']:,} FCFA) approche. Échéance dans {ech['jours_restants']} jour(s) ({ech['date_limite'].strftime('%d/%m/%Y')})."
+                    )
+                    
+                    notif, created = Notification.objects.get_or_create(
+                        utilisateur=etudiant.utilisateur,
+                        titre=titre_preventif,
+                        defaults={
+                            'type': 'INFO',
+                            'message': msg_preventif,
+                            'lien': '/inscriptions/'
+                        }
+                    )
+                    if not created and notif.message != msg_preventif:
+                        notif.message = msg_preventif
+                        notif.save()
+
+            # --- 2. RAPPELS HEBDOMADAIRES DE RETARD & PÉNALITÉS ---
             penalites_info = calculer_penalites_etudiant(etudiant)
             
             if penalites_info['total_global'] > 0:
-                compteur_insolvables += 1
+                compteur_retards += 1
                 
-                # Synchroniser également les notifications système en base de données
                 if etudiant.utilisateur:
                     from apps.tableau_bord.models import Notification
                     from django.utils import timezone
@@ -47,8 +97,8 @@ class Command(BaseCommand):
                         titre_notif = f"Retard de paiement - {nom_tranche}"
                         message_notif = (
                             f"Vous avez accumulé {detail['montant']:,} FCFA de pénalités pour la {nom_tranche} "
-                            f"en raison de {detail['semaines_retard']} semaine(s) de retard. "
-                            f"Date limite dépassée : {detail['date_limite'].strftime('%d/%m/%Y')}."
+                            f"({detail['semaines_retard']} semaine(s) de retard). "
+                            f"Date limite dépassée depuis le {detail['date_limite'].strftime('%d/%m/%Y')}."
                         )
                         
                         if titre_notif in notifs_existantes:
@@ -73,37 +123,38 @@ class Command(BaseCommand):
                                 notif.date_lecture = timezone.now()
                                 notif.save()
                 
-                # Vérifier si l'étudiant a un e-mail valide
-                destinataire = etudiant.email
-                if not destinataire and etudiant.utilisateur:
-                    destinataire = etudiant.utilisateur.email
+                # --- ENVOI DES EMAILS ET WHATSAPP ---
+                destinataire = etudiant.email or (etudiant.utilisateur.email if etudiant.utilisateur else None)
                 
                 if destinataire:
                     try:
-                        # Rendu du template HTML de courriel
                         context = {
                             'etudiant': etudiant,
                             'penalites_info': penalites_info,
+                            'echeances_imminentes': echeances_imminentes,
                             'site_url': getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
                         }
                         html_message = render_to_string('paiements/emails/rappel_penalites.html', context)
                         plain_message = strip_tags(html_message)
                         
-                        # Sujet du mail
-                        sujet = f"{getattr(settings, 'EMAIL_SUBJECT_PREFIX', '[IAI-Cameroun] ')}Rappel : Frais de Scolarité et Pénalités"
+                        sujet = f"{getattr(settings, 'EMAIL_SUBJECT_PREFIX', '[IAI-Cameroun] ')}Rappel d'Échéancier & Relance de Scolarité"
                         
-                        # Envoi de l'e-mail
+                        # Destinataires (Étudiant + Tuteur en copie si présent)
+                        recipients = [destinataire]
+                        if getattr(etudiant, 'email_tuteur', None):
+                            recipients.append(etudiant.email_tuteur)
+
                         send_mail(
                             subject=sujet,
                             message=plain_message,
                             from_email=settings.DEFAULT_FROM_EMAIL,
-                            recipient_list=[destinataire],
+                            recipient_list=recipients,
                             html_message=html_message,
                             fail_silently=False
                         )
-                        compteur_emails_envoyes += 1
+                        compteur_emails += len(recipients)
                         self.stdout.write(
-                            self.style.SUCCESS(f"E-mail de rappel envoyé à {etudiant.get_nom_complet()} ({destinataire}) - Pénalités : {penalites_info['total']} FCFA")
+                            self.style.SUCCESS(f"Rappel envoyé par e-mail à {etudiant.get_nom_complet()} ({', '.join(recipients)})")
                         )
 
                         # Envoi de la notification WhatsApp
@@ -116,50 +167,31 @@ class Command(BaseCommand):
                                 )
                             details_str = "\n".join(whatsapp_details)
                             site_url = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
-                            annee_code = etudiant.annee_academique.code if etudiant.annee_academique else '2024-2025'
                             
                             msg_whatsapp = (
                                 f"*IAI-CAMEROUN (Douala)* 🎓\n"
-                                f"*Rappel de Paiement - Scolarité & Pénalités*\n\n"
+                                f"*Relance Hebdomadaire - Scolarité & Pénalités*\n\n"
                                 f"Bonjour {etudiant.prenom} {etudiant.nom},\n\n"
-                                f"Notre système a détecté des retards de paiement pour vos tranches de scolarité (Année {annee_code}). "
-                                f"Des pénalités de retard ont été appliquées conformément au règlement intérieur.\n\n"
+                                f"Notre système a répertorié un retard dans vos tranches de scolarité.\n\n"
                                 f"*Détails de votre situation :*\n"
                                 f"{details_str}\n\n"
                                 f"*Total des pénalités :* {penalites_info['total']:,} FCFA\n\n"
-                                f"Veuillez régulariser cette situation au plus vite pour éviter toute restriction. Vous pouvez régler en ligne via Mobile Money :\n"
+                                f"Veuillez régulariser votre situation sur votre espace étudiant :\n"
                                 f"{site_url}/paiements/payer-penalites/\n\n"
-                                f"_Ceci est un message automatique de l'administration IAI-Cameroun (Douala)._"
+                                f"_Administration IAI-Cameroun (Douala)._"
                             )
                             
-                            numero_tel = etudiant.telephone
-                            if not numero_tel and etudiant.utilisateur:
-                                numero_tel = getattr(etudiant.utilisateur, 'telephone', '')
-                                
-                            if numero_tel:
-                                WhatsAppService.envoyer_message(numero_tel, msg_whatsapp)
-                                self.stdout.write(
-                                    self.style.SUCCESS(f"WhatsApp envoyé à {etudiant.get_nom_complet()} (+{WhatsAppService.normaliser_numero(numero_tel)})")
-                                )
-                            else:
-                                self.stdout.write(
-                                    self.style.WARNING(f"Aucun numéro de téléphone trouvé pour WhatsApp ({etudiant.get_nom_complet()})")
-                                )
-                        except Exception as whatsapp_err:
-                            self.stdout.write(
-                                self.style.ERROR(f"Échec de l'envoi de la notification WhatsApp pour {etudiant.get_nom_complet()} : {str(whatsapp_err)}")
-                            )
+                            tel = etudiant.telephone or (getattr(etudiant.utilisateur, 'telephone', '') if etudiant.utilisateur else '')
+                            if tel:
+                                WhatsAppService.envoyer_message(tel, msg_whatsapp)
+                        except Exception as wa_err:
+                            self.stdout.write(self.style.ERROR(f"Erreur WhatsApp ({etudiant.get_nom_complet()}): {wa_err}"))
+
                     except Exception as e:
-                        self.stdout.write(
-                            self.style.ERROR(f"Échec de l'envoi de l'e-mail à {etudiant.get_nom_complet()} ({destinataire}) : {str(e)}")
-                        )
-                else:
-                    self.stdout.write(
-                        self.style.WARNING(f"Aucune adresse e-mail trouvée pour {etudiant.get_nom_complet()}")
-                    )
+                        self.stdout.write(self.style.ERROR(f"Échec de l'envoi de l'e-mail ({etudiant.get_nom_complet()}): {e}"))
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Analyse terminée. Étudiants insolvables détectés : {compteur_insolvables}, E-mails envoyés : {compteur_emails_envoyes}"
+                f"Traitement des échéanciers terminé. Rappels préventifs : {compteur_preventifs}, Relances de retard : {compteur_retards}, E-mails envoyés : {compteur_emails}"
             )
         )

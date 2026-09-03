@@ -9,8 +9,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
-from django.core.paginator import Paginator
-
+from decimal import Decimal
 from .models import RecuPaiement, TranchePaiement, SessionConcours, EcheanceSessionNiveau1, ResultatConcours
 from apps.etudiants.models import Etudiant
 
@@ -247,9 +246,12 @@ def detail_recu(request, pk):
 
 
 @login_required
-@role_required('CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'ADMIN_SYSTEME')
 def valider_recu(request, pk):
-    """Valider un reçu"""
+    """Valider manuellement un reçu bancaire - Habilitation exclusive : Chef de la Comptabilité"""
+    if request.user.type_utilisateur != 'CHEF_COMPTABILITE' and not request.user.is_superuser:
+        messages.error(request, "⛔ Accès refusé : Seul le Chef de la Comptabilité est habilité à valider manuellement les reçus de paiement soumis sur la plateforme.")
+        return redirect('paiements:liste_recus')
+
     recu = get_object_or_404(RecuPaiement, pk=pk)
     recu.statut = 'VALIDE'
     recu.date_verification = timezone.now()
@@ -268,11 +270,37 @@ def valider_recu(request, pk):
     except Exception:
         pass
     
-    # Notification automatique du Chef de la Comptabilité (Dashboard & WhatsApp)
+    # Notification automatique multi-acteurs (Dashboard & WhatsApp)
     try:
         from apps.tableau_bord.whatsapp_service import WhatsAppService
+        from apps.tableau_bord.services_notification import NotificationService
         etud_nom = recu.etudiant.get_nom_complet() if recu.etudiant else "Un étudiant"
         tranche_str = recu.tranche.get_numero_display() if recu.tranche else "Scolarité"
+
+        # Notifier l'étudiant
+        if recu.etudiant and hasattr(recu.etudiant, 'utilisateur') and recu.etudiant.utilisateur:
+            NotificationService.notifier_utilisateur(
+                recu.etudiant.utilisateur,
+                titre="Paiement Validé 💰",
+                message=f"Votre reçu de paiement de {recu.montant_mentionne:,.0f} FCFA ({tranche_str}) a été validé.",
+                type_notif='SUCCESS',
+                lien='/paiements/mes-penalites/'
+            )
+
+        # Notifier le Directeur et l'Admin Financier
+        NotificationService.notifier_directeur(
+            titre=f"Paiement Validé : {etud_nom}",
+            message=f"Montant : {recu.montant_mentionne:,.0f} FCFA ({tranche_str}) validé par {request.user.get_full_name() or request.user.username}.",
+            type_notif='SUCCESS',
+            lien='/paiements/recus/'
+        )
+        NotificationService.notifier_admin_financier(
+            titre=f"Paiement Enregistré : {etud_nom}",
+            message=f"Règlement de {recu.montant_mentionne:,.0f} FCFA confirmé pour {etud_nom}.",
+            type_notif='SUCCESS',
+            lien='/paiements/recus/'
+        )
+
         WhatsAppService.notifier_chef_comptabilite(
             titre=f"Reçu validé : {etud_nom} ({recu.montant_mentionne:,.0f} FCFA)",
             message=f"Le reçu pour {etud_nom} ({tranche_str}) d'un montant de {recu.montant_mentionne:,.0f} FCFA a été validé avec succès par {request.user.get_full_name() or request.user.username}.",
@@ -280,16 +308,19 @@ def valider_recu(request, pk):
         )
     except Exception as err_notif:
         from .views import logger_paiement
-        logger_paiement.error(f"Erreur notification Chef Comptabilité : {err_notif}")
+        logger_paiement.error(f"Erreur notification paiement : {err_notif}")
 
     messages.success(request, f'✅ Reçu validé avec succès !')
     return redirect('paiements:liste_recus')
 
 
 @login_required
-@role_required('CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'ADMIN_SYSTEME')
 def rejeter_recu(request, pk):
-    """Rejeter un reçu avec motif obligatoire"""
+    """Rejeter un reçu avec motif obligatoire - Réservé au Chef de la Comptabilité"""
+    if request.user.type_utilisateur != 'CHEF_COMPTABILITE' and not request.user.is_superuser:
+        messages.error(request, "⛔ Accès refusé : Seul le Chef de la Comptabilité est habilité à statuer sur les reçus de paiement.")
+        return redirect('paiements:liste_recus')
+
     recu = get_object_or_404(RecuPaiement, pk=pk)
     
     if request.method == 'POST':
@@ -403,6 +434,162 @@ def api_recus_attente(request):
     return JsonResponse({'count': count})
 
 
+@login_required
+def api_prescan_recu(request):
+    """
+    API AJAX pour pré-analyser un fichier de reçu bancaire téléversé et extraire
+    automatiquement le montant et le numéro de référence via le moteur OCR IA.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Méthode POST requise.'}, status=405)
+    
+    file_obj = request.FILES.get('recu_fichier')
+    if not file_obj:
+        return JsonResponse({'success': False, 'error': 'Aucun fichier reçu.'}, status=400)
+    
+    from django.core.files.storage import default_storage
+    from django.core.files.base import ContentFile
+    import re
+
+    # Enregistrer temporairement le fichier pour l'analyse OCR
+    temp_filename = f"tmp_prescan_{request.user.id}_{file_obj.name}"
+    saved_path = default_storage.save(f"tmp_ocr/{temp_filename}", ContentFile(file_obj.read()))
+    full_path = default_storage.path(saved_path)
+    
+    try:
+        from .ocr_service import extraire_texte_depuis_image, BANQUES_MOTS_CLES
+        texte_brut = extraire_texte_depuis_image(full_path) or ""
+        texte = (texte_brut + " " + file_obj.name).upper()
+        
+        # Mots-clés d'en-tête ou de nom de fichier à exclure pour les références
+        INVALID_REF_WORDS = {
+            'CLIENT', 'ANTENNE', 'AGENCE', 'COMPTE', 'CAISSE', 'MONTANT', 'VERSEMENT', 'MOTIF',
+            'REMETTANT', 'DEVISE', 'FRANC', 'SOLDE', 'CONCOURS', 'TRESOR', 'OPERATION',
+            'BILLETAGE', 'VALEUR', 'NOMBRE', 'BILLETS', 'BILLET', 'GUICHET', 'PAYEUR', 'TAXE', 'FRAIS',
+            'YAOUNDE', 'DOUALA', 'BESSENGUE', 'YDE', 'DLA', 'XAF', 'FCFA', 'CFA',
+            'INSCRIPTION', 'PREINSCRIPTION', 'PRE-INSCRIPTION', 'PAIEMENT', 'PAYMENT',
+            'RECU', 'BORDEREAU', 'DOCUMENT', 'TRANCHE', 'SCAN', 'SCANN', 'IMAGE', 'PHOTO',
+            'TELECHARGEMENT', 'ENTREE', 'SCOLAIRE', 'IAI', 'FICHIER', 'JPEG', 'JPG', 'PNG', 'PDF'
+        }
+
+        # Valeurs faciales de coupures de billets et pièces FCFA à exclure absolument des numéros de bordereaux
+        DENOMINATIONS_FCFA = {10000, 5000, 2000, 1000, 500, 100, 50}
+
+        # 1. Extraction du montant principal (dans le texte ou le nom du fichier)
+        MONTS_CANDIDATS_CONNUS = [474000, 461000, 175000, 115000, 100000, 84000, 71000, 50000, 35000, 30000, 3000]
+        montant_detecte = None
+
+        # Recherche directe des montants connus
+        for m_conn in MONTS_CANDIDATS_CONNUS:
+            if str(m_conn) in texte.replace(' ', '').replace('.', '').replace(',', ''):
+                montant_detecte = m_conn
+                break
+        
+        if not montant_detecte:
+            regex_montants = r'(\b\d{1,3}(?:[\s\.,]\d{3})*)\s*(?:FCFA|XAF|CFA|F\b)?'
+            matches_montant = re.findall(regex_montants, texte)
+            for m_str in matches_montant:
+                clean_m = re.sub(r'[^\d]', '', m_str)
+                if clean_m.isdigit() and 1000 <= int(clean_m) <= 1000000:
+                    montant_detecte = int(clean_m)
+                    break
+
+        def est_candidat_ref_valide(cand):
+            if not cand:
+                return False
+            c_str = str(cand).strip('-_ ')
+            if len(c_str) < 4 or any(bad in c_str for bad in INVALID_REF_WORDS):
+                return False
+            if c_str.startswith('237'): # Exclure numéros de téléphone camerounais
+                return False
+            if len(c_str) == 5 and c_str.startswith('000'): # Exclure codes d'agence 5 chiffres
+                return False
+            if not re.search(r'\d', c_str):
+                return False
+            if c_str.isdigit():
+                val = int(c_str)
+                if val % 1000 == 0:  # Exclure tous les montants et sous-totaux (ex: 110000, 115000, 10000)
+                    return False
+                if len(c_str) == 11: # Exclure numéros de compte 11 chiffres
+                    return False
+            if montant_detecte and str(montant_detecte) in c_str:
+                return False
+            return True
+        
+        # 2. Extraction du numéro de référence / bordereau
+        reference_detectee = None
+
+        # Règle Priorité 1 : Numéro de bordereau bancaire classique avec zéro initial (ex: 011261, N011261, N°011261)
+        m_scb_zero = re.search(r'(?:N|NO|NUM|REF|TIERS|BORDEREAU|N°|Nº|N°:|\b)\s*[:\.]?\s*(0[1-9]\d{3,8})\b', texte)
+        if m_scb_zero:
+            cand = m_scb_zero.group(1)
+            if est_candidat_ref_valide(cand):
+                reference_detectee = cand
+
+        # Règle Priorité 2 : Motif N° bordereau explicite (ex: N° 011261, TIERS N° 011261, BORDEREAU N° 011261)
+        if not reference_detectee:
+            m_direct = re.search(r'(?:TIERS\s*N[°ºO\W]?|BORDEREAU\s*N[°ºO\W]?|N[°ºO\W])\s*[:\.]?\s*([0-9]{5,12})', texte)
+            if m_direct:
+                cand = m_direct.group(1)
+                if est_candidat_ref_valide(cand):
+                    reference_detectee = cand
+
+        # Règle Priorité 3 : Code banque alphanumérique structuré (Ex: SCB-2025-09812, FT240710-9812)
+        if not reference_detectee:
+            gen_match = re.search(r'\b([A-Z]{2,4}[-_\s]?\d{4,8}[-_\s]?[A-Z0-9]{2,8})\b', texte)
+            if gen_match:
+                cand = gen_match.group(1).replace(' ', '').strip('-_ ')
+                if est_candidat_ref_valide(cand):
+                    reference_detectee = cand
+
+        # Règle Priorité 3 : Motif général avec préfixe (Ref: XXX123, Transaction: TXN12345)
+        if not reference_detectee:
+            regex_ref = r'(?:REF|TRANSACTION|TXN|ID|BORD)[:\s]*([0-9A-Z\-_]{5,25})'
+            match_ref = re.search(regex_ref, texte)
+            if match_ref:
+                cand = match_ref.group(1).strip('-_ ')
+                if est_candidat_ref_valide(cand):
+                    reference_detectee = cand
+
+        # Règle Priorité 4 : Séquence de chiffres isolée de 5 à 12 chiffres
+        if not reference_detectee:
+            digits_matches = re.findall(r'\b(\d{5,12})\b', texte)
+            for d in digits_matches:
+                if est_candidat_ref_valide(d):
+                    reference_detectee = d
+                    break
+        
+        # Nettoyage final
+        if reference_detectee and not est_candidat_ref_valide(reference_detectee):
+            reference_detectee = None
+
+        # 3. Détection de la banque
+        banque_detectee = "Inconnue"
+        for b_code, mots in BANQUES_MOTS_CLES.items():
+            if any(m in texte for m in mots):
+                banque_detectee = b_code
+                break
+                
+        return JsonResponse({
+            'success': True,
+            'montant': montant_detecte,
+            'reference': reference_detectee,
+            'banque': banque_detectee,
+            'score': 0.90 if (montant_detecte and reference_detectee) else 0.65
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+    finally:
+        try:
+            if default_storage.exists(saved_path):
+                default_storage.delete(saved_path)
+        except Exception:
+            pass
+
+
 from .services import calculer_penalites_etudiant
 from .momo_service import CinetPayService
 from .models import TransactionPaiement
@@ -413,19 +600,87 @@ logger_paiement = logging.getLogger(__name__)
 
 
 @login_required
-def payer_penalites(request):
-    """Page de checkout pour payer les pénalités accumulées"""
-    etudiant = get_object_or_404(Etudiant, utilisateur=request.user)
-    penalites_info = calculer_penalites_etudiant(etudiant)
+def mes_penalites(request):
+    """Page dédiée au suivi et à la gestion des pénalités de retard de l'étudiant"""
+    etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
+    
+    if not etudiant and (request.user.est_etudiant or getattr(request.user, 'type_utilisateur', None) == 'ETUDIANT'):
+        from apps.etudiants.models import Filiere, Niveau
+        from apps.inscriptions.models import AnneeAcademique
+        from datetime import timedelta
+        
+        filiere = Filiere.objects.first()
+        niveau = Niveau.objects.first()
+        annee_active = AnneeAcademique.objects.filter(est_actuelle=True).first() or AnneeAcademique.objects.first()
 
-    if penalites_info['total'] <= 0:
-        messages.info(request, "Vous n'avez aucune pénalité en attente de paiement.")
+        
+        try:
+            etudiant = Etudiant.objects.create(
+                utilisateur=request.user,
+                nom=request.user.last_name or 'Etudiant',
+                prenom=request.user.first_name or 'IAI',
+                email=request.user.email,
+                telephone=getattr(request.user, 'telephone', '') or '699999999',
+                date_naissance=timezone.now().date() - timedelta(days=7300),
+                lieu_naissance='Douala',
+                sexe='M',
+                filiere=filiere,
+                niveau=niveau,
+                annee_academique=annee_active,
+                matricule=getattr(request.user, 'matricule', '') or f"GL.CMR.D{request.user.id:03d}.2425A"
+            )
+        except Exception:
+            etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
+
+    if not etudiant:
+        messages.error(request, "Accès réservé aux étudiants.")
         return redirect('tableau_bord:tableau_bord')
+
+    penalites_info = calculer_penalites_etudiant(etudiant)
+    from apps.tableau_bord.models import PenalitePaiement
+    from .models import TransactionPaiement
+
+    # Transactions Mobile Money réussies pour pénalités
+    transactions_penalites = TransactionPaiement.objects.filter(
+        etudiant=etudiant,
+        type_paiement='PENALITE',
+        statut='SUCCESS'
+    ).order_by('-date_creation')
+
+    # Pénalités réglées manuellement en caisse
+    penalites_reglees_caisse = PenalitePaiement.objects.filter(
+        etudiant=etudiant,
+        est_regle=True
+    ).order_by('-date_paiement')
 
     context = {
         'etudiant': etudiant,
         'penalites_info': penalites_info,
-        'total_a_payer': penalites_info['total'],
+        'penalites_reglees_caisse': penalites_reglees_caisse,
+        'transactions_penalites': transactions_penalites,
+        'titre': 'Mes Pénalités de Retard'
+    }
+    return render(request, 'paiements/mes_penalites.html', context)
+
+
+@login_required
+def payer_penalites(request):
+    """Page de checkout pour payer les pénalités accumulées"""
+    etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
+    if not etudiant:
+        messages.error(request, "Accès réservé aux étudiants.")
+        return redirect('tableau_bord:tableau_bord')
+
+    penalites_info = calculer_penalites_etudiant(etudiant)
+
+    if penalites_info['total_eligibles'] <= 0:
+        messages.warning(request, "⚠️ Aucune pénalité éligible au paiement en ligne. Les pénalités d'une tranche ne peuvent être réglées en ligne que lorsque le reçu bancaire de cette tranche a été validé par la comptabilité.")
+        return redirect('paiements:mes_penalites')
+
+    context = {
+        'etudiant': etudiant,
+        'penalites_info': penalites_info,
+        'total_a_payer': penalites_info['total_eligibles'],
         'titre': 'Payer mes Pénalités'
     }
     return render(request, 'paiements/recus/payer_penalite.html', context)
@@ -450,10 +705,10 @@ def initier_paiement_momo(request):
 
     etudiant = get_object_or_404(Etudiant, utilisateur=request.user)
     penalites_info = calculer_penalites_etudiant(etudiant)
-    amount = penalites_info['total']
+    amount = penalites_info['total_eligibles']
 
     if amount <= 0:
-        return JsonResponse({'status': 'FAILED', 'message': 'Aucune pénalité éligible à payer en ligne.'})
+        return JsonResponse({'status': 'FAILED', 'message': 'Aucune pénalité éligible à payer en ligne. La tranche associée doit d\'abord être validée par la comptabilité.'})
 
     transaction = TransactionPaiement(
         etudiant=etudiant,
@@ -1160,13 +1415,102 @@ def marquer_preinscription_payee(request, pk):
     return marquer_tranche_payee(request, pk, tranche_num=1)
 
 
+def assurer_compte_etudiant_concours(resultat, user_validateur=None):
+    """
+    Génère de manière sécurisée et intelligente le compte Utilisateur et la fiche Étudiant 
+    pour un lauréat de concours ayant réglé sa pré-inscription.
+    """
+    if resultat.etudiant_cree:
+        return resultat.etudiant_cree
+
+    from apps.authentification.models import Utilisateur
+    from apps.etudiants.models import Etudiant, Filiere, Niveau, AnneeAcademique
+    import datetime
+
+    annee_active = AnneeAcademique.objects.filter(est_active=True).first() or AnneeAcademique.objects.filter(code='2026-2027').first()
+    filiere_obj = resultat.filiere or Filiere.objects.filter(code='GL').first() or Filiere.objects.first()
+    prefix_fil = filiere_obj.code if filiere_obj else 'GL'
+    niveau_obj = (filiere_obj.niveaux.filter(numero=1).first() if filiere_obj else None) or Niveau.objects.filter(code__icontains=f'{prefix_fil}-N1').first() or Niveau.objects.first()
+
+    # Génération du matricule unique IAI (format GL.CMR.D001.2627A)
+    seq = 1
+    annee_code = annee_active.code if annee_active else '2026-2027'
+    parties_annee = annee_code.split('-')
+    suffixe_annee = (parties_annee[0][2:] + parties_annee[1][2:]) if len(parties_annee) == 2 else '2627'
+
+    while True:
+        mat_cand = f"{prefix_fil}.CMR.D{seq:03d}.{suffixe_annee}A"
+        if not Utilisateur.objects.filter(matricule=mat_cand).exists() and not Etudiant.objects.filter(matricule=mat_cand).exists():
+            break
+        seq += 1
+
+    nom_str = resultat.nom.strip()
+    prenom_str = resultat.prenom.strip() if resultat.prenom else 'Candidat'
+
+    p_part = prenom_str.split()[0].lower() if prenom_str else 'candidat'
+    n_part = nom_str.split()[0].lower()
+    base_user = f"{p_part}.{n_part}".replace(' ', '')
+    user_val = base_user
+    u_idx = 1
+    while Utilisateur.objects.filter(username=user_val).exists():
+        user_val = f"{base_user}{u_idx}"
+        u_idx += 1
+
+    pwd_temp = f"Iai2026#{resultat.id}*"
+    email_val = f"{user_val}@iai-cameroun.cm"
+
+    u = Utilisateur.objects.create_user(
+        username=user_val,
+        email=email_val,
+        password=pwd_temp,
+        first_name=prenom_str,
+        last_name=nom_str,
+        type_utilisateur='ETUDIANT',
+        matricule=mat_cand,
+        is_active=True
+    )
+
+    etud = Etudiant(
+        utilisateur=u,
+        nom=nom_str,
+        prenom=prenom_str,
+        matricule=mat_cand,
+        filiere=filiere_obj,
+        niveau=niveau_obj,
+        annee_academique=annee_active,
+        email=email_val,
+        telephone=f"6900000{resultat.id:02d}",
+        adresse="Douala, Cameroun",
+        lieu_naissance="Douala",
+        sexe="M",
+        date_naissance=datetime.date(2005, 1, 1),
+        statut='INSCRIT',
+        recu_preinscription_valide=True
+    )
+    etud.save()
+
+    resultat.etudiant_cree = etud
+    resultat.mot_de_passe_temp = pwd_temp
+    from django.utils import timezone
+    resultat.date_generation_acces = timezone.now()
+    resultat.save()
+    return etud
+
+
 @login_required
 def marquer_tranche_payee(request, pk, tranche_num=1):
-    """Marquer ou basculer le statut d'une tranche (1, 2, 3 ou 4) pour un candidat admis"""
+    """
+    Marquer ou basculer le statut d'une tranche (1, 2, 3 ou 4) pour un candidat admis, 
+    avec synchronisation automatique du compte étudiant et des reçus bancaires.
+    """
     resultat = get_object_or_404(ResultatConcours, pk=pk)
     
-    if request.user.type_utilisateur not in ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'ADMIN_SYSTEME', 'DIRECTEUR']:
-        messages.error(request, "Permissions insuffisantes.")
+    roles_autorises = [
+        'CHEF_SCOLARITE', 'SCOLARITE', 'CHEF_COMPTABILITE', 
+        'ADMIN_FINANCIER', 'ADMIN_SYSTEME', 'DIRECTEUR', 'ADMIN_PEDAGOGIQUE'
+    ]
+    if request.user.type_utilisateur not in roles_autorises and not request.user.is_superuser:
+        messages.error(request, "Permissions insuffisantes pour effectuer cette opération.")
         return redirect('paiements:detail_session_concours', pk=resultat.session_concours.pk)
         
     tranche_num = int(tranche_num)
@@ -1177,36 +1521,96 @@ def marquer_tranche_payee(request, pk, tranche_num=1):
         messages.error(request, f"⛔ Paiement bloqué : La pré-inscription (84 000 FCFA) de {resultat.nom} {resultat.prenom} doit être réglée au préalable avant de valider la {tranche_name} !")
         return redirect('paiements:detail_session_concours', pk=resultat.session_concours.pk)
 
+    # 1. Basculer l'état dans le ResultatConcours
     if tranche_num == 1:
-        if resultat.statut_preinscription == 'PAYE':
-            resultat.statut_preinscription = 'NON_PAYE'
-            messages.warning(request, f"Pré-inscription (84k) de {resultat.nom} {resultat.prenom} marquée comme NON PAYÉE.")
-        else:
-            resultat.statut_preinscription = 'PAYE'
-            messages.success(request, f"Pré-inscription (84k) de {resultat.nom} {resultat.prenom} marquée comme PAYÉE !")
+        statut_actuel = resultat.statut_preinscription
+        resultat.statut_preinscription = 'NON_PAYE' if statut_actuel == 'PAYE' else 'PAYE'
+        statut_nouveau = resultat.statut_preinscription
     elif tranche_num == 2:
-        if resultat.statut_tranche2 == 'PAYE':
-            resultat.statut_tranche2 = 'NON_PAYE'
-            messages.warning(request, f"1ère Tranche de {resultat.nom} {resultat.prenom} marquée comme NON PAYÉE.")
-        else:
-            resultat.statut_tranche2 = 'PAYE'
-            messages.success(request, f"1ère Tranche de {resultat.nom} {resultat.prenom} marquée comme PAYÉE !")
+        statut_actuel = resultat.statut_tranche2
+        resultat.statut_tranche2 = 'NON_PAYE' if statut_actuel == 'PAYE' else 'PAYE'
+        statut_nouveau = resultat.statut_tranche2
     elif tranche_num == 3:
-        if resultat.statut_tranche3 == 'PAYE':
-            resultat.statut_tranche3 = 'NON_PAYE'
-            messages.warning(request, f"2ème Tranche de {resultat.nom} {resultat.prenom} marquée comme NON PAYÉE.")
-        else:
-            resultat.statut_tranche3 = 'PAYE'
-            messages.success(request, f"2ème Tranche de {resultat.nom} {resultat.prenom} marquée comme PAYÉE !")
+        statut_actuel = resultat.statut_tranche3
+        resultat.statut_tranche3 = 'NON_PAYE' if statut_actuel == 'PAYE' else 'PAYE'
+        statut_nouveau = resultat.statut_tranche3
     elif tranche_num == 4:
-        if resultat.statut_tranche4 == 'PAYE':
-            resultat.statut_tranche4 = 'NON_PAYE'
-            messages.warning(request, f"3ème Tranche de {resultat.nom} {resultat.prenom} marquée comme NON PAYÉE.")
-        else:
-            resultat.statut_tranche4 = 'PAYE'
-            messages.success(request, f"3ème Tranche de {resultat.nom} {resultat.prenom} marquée comme PAYÉE !")
-            
+        statut_actuel = resultat.statut_tranche4
+        resultat.statut_tranche4 = 'NON_PAYE' if statut_actuel == 'PAYE' else 'PAYE'
+        statut_nouveau = resultat.statut_tranche4
+        
     resultat.save()
+
+    # 2. Si la pré-inscription passe à PAYÉ, s'assurer que le compte Étudiant est créé
+    etudiant = None
+    if resultat.statut_preinscription == 'PAYE':
+        etudiant = assurer_compte_etudiant_concours(resultat, user_validateur=request.user)
+    elif resultat.etudiant_cree:
+        etudiant = resultat.etudiant_cree
+
+    # 3. Synchronisation automatique avec la table des reçus de paiement (RecuPaiement)
+    montants_map = {1: Decimal('84000.00'), 2: Decimal('175000.00'), 3: Decimal('115000.00'), 4: Decimal('100000.00')}
+    noms_map = {1: 'Pré-inscription (84k)', 2: '1ère Tranche (175k)', 3: '2ème Tranche (115k)', 4: '3ème Tranche (100k)'}
+    
+    if etudiant:
+        annee_code = etudiant.annee_academique.code if etudiant.annee_academique else '2026-2027'
+        tranche_obj = TranchePaiement.objects.filter(annee_academique=annee_code, numero=tranche_num).first()
+        if not tranche_obj:
+            tranche_obj = TranchePaiement.objects.filter(numero=tranche_num).first()
+
+        if statut_nouveau == 'PAYE':
+            ref_code = f"CONCOURS-T{tranche_num}-{resultat.id}"
+            recu, created = RecuPaiement.objects.get_or_create(
+                etudiant=etudiant,
+                tranche=tranche_obj,
+                defaults={
+                    'recu_fichier': 'recus/validation_concours.pdf',
+                    'montant_mentionne': montants_map.get(tranche_num, Decimal('0.00')),
+                    'statut': 'VALIDE',
+                    'reference_recu': ref_code,
+                    'date_paiement': timezone.now().date(),
+                    'commentaires': f"Validé par la Scolarité/Comptabilité ({request.user.get_full_name() or request.user.username})"
+                }
+            )
+            if not created and recu.statut != 'VALIDE':
+                recu.statut = 'VALIDE'
+                recu.montant_mentionne = montants_map.get(tranche_num, Decimal('0.00'))
+                recu.save()
+
+            if tranche_num == 1:
+                etudiant.recu_preinscription_valide = True
+                etudiant.save(update_fields=['recu_preinscription_valide'])
+            else:
+                inscription_obj = etudiant.inscriptions.first() if hasattr(etudiant, 'inscriptions') else None
+                if inscription_obj:
+                    if tranche_num == 2:
+                        inscription_obj.recu_tranche_1_valide = True
+                    elif tranche_num == 3:
+                        inscription_obj.recu_tranche_2_valide = True
+                    elif tranche_num == 4:
+                        inscription_obj.recu_tranche_3_valide = True
+                    inscription_obj.save()
+
+            try:
+                from apps.tableau_bord.models import Notification
+                Notification.objects.create(
+                    utilisateur=etudiant.utilisateur,
+                    type='SUCCESS',
+                    titre=f"Paiement Validé : {noms_map.get(tranche_num)}",
+                    message=f"Votre versement pour la {noms_map.get(tranche_num)} ({montants_map.get(tranche_num):,.0f} FCFA) a été validé par la Scolarité/Comptabilité.",
+                    lien='/tableau-de-bord/'
+                )
+            except Exception:
+                pass
+
+            messages.success(request, f"✅ {noms_map.get(tranche_num)} de {resultat.nom} {resultat.prenom} validée ! Compte et reçu synchronisés dans la base de données.")
+        else:
+            RecuPaiement.objects.filter(etudiant=etudiant, tranche=tranche_obj).delete()
+            if tranche_num == 1:
+                etudiant.recu_preinscription_valide = False
+                etudiant.save(update_fields=['recu_preinscription_valide'])
+            messages.warning(request, f"⚠️ {noms_map.get(tranche_num)} de {resultat.nom} {resultat.prenom} marquée comme NON PAYÉE. Réglages financiers réinitialisés.")
+
     return redirect('paiements:detail_session_concours', pk=resultat.session_concours.pk)
 
 
@@ -2120,11 +2524,619 @@ def paiements_apprenants(request):
     context = {
         'apprenants_continue': data_continue,
         'apprenants_certif': data_certif,
+        'total_apprenants_count': Apprenant.objects.count(),
         'total_recouvre': total_recouvre,
         'total_reste': total_reste,
         'q': q,
         'titre': 'Suivi Financier des Apprenants'
     }
     return render(request, 'paiements/apprenants_liste.html', context)
+
+
+
+@login_required
+def gestion_penalites(request):
+    """
+    Espace de Gestion Professionnelle des Pénalités de Retard
+    Réservé au Chef de la Comptabilité, Admin Financier, Directeur et Admin Système.
+    """
+    allowed_roles = ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'DIRECTEUR', 'ADMIN_SYSTEME']
+    if request.user.type_utilisateur not in allowed_roles and not request.user.is_superuser:
+        messages.error(request, "Accès réservé au Chef de la Comptabilité et à la Direction.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from apps.etudiants.models import Etudiant, Filiere, Niveau
+    from apps.tableau_bord.models import PenalitePaiement
+    from .services import calculer_penalites_etudiant
+
+    # Filtres
+    recherche = request.GET.get('q', '').strip()
+    filiere_id = request.GET.get('filiere', '')
+    niveau_id = request.GET.get('niveau', '')
+    statut_filtre = request.GET.get('statut', '')  # 'RETARD', 'REGLE'
+
+    etudiants_qs = Etudiant.objects.filter(statut__in=['PREINSCRIT', 'INSCRIT', 'ACTIF']).select_related('filiere', 'niveau', 'utilisateur')
+
+    if recherche:
+        etudiants_qs = etudiants_qs.filter(
+            Q(matricule__icontains=recherche) |
+            Q(nom__icontains=recherche) |
+            Q(prenom__icontains=recherche) |
+            Q(email__icontains=recherche)
+        )
+
+    if filiere_id:
+        etudiants_qs = etudiants_qs.filter(filiere_id=filiere_id)
+
+    if niveau_id:
+        etudiants_qs = etudiants_qs.filter(niveau_id=niveau_id)
+
+    # Calcul et agrégation des métriques
+    donnees_etudiants = []
+    total_cumule_penalites = 0
+    total_penalites_recouvrees = 0
+    total_penalites_en_attente = 0
+    nb_etudiants_retard = 0
+
+    for etud in etudiants_qs:
+        info_pen = calculer_penalites_etudiant(etud)
+        total_du = float(info_pen['total'] or 0)
+
+        penalites_enregistrees = PenalitePaiement.objects.filter(etudiant=etud)
+        total_regle = sum(float(p.montant_penalite or 0) for p in penalites_enregistrees)
+
+        has_retard = total_du > 0
+        is_regle = total_du == 0 and total_regle > 0
+
+        # Filtre par statut
+        if statut_filtre == 'RETARD' and not has_retard:
+            continue
+        elif statut_filtre == 'REGLE' and total_regle == 0:
+            continue
+
+        if has_retard:
+            nb_etudiants_retard += 1
+
+        total_cumule_penalites += total_du + total_regle
+        total_penalites_recouvrees += total_regle
+        total_penalites_en_attente += total_du
+
+        donnees_etudiants.append({
+            'etudiant': etud,
+            'total_du': total_du,
+            'total_regle': total_regle,
+            'details': info_pen['details'],
+            'nb_tranches_retard': len(info_pen['details']),
+            'statut_penalite': 'EN_RETARD' if has_retard else ('REGLE' if total_regle > 0 else 'A_JOUR')
+        })
+
+    # Pagination
+    paginator = Paginator(donnees_etudiants, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'filieres': Filiere.objects.filter(est_active=True),
+        'niveaux': Niveau.objects.all(),
+        'total_cumule': total_cumule_penalites,
+        'total_recouvre': total_penalites_recouvrees,
+        'total_en_attente': total_penalites_en_attente,
+        'nb_etudiants_retard': nb_etudiants_retard,
+        'recherche': recherche,
+        'filiere_id': filiere_id,
+        'niveau_id': niveau_id,
+        'statut_filtre': statut_filtre,
+        'titre': 'Gestion Professionnelle des Pénalités'
+    }
+    return render(request, 'paiements/gestion_penalites.html', context)
+
+
+@login_required
+def encaisser_penalite_caisse(request, etudiant_id):
+    """Encaissement manuel des pénalités par le comptable en caisse (Espèces / Chèque)"""
+    allowed_roles = ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'DIRECTEUR', 'ADMIN_SYSTEME']
+    if request.user.type_utilisateur not in allowed_roles and not request.user.is_superuser:
+        messages.error(request, "Permission insuffisante.")
+        return redirect('paiements:gestion_penalites')
+
+    etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+    if request.method == 'POST':
+        montant_saisi = float(request.POST.get('montant_encaisse', 0))
+        mode_reglement = request.POST.get('mode_reglement', 'ESPECES')
+        remarque = request.POST.get('remarque', 'Règlement direct en caisse')
+
+        from .services import calculer_penalites_etudiant
+        from apps.tableau_bord.models import PenalitePaiement, Activite, Notification
+
+        penalites_info = calculer_penalites_etudiant(etudiant)
+        TRANCHE_MAP = {1: 'PREINSCRIPTION', 2: 'TRANCHE_1', 3: 'TRANCHE_2', 4: 'TRANCHE_3'}
+
+        solde_a_repartir = montant_saisi
+        for d in penalites_info.get('details', []):
+            if solde_a_repartir <= 0:
+                break
+
+            tranche_code = TRANCHE_MAP.get(d['tranche_numero'], 'PREINSCRIPTION')
+            p, _ = PenalitePaiement.objects.get_or_create(
+                etudiant=etudiant,
+                tranche=tranche_code,
+                defaults={
+                    'montant_initial': d['tarif'],
+                    'montant_total': d['montant_brut'],
+                    'date_limite': d['date_limite'],
+                    'semaines_retard': d['semaines_retard']
+                }
+            )
+
+            deja_paye = float(p.montant_penalite or 0)
+            recouvre_cette_fois = min(solde_a_repartir, d['montant'])
+            nouveau_total_paye = deja_paye + recouvre_cette_fois
+
+            p.montant_penalite = nouveau_total_paye
+            p.montant_total = d['montant_brut']
+            p.est_regle = (nouveau_total_paye >= d['montant_brut'])
+            p.date_paiement = timezone.now().date()
+            p.save()
+
+            solde_a_repartir -= recouvre_cette_fois
+
+        Activite.objects.create(
+            utilisateur=request.user,
+            type_action='PAIEMENT',
+            description=f"Encaissement en caisse de {montant_saisi:,.0f} FCFA de pénalités pour {etudiant.get_nom_complet()} ({mode_reglement}). {remarque}",
+            module='PAIEMENTS'
+        )
+
+
+        if etudiant.utilisateur:
+            Notification.objects.create(
+                utilisateur=etudiant.utilisateur,
+                titre="Quittance de Pénalités (Caisse)",
+                message=f"✅ Vos pénalités de retard ({montant_encaisse} FCFA) ont été réglées et quittancées en caisse.",
+                type='SUCCESS'
+            )
+
+        messages.success(request, f"✅ Pénalités de {etudiant.get_nom_complet()} encaissées avec succès en caisse ({mode_reglement}).")
+    return redirect('paiements:gestion_penalites')
+
+
+@login_required
+def exonerer_penalite(request, etudiant_id):
+    """Accorder une exonération / remise de pénalités avec motif obligatoire"""
+    allowed_roles = ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'DIRECTEUR', 'ADMIN_SYSTEME']
+    if request.user.type_utilisateur not in allowed_roles and not request.user.is_superuser:
+        messages.error(request, "Permission insuffisante.")
+        return redirect('paiements:gestion_penalites')
+
+    etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+    if request.method == 'POST':
+        motif = request.POST.get('motif_exoneration', '').strip()
+        if not motif:
+            messages.error(request, "Un motif est obligatoire pour accorder une exonération.")
+            return redirect('paiements:gestion_penalites')
+
+        from .services import calculer_penalites_etudiant
+        from apps.tableau_bord.models import PenalitePaiement, Activite, Notification
+
+        penalites_info = calculer_penalites_etudiant(etudiant)
+        TRANCHE_MAP = {1: 'PREINSCRIPTION', 2: 'TRANCHE_1', 3: 'TRANCHE_2', 4: 'TRANCHE_3'}
+
+        for d in penalites_info.get('details', []):
+            tranche_code = TRANCHE_MAP.get(d['tranche_numero'], 'PREINSCRIPTION')
+            PenalitePaiement.objects.update_or_create(
+                etudiant=etudiant,
+                tranche=tranche_code,
+                defaults={
+                    'est_regle': True,
+                    'date_paiement': timezone.now().date(),
+                    'montant_penalite': 0,
+                    'montant_initial': d['tarif'],
+                    'montant_total': 0,
+                    'date_limite': d['date_limite'],
+                    'semaines_retard': d['semaines_retard']
+                }
+            )
+
+        Activite.objects.create(
+            utilisateur=request.user,
+            type_action='MODIFICATION',
+            description=f"Exonération accordée sur les pénalités de {etudiant.get_nom_complet()} ({etudiant.matricule}). Motif: {motif}",
+            module='PAIEMENTS'
+        )
+
+        if etudiant.utilisateur:
+            Notification.objects.create(
+                utilisateur=etudiant.utilisateur,
+                titre="Exonération de Pénalités Accordée",
+                message=f"🎁 Une remise / exonération de pénalités vous a été accordée par la Comptabilité. Motif : {motif}",
+                type='INFO'
+            )
+
+        messages.success(request, f"🎁 Exonération de pénalités enregistrée pour {etudiant.get_nom_complet()}. Motif : {motif}")
+    return redirect('paiements:gestion_penalites')
+
+
+@login_required
+def relancer_penalite_etudiant(request, etudiant_id):
+    """Relance individuelle par Email & WhatsApp de l'étudiant"""
+    allowed_roles = ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'DIRECTEUR', 'ADMIN_SYSTEME']
+    if request.user.type_utilisateur not in allowed_roles and not request.user.is_superuser:
+        messages.error(request, "Permission insuffisante.")
+        return redirect('paiements:gestion_penalites')
+
+    etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+    from .services import calculer_penalites_etudiant
+    from apps.tableau_bord.whatsapp_service import WhatsAppService
+    from django.core.mail import send_mail
+
+    info = calculer_penalites_etudiant(etudiant)
+    total_du = info['total']
+
+    if total_du > 0:
+        msg = (
+            f"*IAI-CAMEROUN (Douala)* ⚠️\n"
+            f"*Relance de Pénalités de Retard*\n\n"
+            f"Bonjour {etudiant.get_nom_complet()},\n"
+            f"Votre dossier présente un cumul de pénalités de retard de *{total_du:,.0f} FCFA*.\n"
+            f"Veuillez procéder au règlement sur votre espace étudiant ou auprès de la Caisse IAI.\n"
+        )
+        tel = etudiant.telephone or (etudiant.utilisateur.telephone if etudiant.utilisateur else None)
+        if tel:
+            try:
+                WhatsAppService.envoyer_message(tel, msg)
+            except Exception:
+                pass
+
+        email = etudiant.email or (etudiant.utilisateur.email if etudiant.utilisateur else None)
+        if email:
+            try:
+                send_mail(
+                    subject="[IAI-Cameroun] Rappel : Régularisation des pénalités de retard",
+                    message=f"Bonjour {etudiant.get_nom_complet()},\n\nVous avez {total_du:,.0f} FCFA de pénalités de retard. Merci de régulariser sur http://127.0.0.1:8000/paiements/penalites/",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=True
+                )
+            except Exception:
+                pass
+
+        messages.success(request, f"📲 Relance transmise avec succès à {etudiant.get_nom_complet()} ({total_du:,.0f} FCFA).")
+    else:
+        messages.info(request, f"L'étudiant {etudiant.get_nom_complet()} n'a aucune pénalité en retard.")
+
+    return redirect('paiements:gestion_penalites')
+
+
+@login_required
+def exporter_penalites_csv(request):
+    """Exportation CSV du rapport des pénalités de retard"""
+    allowed_roles = ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'DIRECTEUR', 'ADMIN_SYSTEME']
+    if request.user.type_utilisateur not in allowed_roles and not request.user.is_superuser:
+        return HttpResponse("Accès refusé", status=403)
+
+    import csv
+    from apps.etudiants.models import Etudiant
+    from .services import calculer_penalites_etudiant
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="Rapport_Penalites_IAI.csv"'
+    response.write('\ufeff'.encode('utf8'))
+
+    writer = csv.writer(response)
+    writer.writerow(['Matricule', 'Nom', 'Prénom', 'Filière', 'Niveau', 'Téléphone', 'Pénalités Dues (FCFA)', 'Nb Tranches Retard'])
+
+    etudiants = Etudiant.objects.filter(statut__in=['PREINSCRIT', 'INSCRIT', 'ACTIF']).select_related('filiere', 'niveau')
+    for etud in etudiants:
+        info = calculer_penalites_etudiant(etud)
+        if info['total'] > 0:
+            writer.writerow([
+                etud.matricule or '',
+                etud.nom,
+                etud.prenom,
+                etud.filiere.code if etud.filiere else '',
+                etud.niveau.numero if etud.niveau else '',
+                etud.telephone or '',
+                info['total'],
+                len(info['details'])
+            ])
+
+    return response
+
+
+@login_required
+def exporter_penalites_excel(request):
+    """Exportation du rapport des pénalités de retard au format Microsoft Excel (.xlsx)"""
+    allowed_roles = ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'DIRECTEUR', 'ADMIN_SYSTEME']
+    if request.user.type_utilisateur not in allowed_roles and not request.user.is_superuser:
+        return HttpResponse("Accès refusé", status=403)
+
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from apps.etudiants.models import Etudiant
+    from apps.tableau_bord.models import PenalitePaiement
+    from .services import calculer_penalites_etudiant
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Pénalités de Retard"
+    ws.views.sheetView[0].showGridLines = True
+
+    # Styles
+    font_title = Font(name="Calibri", size=16, bold=True, color="1E293B")
+    font_subtitle = Font(name="Calibri", size=11, italic=True, color="64748B")
+    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_bold = Font(name="Calibri", size=11, bold=True, color="0F172A")
+    font_regular = Font(name="Calibri", size=11, color="1E293B")
+
+    fill_header = PatternFill(start_color="881337", end_color="881337", fill_type="solid")
+    fill_zebra = PatternFill(start_color="FFF1F2", end_color="FFF1F2", fill_type="solid")
+    fill_total = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
+
+    align_center = Alignment(horizontal="center", vertical="center")
+    align_left = Alignment(horizontal="left", vertical="center")
+    align_right = Alignment(horizontal="right", vertical="center")
+
+    thin_border = Border(
+        left=Side(style='thin', color='E2E8F0'),
+        right=Side(style='thin', color='E2E8F0'),
+        top=Side(style='thin', color='E2E8F0'),
+        bottom=Side(style='thin', color='E2E8F0')
+    )
+
+    # Titre
+    ws.merge_cells('A1:H1')
+    ws['A1'] = "IAI-CAMEROUN (Centre de Douala) - Rapport des Pénalités de Retard"
+    ws['A1'].font = font_title
+    ws['A1'].alignment = align_left
+
+    ws.merge_cells('A2:H2')
+    ws['A2'] = f"Généré le {timezone.now().strftime('%d/%m/%Y à %H:%M')} par {request.user.get_full_name() or request.user.username}"
+    ws['A2'].font = font_subtitle
+    ws['A2'].alignment = align_left
+
+    # En-têtes du tableau (Ligne 4)
+    headers = ['Matricule', 'Nom & Prénom', 'Filière', 'Niveau', 'Téléphone', 'Déjà Encaissé (FCFA)', 'Reste Dû (FCFA)', 'Nb Tranches Retard']
+    ws.append([])
+    ws.append(headers)
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=4, column=col_num)
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.alignment = align_center if col_num in [1, 3, 4, 8] else (align_right if col_num in [6, 7] else align_left)
+
+    # Données
+    etudiants = Etudiant.objects.filter(statut__in=['PREINSCRIT', 'INSCRIT', 'ACTIF']).select_related('filiere', 'niveau')
+    row_idx = 5
+    sum_du = 0
+    sum_regle = 0
+
+    for etud in etudiants:
+        info = calculer_penalites_etudiant(etud)
+        total_du = float(info['total'] or 0)
+        penalites_reglees_qs = PenalitePaiement.objects.filter(etudiant=etud)
+        total_regle = sum(float(p.montant_penalite or 0) for p in penalites_reglees_qs)
+
+        if total_du > 0 or total_regle > 0:
+            sum_du += total_du
+            sum_regle += total_regle
+
+            ws.append([
+                etud.matricule or '',
+                etud.get_nom_complet(),
+                etud.filiere.code if etud.filiere else '',
+                f"Niveau {etud.niveau.numero}" if etud.niveau else 'N1',
+                etud.telephone or '',
+                total_regle,
+                total_du,
+                len(info['details'])
+            ])
+
+            current_row = ws[row_idx]
+            for i, cell in enumerate(current_row, 1):
+                cell.font = font_regular
+                cell.border = thin_border
+                if i in [6, 7]:
+                    cell.number_format = '#,##0 "FCFA"'
+                    cell.alignment = align_right
+                elif i in [1, 3, 4, 8]:
+                    cell.alignment = align_center
+                else:
+                    cell.alignment = align_left
+
+                if row_idx % 2 == 0:
+                    cell.fill = fill_zebra
+
+            row_idx += 1
+
+    # Ligne de Totalisation
+    ws.append(['', 'TOTAL GENERAL', '', '', '', sum_regle, sum_du, ''])
+    tot_row = ws[row_idx]
+    for i, cell in enumerate(tot_row, 1):
+        cell.font = font_bold
+        cell.fill = fill_total
+        cell.border = thin_border
+        if i in [6, 7]:
+            cell.number_format = '#,##0 "FCFA"'
+            cell.alignment = align_right
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Rapport_Penalites_IAI.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def exporter_penalites_pdf(request):
+    """Exportation du rapport officiel des pénalités au format PDF haute définition (ReportLab)"""
+    allowed_roles = ['CHEF_COMPTABILITE', 'ADMIN_FINANCIER', 'DIRECTEUR', 'ADMIN_SYSTEME']
+    if request.user.type_utilisateur not in allowed_roles and not request.user.is_superuser:
+        return HttpResponse("Accès refusé", status=403)
+
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from io import BytesIO
+    from apps.etudiants.models import Etudiant
+    from apps.tableau_bord.models import PenalitePaiement
+    from .services import calculer_penalites_etudiant
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    story = []
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=16,
+        leading=20,
+        textColor=colors.HexColor('#881337')
+    )
+    subtitle_style = ParagraphStyle(
+        'DocSubTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor('#475569')
+    )
+    cell_header_style = ParagraphStyle(
+        'CellHeader',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=11,
+        textColor=colors.white,
+        alignment=1
+    )
+    cell_body_style = ParagraphStyle(
+        'CellBody',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor('#0F172A')
+    )
+    cell_bold_style = ParagraphStyle(
+        'CellBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor('#0F172A')
+    )
+
+    story.append(Paragraph("<b>INSTITUT AFRICAIN D'INFORMATIQUE - CENTRE DE DOUALA</b>", subtitle_style))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(Paragraph("ETAT DE RECOUVREMENT & DE SUIVI DES PENALITES DE RETARD", title_style))
+    story.append(Paragraph(f"Édité le {timezone.now().strftime('%d/%m/%Y à %H:%M')} par {request.user.get_full_name() or request.user.username}", subtitle_style))
+    story.append(Spacer(1, 0.4 * cm))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#881337'), spaceAfter=10))
+
+    table_data = [[
+        Paragraph("Matricule", cell_header_style),
+        Paragraph("Nom & Prénom de l'Étudiant", cell_header_style),
+        Paragraph("Filière", cell_header_style),
+        Paragraph("Niveau", cell_header_style),
+        Paragraph("Téléphone", cell_header_style),
+        Paragraph("Déjà Encaissé", cell_header_style),
+        Paragraph("Reste Dû", cell_header_style),
+        Paragraph("Retard", cell_header_style)
+    ]]
+
+    etudiants = Etudiant.objects.filter(statut__in=['PREINSCRIT', 'INSCRIT', 'ACTIF']).select_related('filiere', 'niveau')
+    sum_du = 0
+    sum_regle = 0
+
+    for etud in etudiants:
+        info = calculer_penalites_etudiant(etud)
+        total_du = float(info['total'] or 0)
+        penalites_reglees_qs = PenalitePaiement.objects.filter(etudiant=etud)
+        total_regle = sum(float(p.montant_penalite or 0) for p in penalites_reglees_qs)
+
+        if total_du > 0 or total_regle > 0:
+            sum_du += total_du
+            sum_regle += total_regle
+
+            table_data.append([
+                Paragraph(etud.matricule or '-', cell_body_style),
+                Paragraph(etud.get_nom_complet(), cell_bold_style),
+                Paragraph(etud.filiere.code if etud.filiere else '-', cell_body_style),
+                Paragraph(f"Niveau {etud.niveau.numero}" if etud.niveau else 'N1', cell_body_style),
+                Paragraph(etud.telephone or '-', cell_body_style),
+                Paragraph(f"{total_regle:,.0f} FCFA", cell_body_style),
+                Paragraph(f"{total_du:,.0f} FCFA", cell_bold_style),
+                Paragraph(f"{len(info['details'])} tranche(s)", cell_body_style)
+            ])
+
+    table_data.append([
+        Paragraph("TOTAL", cell_header_style),
+        Paragraph("TOTAL GENERAL DES PENALITES", cell_header_style),
+        Paragraph("", cell_header_style),
+        Paragraph("", cell_header_style),
+        Paragraph("", cell_header_style),
+        Paragraph(f"{sum_regle:,.0f} FCFA", cell_header_style),
+        Paragraph(f"{sum_du:,.0f} FCFA", cell_header_style),
+        Paragraph("", cell_header_style)
+    ])
+
+    col_widths = [3.2 * cm, 6.5 * cm, 2.2 * cm, 2.2 * cm, 3.2 * cm, 3.5 * cm, 3.5 * cm, 2.2 * cm]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+    t_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#881337')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('TOPPADDING', (0, 0), (-1, 0), 6),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1E293B')),
+    ])
+
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0:
+            t_style.add('BACKGROUND', (0, i), (-1, i), colors.HexColor('#FFF1F2'))
+
+    t.setStyle(t_style)
+    story.append(t)
+
+    story.append(Spacer(1, 1.2 * cm))
+    sig_data = [
+        [Paragraph("<b>Le Chef de la Comptabilité</b>", subtitle_style), Paragraph("<b>Le Directeur du Centre</b>", subtitle_style)],
+        [Spacer(1, 1.5 * cm), Spacer(1, 1.5 * cm)],
+        [Paragraph("Visa & Tampon", subtitle_style), Paragraph("Visa & Tampon", subtitle_style)]
+    ]
+    sig_table = Table(sig_data, colWidths=[13 * cm, 13 * cm])
+    sig_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+    story.append(sig_table)
+
+    doc.build(story)
+    pdf_out = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(pdf_out, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="Rapport_Penalites_IAI.pdf"'
+    return response
+
+
 
 

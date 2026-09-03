@@ -12,11 +12,13 @@ from django.utils import timezone
 from django.urls import reverse
 
 from .models import (
-    AnneeAcademique, Inscription, DocumentInscription, HistoriqueInscription, Bourse
+    AnneeAcademique, Inscription, DocumentInscription, HistoriqueInscription, Bourse, CertificatScolarite
 )
 from .forms import (
     InscriptionForm, DocumentInscriptionForm, BourseForm
 )
+from .utils_qr import generer_qr_code_data_uri
+from apps.authentification.decorators import role_required
 from apps.etudiants.models import Etudiant, Filiere, Niveau, Classe
 from apps.paiements.models import RecuPaiement, TranchePaiement
 
@@ -109,7 +111,6 @@ def detail_inscription(request, pk):
 
 
 @login_required
-@permission_required('inscriptions.add_inscription', raise_exception=True)
 def nouvelle_inscription(request):
     """Nouvelle inscription"""
     if request.method == 'POST':
@@ -124,6 +125,27 @@ def nouvelle_inscription(request):
                 details=f'Inscription créée par {request.user.get_full_name()}',
                 utilisateur=request.user
             )
+            
+            # Notifications ciblées Chef Scolarité & Directeur
+            try:
+                from apps.tableau_bord.services_notification import NotificationService
+                from django.urls import reverse
+                link = reverse('inscriptions:detail_inscription', kwargs={'pk': inscription.pk})
+                nom_etud = inscription.etudiant.get_nom_complet()
+                NotificationService.notifier_chef_scolarite(
+                    titre=f"Nouvelle Inscription : {nom_etud}",
+                    message=f"Dossier créé pour {nom_etud} en {inscription.filiere.code}.",
+                    type_notif='INFO',
+                    lien=link
+                )
+                NotificationService.notifier_directeur(
+                    titre=f"Nouvelle Inscription : {nom_etud}",
+                    message=f"Nouvelle inscription enregistrée pour {nom_etud}.",
+                    type_notif='INFO',
+                    lien=link
+                )
+            except Exception:
+                pass
             
             messages.success(
                 request, 
@@ -141,7 +163,6 @@ def nouvelle_inscription(request):
 
 
 @login_required
-@permission_required('inscriptions.change_inscription', raise_exception=True)
 def modifier_inscription(request, pk):
     """Modifier une inscription"""
     inscription = get_object_or_404(Inscription, pk=pk)
@@ -172,7 +193,6 @@ def modifier_inscription(request, pk):
 
 
 @login_required
-@permission_required('inscriptions.change_inscription', raise_exception=True)
 def valider_inscription(request, pk):
     """Valider une inscription"""
     inscription = get_object_or_404(Inscription, pk=pk)
@@ -194,6 +214,38 @@ def valider_inscription(request, pk):
             details=f'Inscription validée par {request.user.get_full_name()}',
             utilisateur=request.user
         )
+
+        # Notifications ciblées
+        try:
+            from apps.tableau_bord.services_notification import NotificationService
+            from django.urls import reverse
+            link = reverse('inscriptions:detail_inscription', kwargs={'pk': inscription.pk})
+            nom_etud = inscription.etudiant.get_nom_complet()
+            
+            # Notifier l'étudiant s'il a un compte utilisateur
+            if hasattr(inscription.etudiant, 'utilisateur') and inscription.etudiant.utilisateur:
+                NotificationService.notifier_utilisateur(
+                    inscription.etudiant.utilisateur,
+                    titre="Inscription Validée 🎉",
+                    message=f"Félicitations {nom_etud}, votre inscription pour l'année académique {inscription.annee_academique} a été validée !",
+                    type_notif='SUCCESS',
+                    lien=link
+                )
+            
+            NotificationService.notifier_chef_scolarite(
+                titre=f"Inscription Validée : {nom_etud}",
+                message=f"L'inscription de {nom_etud} a été validée par {request.user.get_full_name()}.",
+                type_notif='SUCCESS',
+                lien=link
+            )
+            NotificationService.notifier_directeur(
+                titre=f"Validation Inscription : {nom_etud}",
+                message=f"L'étudiant {nom_etud} ({inscription.filiere.code}) a été validé.",
+                type_notif='SUCCESS',
+                lien=link
+            )
+        except Exception:
+            pass
         
         messages.success(request, f'✅ L\'inscription a été validée avec succès.')
         return redirect('inscriptions:detail_inscription', pk=pk)
@@ -206,7 +258,6 @@ def valider_inscription(request, pk):
 
 
 @login_required
-@permission_required('inscriptions.change_inscription', raise_exception=True)
 def rejeter_inscription(request, pk):
     """Rejeter une inscription"""
     inscription = get_object_or_404(Inscription, pk=pk)
@@ -223,6 +274,18 @@ def rejeter_inscription(request, pk):
             details=f'Inscription rejetée par {request.user.get_full_name()}. Motif: {motif}',
             utilisateur=request.user
         )
+
+        try:
+            from apps.tableau_bord.services_notification import NotificationService
+            if hasattr(inscription.etudiant, 'utilisateur') and inscription.etudiant.utilisateur:
+                NotificationService.notifier_utilisateur(
+                    inscription.etudiant.utilisateur,
+                    titre="Inscription Non Validée ⚠️",
+                    message=f"Votre dossier d'inscription nécessite une correction. Motif : {motif}",
+                    type_notif='WARNING'
+                )
+        except Exception:
+            pass
         
         messages.warning(request, f'⚠️ L\'inscription a été rejetée.')
         return redirect('inscriptions:liste_inscriptions')
@@ -252,7 +315,6 @@ def supprimer_inscription(request, pk):
 
 
 @login_required
-@permission_required('inscriptions.add_document', raise_exception=True)
 def ajouter_document(request, pk):
     """Ajouter un document à une inscription"""
     inscription = get_object_or_404(Inscription, pk=pk)
@@ -285,7 +347,6 @@ def ajouter_document(request, pk):
 
 
 @login_required
-@permission_required('inscriptions.change_document', raise_exception=True)
 def valider_document(request, doc_pk):
     """Valider un document d'inscription"""
     document = get_object_or_404(DocumentInscription, pk=doc_pk)
@@ -462,7 +523,6 @@ def exporter_inscriptions(request):
 # ==================== VALIDATION DES REÇUS ====================
 
 @login_required
-@permission_required('inscriptions.can_validate_recus', raise_exception=True)
 def valider_recu_preinscription(request, pk):
     """Valider le reçu de pré-inscription"""
     inscription = get_object_or_404(Inscription, pk=pk)
@@ -472,7 +532,6 @@ def valider_recu_preinscription(request, pk):
 
 
 @login_required
-@permission_required('inscriptions.can_validate_recus', raise_exception=True)
 def valider_recu_tranche(request, pk, numero_tranche):
     """Valider le reçu d'une tranche"""
     inscription = get_object_or_404(Inscription, pk=pk)
@@ -617,20 +676,347 @@ def supprimer_bourse(request, pk):
     return render(request, 'inscriptions/bourses/confirmer_suppression.html', context)
 
 
-# ==================== CERTIFICATS ====================
+# ==================== CERTIFICATS DE SCOLARITÉ ====================
 
 @login_required
-def certificat_scolarite(request, etudiant_id):
-    """Générer un certificat de scolarité"""
-    etudiant = get_object_or_404(Etudiant, pk=etudiant_id)
+def liste_certificats(request):
+    """
+    Vue d'administration des certificats de scolarité :
+    - Réservé exclusivement au Chef de la Scolarité / Admin Système.
+    - L'étudiant ne dispose plus d'accès à ce registre.
+    """
+    is_chef_scolarite = (
+        request.user.is_superuser or 
+        request.user.type_utilisateur in ['CHEF_SCOLARITE', 'ADMIN_SYSTEME']
+    )
+    
+    if not is_chef_scolarite:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Accès réservé au Chef de la Scolarité. Les étudiants n'ont pas accès au registre des certificats.")
+
+    query = request.GET.get('q', '')
+    statut_filter = request.GET.get('statut', '')
+    filiere_filter = request.GET.get('filiere', '')
+    
+    certificats = CertificatScolarite.objects.select_related('etudiant', 'etudiant__filiere', 'annee_academique', 'emetteur').all()
+    
+    # Statistiques globales du registre
+    total_certificats = certificats.count()
+    total_valides = certificats.filter(statut='VALIDE').count()
+    total_derogations = certificats.filter(derogation_accordee=True).count()
+    total_impressions = certificats.aggregate(Sum('telechargements_count'))['telechargements_count__sum'] or 0
+
+    if query:
+        certificats = certificats.filter(
+            Q(numero_reference__icontains=query) |
+            Q(etudiant__user__first_name__icontains=query) |
+            Q(etudiant__user__last_name__icontains=query) |
+            Q(etudiant__nom__icontains=query) |
+            Q(etudiant__prenom__icontains=query) |
+            Q(etudiant__matricule__icontains=query)
+        )
+    if statut_filter:
+        certificats = certificats.filter(statut=statut_filter)
+    if filiere_filter:
+        certificats = certificats.filter(etudiant__filiere_id=filiere_filter)
+        
+    paginator = Paginator(certificats.order_by('-date_delivrance'), 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     
     context = {
+        'certificats': page_obj,
+        'query': query,
+        'statut_filter': statut_filter,
+        'filiere_filter': filiere_filter,
+        'filieres': Filiere.objects.filter(est_active=True),
+        'total_certificats': total_certificats,
+        'total_valides': total_valides,
+        'total_derogations': total_derogations,
+        'total_impressions': total_impressions,
+        'is_chef_scolarite': True,
+        'titre': 'Registre Officiel des Certificats de Scolarité',
+        'annee_active': AnneeAcademique.get_active(),
+    }
+    return render(request, 'inscriptions/liste_certificats.html', context)
+
+
+
+@login_required
+def delivrer_certificat_scolarite(request, etudiant_id=None):
+    """
+    Formulaire et vue d'émission officielle d'un ou plusieurs certificats de scolarité.
+    - Filtre automatiquement la liste déroulante sur les étudiants ÉLIGIBLES (frais réglés + compte validé).
+    - Permet l'émission individuelle ou l'émission en masse (sélection multiple d'étudiants).
+    """
+    is_chef_scolarite = (
+        request.user.is_superuser or 
+        request.user.type_utilisateur in ['CHEF_SCOLARITE', 'ADMIN_SYSTEME']
+    )
+    if not is_chef_scolarite:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Seul le Chef de la Scolarité est habilité à délivrer un certificat de scolarité.")
+
+    from decimal import Decimal
+    from django.db.models import Sum
+    seuil_minimal = Decimal('84000')
+
+    # Calcul des paiements de tous les étudiants pour déterminer l'éligibilité
+    etudiants_tous = Etudiant.objects.select_related('filiere', 'utilisateur').all().order_by('nom', 'prenom')
+    paiements_dict = dict(
+        RecuPaiement.objects.filter(statut='VALIDE')
+        .values('etudiant_id')
+        .annotate(total=Sum('montant_mentionne'))
+        .values_list('etudiant_id', 'total')
+    )
+
+    etudiants_eligibles = []
+    etudiants_non_eligibles = []
+
+    for etu in etudiants_tous:
+        total = paiements_dict.get(etu.id, Decimal('0.00')) or Decimal('0.00')
+        statut_ok = (etu.utilisateur and etu.utilisateur.statut_inscription in ['COMPTE_ACTIF', 'DOCUMENT_VALIDE']) if etu.utilisateur else True
+        etu.total_paye = total
+        if total >= seuil_minimal and statut_ok:
+            etudiants_eligibles.append(etu)
+        else:
+            etudiants_non_eligibles.append(etu)
+
+    # Option de filtre d'affichage (par défaut : éligibles uniquement)
+    afficher_tous = request.GET.get('tous') == '1'
+    etudiants_liste = etudiants_tous if afficher_tous else etudiants_eligibles
+
+    # TRAITEMENT DE L'ÉMISSION EN MASSE (Formulaire POST avec plusieurs IDs)
+    if request.method == 'POST' and request.POST.get('action') == 'emission_masse':
+        selected_ids = request.POST.getlist('etudiant_ids')
+        motif = request.POST.get('motif', 'Usage administratif').strip()
+        force_derogation = request.POST.get('force_derogation') == 'on'
+        motif_derogation = request.POST.get('motif_derogation', '').strip()
+
+        if not selected_ids:
+            messages.error(request, "Veuillez cocher au moins un étudiant dans la liste pour l'émission en masse.")
+        else:
+            annee_active = AnneeAcademique.get_active() or AnneeAcademique.objects.first()
+            created_tokens = []
+            
+            for eid in selected_ids:
+                try:
+                    etu = Etudiant.objects.get(pk=eid)
+                    tot = paiements_dict.get(etu.id, Decimal('0.00')) or Decimal('0.00')
+                    ok_fin = tot >= seuil_minimal
+                    
+                    if ok_fin or force_derogation:
+                        certif = CertificatScolarite.objects.create(
+                            etudiant=etu,
+                            annee_academique=annee_active,
+                            emetteur=request.user,
+                            motif=motif,
+                            statut='VALIDE',
+                            derogation_accordee=(not ok_fin and force_derogation),
+                            motif_derogation=motif_derogation if (not ok_fin and force_derogation) else '',
+                            date_delivrance=timezone.now()
+                        )
+                        created_tokens.append(str(certif.token_verification))
+                except Etudiant.DoesNotExist:
+                    continue
+            
+            if created_tokens:
+                messages.success(request, f"Génération réussie de {len(created_tokens)} certificat(s) de scolarité.")
+                tokens_str = ",".join(created_tokens)
+                return redirect(f"{reverse('inscriptions:imprimer_certificats_masse')}?tokens={tokens_str}")
+            else:
+                messages.warning(request, "Aucun certificat n'a pu être généré (vérifiez l'éligibilité financière).")
+
+    # TRAITEMENT ÉMISSION INDIVIDUELLE
+    if not etudiant_id and request.method == 'GET' and request.GET.get('etudiant_id'):
+        etudiant_id = request.GET.get('etudiant_id')
+    if not etudiant_id and request.method == 'POST' and request.POST.get('etudiant_id'):
+        etudiant_id = request.POST.get('etudiant_id')
+
+    etudiant = get_object_or_404(Etudiant, pk=etudiant_id) if etudiant_id else None
+    annee_active = AnneeAcademique.get_active() or AnneeAcademique.objects.first()
+
+    statut_valide = True
+    total_paye = Decimal('0.00')
+    est_a_jour_financierement = False
+
+    if etudiant:
+        user = etudiant.utilisateur
+        statut_valide = (user.statut_inscription in ['COMPTE_ACTIF', 'DOCUMENT_VALIDE']) if user else True
+        total_paye = paiements_dict.get(etudiant.id, Decimal('0.00')) or Decimal('0.00')
+        est_a_jour_financierement = total_paye >= seuil_minimal
+
+    if request.method == 'POST' and etudiant and request.POST.get('action') != 'emission_masse':
+        motif = request.POST.get('motif', 'Usage administratif').strip()
+        force_derogation = request.POST.get('force_derogation') == 'on'
+        motif_derogation = request.POST.get('motif_derogation', '').strip()
+
+        if not est_a_jour_financierement and not force_derogation:
+            messages.error(
+                request,
+                f"Éligibilité financière non atteinte (Payé : {total_paye:,.0f} FCFA / Exigé : {seuil_minimal:,.0f} FCFA). "
+                "Cochez l'option dérogation administrative avec un motif valide pour outrepasser."
+            )
+        else:
+            certificat = CertificatScolarite.objects.create(
+                etudiant=etudiant,
+                annee_academique=annee_active,
+                emetteur=request.user,
+                motif=motif,
+                statut='VALIDE',
+                derogation_accordee=force_derogation,
+                motif_derogation=motif_derogation if force_derogation else '',
+                date_delivrance=timezone.now()
+            )
+            messages.success(request, f"Certificat de scolarité N° {certificat.numero_reference} émis avec succès.")
+            return redirect('inscriptions:apercu_certificat_scolarite', token=certificat.token_verification)
+
+    context = {
         'etudiant': etudiant,
-        'titre': f'Certificat de scolarité - {etudiant.get_nom_complet()}',
+        'etudiants_liste': etudiants_liste,
+        'etudiants_eligibles': etudiants_eligibles,
+        'etudiants_non_eligibles': etudiants_non_eligibles,
+        'afficher_tous': afficher_tous,
+        'annee_active': annee_active,
+        'statut_valide': statut_valide,
+        'total_paye': total_paye,
+        'seuil_minimal': seuil_minimal,
+        'est_a_jour_financierement': est_a_jour_financierement,
+        'titre': f'Émettre Certificat - {etudiant.get_nom_complet()}' if etudiant else 'Émettre des Certificats de Scolarité'
+    }
+    return render(request, 'inscriptions/delivrer_certificat.html', context)
+
+
+@login_required
+def imprimer_certificats_masse(request):
+    """
+    Rendu d'impression groupée pour plusieurs certificats de scolarité.
+    Reçoit un paramètre GET 'tokens' séparés par des virgules.
+    Chaque certificat est rendu sous forme de page A4 autonome.
+    """
+    is_chef_scolarite = (
+        request.user.is_superuser or 
+        request.user.type_utilisateur in ['CHEF_SCOLARITE', 'ADMIN_SYSTEME']
+    )
+    if not is_chef_scolarite:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Seul le Chef de la Scolarité est habilité à imprimer les certificats de scolarité en masse.")
+
+    tokens_raw = request.GET.get('tokens', '')
+    tokens_list = [t.strip() for t in tokens_raw.split(',') if t.strip()]
+
+    certificats = CertificatScolarite.objects.select_related(
+        'etudiant', 'etudiant__filiere', 'annee_academique'
+    ).filter(token_verification__in=tokens_list)
+
+    certificats_data = []
+    for certif in certificats:
+        url_verification = request.build_absolute_uri(
+            reverse('inscriptions:verifier_certificat_public', kwargs={'token': certif.token_verification})
+        )
+        qr_code_base64 = generer_qr_code_data_uri(url_verification)
+        certificats_data.append({
+            'certificat': certif,
+            'etudiant': certif.etudiant,
+            'annee_academique': certif.annee_academique,
+            'qr_code_base64': qr_code_base64,
+        })
+
+    context = {
+        'certificats_data': certificats_data,
+        'titre': f'Impression de {len(certificats_data)} Certificats',
         'date_aujourdhui': timezone.now(),
-        'annee_academique': AnneeAcademique.get_active()
+    }
+    return render(request, 'inscriptions/certificats_impression_masse.html', context)
+
+
+
+
+@login_required
+def apercu_certificat_scolarite(request, token):
+    """
+    Rendu officiel et imprimable du certificat de scolarité.
+    Accessible au Chef Scolarité / Admin Système uniquement.
+    """
+    certificat = get_object_or_404(CertificatScolarite, token_verification=token)
+    etudiant = certificat.etudiant
+
+    # Vérification d'accès : Réservé exclusivement au Chef de la Scolarité
+    is_chef_scolarite = (
+        request.user.is_superuser or 
+        request.user.type_utilisateur in ['CHEF_SCOLARITE', 'ADMIN_SYSTEME']
+    )
+
+    if not is_chef_scolarite:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Accès refusé. Seul le Chef de la Scolarité est habilité à consulter et imprimer ce certificat.")
+
+    if not is_chef_scolarite and certificat.statut != 'VALIDE':
+        messages.error(request, "Ce certificat de scolarité est annulé ou expiré.")
+        return redirect('tableau_bord:tableau_bord')
+
+    # Incrémenter le compteur de consultation
+    certificat.telechargements_count += 1
+    certificat.save(update_fields=['telechargements_count'])
+
+    # URL publique absolue pour le QR Code
+    url_verification = request.build_absolute_uri(
+        reverse('inscriptions:verifier_certificat_public', kwargs={'token': certificat.token_verification})
+    )
+    qr_code_base64 = generer_qr_code_data_uri(url_verification)
+
+    context = {
+        'certificat': certificat,
+        'etudiant': etudiant,
+        'annee_academique': certificat.annee_academique,
+        'qr_code_base64': qr_code_base64,
+        'url_verification': url_verification,
+        'titre': f'Certificat de scolarité - {etudiant.get_nom_complet()}',
+        'date_aujourdhui': certificat.date_delivrance,
     }
     return render(request, 'inscriptions/certificat_scolarite.html', context)
+
+
+@login_required
+@role_required('CHEF_SCOLARITE', 'ADMIN_SYSTEME')
+def annuler_certificat_scolarite(request, token):
+    """Révocation/Annulation administrative d'un certificat"""
+    certificat = get_object_or_404(CertificatScolarite, token_verification=token)
+    
+    if request.method == 'POST':
+        certificat.statut = 'ANNULE'
+        certificat.save(update_fields=['statut'])
+        messages.warning(request, f"Le certificat N° {certificat.numero_reference} a été marqué comme ANNULÉ.")
+        return redirect('inscriptions:liste_certificats')
+
+    context = {
+        'certificat': certificat,
+        'titre': 'Confirmer la révocation du certificat'
+    }
+    return render(request, 'inscriptions/confirmer_annulation_certificat.html', context)
+
+
+def verifier_certificat_public(request, token):
+    """
+    Portail public universel de vérification d'authenticité par QR Code (sans authentification)
+    """
+    try:
+        certificat = CertificatScolarite.objects.select_related(
+            'etudiant', 'etudiant__filiere', 'annee_academique', 'emetteur'
+        ).get(token_verification=token)
+        trouve = True
+    except CertificatScolarite.DoesNotExist:
+        certificat = None
+        trouve = False
+
+    context = {
+        'trouve': trouve,
+        'certificat': certificat,
+        'token': str(token),
+        'titre': 'Vérification d\'authenticité - IAI-Cameroun'
+    }
+    return render(request, 'inscriptions/verifier_certificat.html', context)
+
 
 
 # ==================== STATISTIQUES FINANCIÈRES ====================
@@ -697,6 +1083,21 @@ def fiche_renseignement_etudiant(request):
         messages.error(request, "⚠️ Aucun profil étudiant associé à votre compte. Veuillez contacter l'administration.")
         return redirect('tableau_bord:index')
 
+    from apps.inscriptions.utils import get_current_academic_year_code, rechercher_date_concours_etudiant
+    
+    # Auto-détection de la filière et de la date de concours pour les étudiants Niveau 1 admis
+    date_concours_auto, resultat_match = rechercher_date_concours_etudiant(etudiant)
+    if resultat_match:
+        fields_to_update = []
+        if date_concours_auto and etudiant.date_concours != date_concours_auto:
+            etudiant.date_concours = date_concours_auto
+            fields_to_update.append('date_concours')
+        if resultat_match.filiere and etudiant.filiere != resultat_match.filiere:
+            etudiant.filiere = resultat_match.filiere
+            fields_to_update.append('filiere')
+        if fields_to_update:
+            etudiant.save(update_fields=fields_to_update)
+
     annee_active = AnneeAcademique.get_active() or AnneeAcademique.objects.first()
     fiche_existante = FicheRenseignement.objects.filter(etudiant=etudiant).order_by('-date_soumission').first()
 
@@ -710,10 +1111,19 @@ def fiche_renseignement_etudiant(request):
             photo_valide, msg_photo, details_photo = verifier_photo_identite(photo_file)
             if not photo_valide:
                 messages.error(request, f"❌ Erreur Photo d'Identité (Agent IA) : {msg_photo}")
+                tranches_err = []
+                for num in [3, 4]:
+                    t_err = TranchePaiement.objects.filter(numero=num, est_actif=True).first()
+                    if t_err and t_err not in tranches_err:
+                        tranches_err.append(t_err)
                 return render(request, 'inscriptions/fiche_renseignement_form.html', {
                     'form': form,
                     'etudiant': etudiant,
                     'fiche': fiche_existante,
+                    'tranches': tranches_err,
+                    'date_concours_auto': date_concours_auto or etudiant.date_concours,
+                    'filiere_auto': resultat_match.filiere if resultat_match else None,
+                    'session_concours_match': resultat_match.session_concours if resultat_match else None,
                     'titre': 'Fiche de Renseignement'
                 })
 
@@ -735,13 +1145,21 @@ def fiche_renseignement_etudiant(request):
             etudiant.personne_contact_telephone = form.cleaned_data['personne_contact_telephone']
             etudiant.personne_contact_residence = form.cleaned_data['personne_contact_residence']
 
-            etudiant.filiere = form.cleaned_data['filiere']
+            # VERROUILLAGE SÉCURISÉ : Si admis au concours, la filière et la date ne sont pas modifiables par l'étudiant
+            if resultat_match and resultat_match.filiere:
+                etudiant.filiere = resultat_match.filiere
+            else:
+                etudiant.filiere = form.cleaned_data['filiere']
+
             etudiant.serie_bacc = form.cleaned_data['serie_bacc']
 
             if form.cleaned_data.get('date_premiere_rentree'):
                 etudiant.date_premiere_rentree = form.cleaned_data['date_premiere_rentree']
             etudiant.statut_etudiant_fiche = form.cleaned_data['statut_etudiant_fiche']
-            if form.cleaned_data.get('date_concours'):
+            
+            if date_concours_auto:
+                etudiant.date_concours = date_concours_auto
+            elif form.cleaned_data.get('date_concours'):
                 etudiant.date_concours = form.cleaned_data['date_concours']
 
             if form.cleaned_data.get('matricule'):
@@ -830,15 +1248,29 @@ def fiche_renseignement_etudiant(request):
             'niveau': etudiant.niveau.numero if etudiant.niveau else '1',
             'date_premiere_rentree': etudiant.date_premiere_rentree,
             'statut_etudiant_fiche': etudiant.statut_etudiant_fiche or 'Nouvelle admission',
-            'date_concours': etudiant.date_concours,
+            'date_concours': etudiant.date_concours or date_concours_auto,
             'matricule': etudiant.matricule,
         }
         form = FicheRenseignementEtudiantForm(initial=initial_data)
+
+    annee_code = etudiant.annee_academique.code if etudiant and etudiant.annee_academique else (annee_active.code if annee_active else get_current_academic_year_code())
+
+    tranches = []
+    for num in [3, 4]:
+        t = TranchePaiement.objects.filter(annee_academique=annee_code, numero=num, est_actif=True).first()
+        if not t:
+            t = TranchePaiement.objects.filter(numero=num, est_actif=True).first()
+        if t and t not in tranches:
+            tranches.append(t)
 
     context = {
         'form': form,
         'etudiant': etudiant,
         'fiche': fiche_existante,
+        'tranches': tranches,
+        'date_concours_auto': date_concours_auto or etudiant.date_concours,
+        'filiere_auto': resultat_match.filiere if resultat_match else None,
+        'session_concours_match': resultat_match.session_concours if resultat_match else None,
         'titre': 'Fiche de Renseignement'
     }
     return render(request, 'inscriptions/fiche_renseignement_form.html', context)

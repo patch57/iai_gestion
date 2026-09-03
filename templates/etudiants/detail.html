@@ -60,9 +60,13 @@
                 <a href="{% url 'etudiants:modifier_etudiant' etudiant.pk %}" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition-all shadow-md flex items-center gap-2">
                     <i class="fas fa-edit"></i> Modifier
                 </a>
+                <a href="{% url 'inscriptions:delivrer_certificat_scolarite' etudiant.pk %}" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md flex items-center gap-2">
+                    <i class="fas fa-file-certificate"></i> Certificat Scolarité
+                </a>
                 <a href="{% url 'etudiants:carte_etudiant' etudiant.pk %}" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md flex items-center gap-2">
                     <i class="fas fa-id-card"></i> Carte QR
                 </a>
+
                 <a href="{% url 'etudiants:liste_etudiants' %}" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i> Retour
                 </a>

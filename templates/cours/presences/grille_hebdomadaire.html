@@ -61,9 +61,15 @@
         </div>
 
         <div class="flex items-center gap-3">
+            {% if peut_editer %}
             <button onclick="document.getElementById('form-grille').submit()" class="px-5 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-2">
                 <i class="fas fa-save"></i> Enregistrer la Grille
             </button>
+            {% else %}
+            <div class="hidden md:flex items-center gap-2 bg-emerald-50 text-emerald-900 border border-emerald-300 px-3.5 py-2 rounded-2xl text-xs font-extrabold shadow-2xs">
+                <i class="fas fa-eye text-emerald-600"></i> Mode Consultation Synchrone
+            </div>
+            {% endif %}
 
             {% if fiche.statut != 'PUBLIE' %}
             <form method="POST" action="{% url 'cours:publier_fiche_presence' fiche.pk %}" onsubmit="return confirm('⚠️ Confirmer la publication de la liste de présence ? Les absences seront immédiatement ajoutées au compteur cumulé de chaque étudiant.');" class="inline">
@@ -140,44 +146,68 @@
                             <td class="p-1 border border-black font-mono font-bold">{{ item.etudiant.matricule }}</td>
                             
                             <!-- Lun (4 slots) -->
-                            {% for slot_num in "1234" %}
+                            {% for slot_val in item.formatted_details.lun %}
                             <td class="p-0.5 border border-black text-center">
-                                <input type="text" name="abs_{{ item.etudiant.id }}_lun_{{ slot_num }}" value="{% if item.details.lun %}{{ item.details.lun|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.lun and item.details.lun|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% if peut_editer %}
+                                <input type="text" name="abs_{{ item.etudiant.id }}_lun_{{ forloop.counter }}" value="{{ slot_val }}" class="cell-input {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% else %}
+                                <input type="text" readonly value="{{ slot_val }}" class="cell-input cursor-not-allowed pointer-events-none select-none bg-gray-50/60 {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1">
+                                {% endif %}
                             </td>
                             {% endfor %}
 
                             <!-- Mar (4 slots) -->
-                            {% for slot_num in "1234" %}
+                            {% for slot_val in item.formatted_details.mar %}
                             <td class="p-0.5 border border-black text-center">
-                                <input type="text" name="abs_{{ item.etudiant.id }}_mar_{{ slot_num }}" value="{% if item.details.mar %}{{ item.details.mar|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.mar and item.details.mar|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% if peut_editer %}
+                                <input type="text" name="abs_{{ item.etudiant.id }}_mar_{{ forloop.counter }}" value="{{ slot_val }}" class="cell-input {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% else %}
+                                <input type="text" readonly value="{{ slot_val }}" class="cell-input cursor-not-allowed pointer-events-none select-none bg-gray-50/60 {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1">
+                                {% endif %}
                             </td>
                             {% endfor %}
 
                             <!-- Mer (4 slots) -->
-                            {% for slot_num in "1234" %}
+                            {% for slot_val in item.formatted_details.mer %}
                             <td class="p-0.5 border border-black text-center">
-                                <input type="text" name="abs_{{ item.etudiant.id }}_mer_{{ slot_num }}" value="{% if item.details.mer %}{{ item.details.mer|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.mer and item.details.mer|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% if peut_editer %}
+                                <input type="text" name="abs_{{ item.etudiant.id }}_mer_{{ forloop.counter }}" value="{{ slot_val }}" class="cell-input {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% else %}
+                                <input type="text" readonly value="{{ slot_val }}" class="cell-input cursor-not-allowed pointer-events-none select-none bg-gray-50/60 {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1">
+                                {% endif %}
                             </td>
                             {% endfor %}
 
                             <!-- Jeu (4 slots) -->
-                            {% for slot_num in "1234" %}
+                            {% for slot_val in item.formatted_details.jeu %}
                             <td class="p-0.5 border border-black text-center">
-                                <input type="text" name="abs_{{ item.etudiant.id }}_jeu_{{ slot_num }}" value="{% if item.details.jeu %}{{ item.details.jeu|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.jeu and item.details.jeu|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% if peut_editer %}
+                                <input type="text" name="abs_{{ item.etudiant.id }}_jeu_{{ forloop.counter }}" value="{{ slot_val }}" class="cell-input {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% else %}
+                                <input type="text" readonly value="{{ slot_val }}" class="cell-input cursor-not-allowed pointer-events-none select-none bg-gray-50/60 {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1">
+                                {% endif %}
                             </td>
                             {% endfor %}
 
                             <!-- Ven (4 slots) -->
-                            {% for slot_num in "1234" %}
+                            {% for slot_val in item.formatted_details.ven %}
                             <td class="p-0.5 border border-black text-center">
-                                <input type="text" name="abs_{{ item.etudiant.id }}_ven_{{ slot_num }}" value="{% if item.details.ven %}{{ item.details.ven|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.ven and item.details.ven|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% if peut_editer %}
+                                <input type="text" name="abs_{{ item.etudiant.id }}_ven_{{ forloop.counter }}" value="{{ slot_val }}" class="cell-input {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% else %}
+                                <input type="text" readonly value="{{ slot_val }}" class="cell-input cursor-not-allowed pointer-events-none select-none bg-gray-50/60 {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1">
+                                {% endif %}
                             </td>
                             {% endfor %}
 
                             <!-- Sam (4 slots) -->
-                            {% for slot_num in "1234" %}
+                            {% for slot_val in item.formatted_details.sam %}
                             <td class="p-0.5 border border-black text-center">
-                                <input type="text" name="abs_{{ item.etudiant.id }}_sam_{{ slot_num }}" value="{% if item.details.sam %}{{ item.details.sam|slice:slot_num|last }}{% endif %}" class="cell-input {% if item.details.sam and item.details.sam|slice:slot_num|last == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% if peut_editer %}
+                                <input type="text" name="abs_{{ item.etudiant.id }}_sam_{{ forloop.counter }}" value="{{ slot_val }}" class="cell-input {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1" onchange="if(this.value.toUpperCase()=='A'){this.classList.add('cell-absent')}else{this.classList.remove('cell-absent')}">
+                                {% else %}
+                                <input type="text" readonly value="{{ slot_val }}" class="cell-input cursor-not-allowed pointer-events-none select-none bg-gray-50/60 {% if slot_val == 'A' %}cell-absent{% endif %}" maxlength="1">
+                                {% endif %}
                             </td>
                             {% endfor %}
 

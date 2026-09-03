@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 animate-fadeInUp">
+
+    <!-- Actions Top Bar (No Print) -->
+    <div class="mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+        <h1 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-graduation-cap text-emerald-600"></i> Bulletin Officiel - Semestre {{ bulletin.semestre }}
+        </h1>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Mon Espace
+            </a>
+            <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl text-xs shadow transition flex items-center gap-2">
+                <i class="fa-solid fa-print"></i> Imprimer le Bulletin
+            </button>
+        </div>
+    </div>
+
+    <!-- Bulletin Paper Document -->
+    <div class="bg-white rounded-3xl shadow-xl border border-slate-300 p-6 md:p-8 text-slate-900 relative overflow-hidden" id="bulletin-paper">
+        
+        <!-- Background Security Watermark -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
+            <span class="text-9xl font-black tracking-widest text-slate-900">IAI-CAMEROUN</span>
+        </div>
+
+        <!-- Header -->
+        <div class="text-center border-b-2 border-slate-900 pb-4 mb-6">
+            <!-- Logo IAI centré en haut -->
+            <div class="flex justify-center mb-2">
+                <img src="{% static 'images/logo.png' %}" alt="Logo IAI" class="h-16 w-auto object-contain">
+            </div>
+
+            <div class="flex items-center justify-between mb-2">
+                <div class="w-1/4 text-left">
+                    <span class="text-[9px] font-bold text-slate-500 block uppercase">Document Officiel</span>
+                    <span class="text-[10px] font-black text-slate-800">IAI-RRC-DLA</span>
+                </div>
+                <div class="w-2/4 text-center">
+                    <h2 class="text-sm font-extrabold text-slate-900 tracking-wide uppercase">INSTITUT AFRICAIN D'INFORMATIQUE</h2>
+                    <p class="text-xs font-bold text-emerald-700 uppercase mt-0.5">Centre d'Excellence Technologique Paul Biya</p>
+                    <p class="text-[9px] text-slate-500 mt-0.5">BP 13 719 Yaoundé / Douala &bull; www.iaicameroun.com</p>
+                </div>
+                <div class="w-1/4 text-right">
+                    <p class="text-[9px] font-bold text-slate-500 uppercase">Année Académique</p>
+                    <p class="text-[10px] font-bold text-emerald-800">{{ bulletin.annee_academique }}</p>
+                </div>
+            </div>
+
+            <div class="mt-2 inline-block bg-slate-900 text-white font-black text-xs px-6 py-1 rounded-full uppercase tracking-wider">
+                RELEVÉ DE NOTES ET DE RÉSULTATS — SEMESTRE {{ bulletin.semestre }}
+            </div>
+        </div>
+
+        <!-- Student Info Grid -->
+        <div class="flex items-center gap-6 bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6">
+            {% if etudiant.photo %}
+                <img src="{{ etudiant.photo.url }}" alt="{{ etudiant.nom }}" class="w-20 h-24 rounded-xl object-cover border-2 border-emerald-500/40 shadow-sm">
+            {% else %}
+                <div class="w-20 h-24 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-2xl border border-slate-300">
+                    {{ etudiant.nom|slice:":1" }}
+                </div>
+            {% endif %}
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-xs flex-1">
+                <div><span class="text-slate-400 block font-medium">Nom & Prénom</span> <strong class="text-slate-900 text-sm">{{ etudiant.nom }} {{ etudiant.prenom }}</strong></div>
+                <div><span class="text-slate-400 block font-medium">Matricule</span> <strong class="text-emerald-800 font-mono text-sm">{{ etudiant.matricule }}</strong></div>
+                <div><span class="text-slate-400 block font-medium">Filière / Spécialité</span> <strong>{{ etudiant.filiere.code }} - {{ etudiant.filiere.nom }}</strong></div>
+                <div><span class="text-slate-400 block font-medium">Niveau d'Étude</span> <strong>Niveau {{ etudiant.niveau.numero|default:1 }}</strong></div>
+                <div><span class="text-slate-400 block font-medium">Date & Lieu Naiss.</span> <strong>{{ etudiant.date_naissance|date:"d/m/Y" }} à {{ etudiant.lieu_naissance }}</strong></div>
+                <div><span class="text-slate-400 block font-medium">Nationalité</span> <strong>{{ etudiant.get_nationalite_display }}</strong></div>
+            </div>
+        </div>
+
+        <!-- Summary KPI Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mb-6">
+            <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+                <span class="text-[11px] font-bold text-emerald-800 uppercase block">Moyenne Semestrielle</span>
+                <span class="text-xl font-black text-emerald-700">{{ bulletin.moyenne_semestre }}/20</span>
+            </div>
+            <div class="bg-sky-50 border border-sky-200 p-3 rounded-xl">
+                <span class="text-[11px] font-bold text-sky-800 uppercase block">Rang dans la classe</span>
+                <span class="text-xl font-black text-sky-700">{{ bulletin.rang }}<span class="text-xs font-normal"> / {{ bulletin.effectif }}</span></span>
+            </div>
+            <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-xl">
+                <span class="text-[11px] font-bold text-indigo-800 uppercase block">Crédits Capitalisés</span>
+                <span class="text-xl font-black text-indigo-700">{{ bulletin.credits_obtenus }}/{{ bulletin.credits_totaux }}</span>
+            </div>
+            <div class="{% if bulletin.decision == 'ADMIS' %}bg-emerald-600{% else %}bg-rose-600{% endif %} text-white p-3 rounded-xl flex flex-col justify-center">
+                <span class="text-[10px] font-bold uppercase block opacity-90">Décision du Jury</span>
+                <span class="text-lg font-black tracking-wide uppercase">{{ bulletin.get_decision_display }}</span>
+            </div>
+        </div>
+
+        <!-- Footer & QR Code Authenticity -->
+        <div class="mt-8 pt-4 border-t-2 border-slate-900 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                {% if qr_code_b64 %}
+                    <img src="{{ qr_code_b64 }}" alt="QR Code d'Authenticité" class="w-16 h-16 border border-slate-300 rounded-lg p-0.5">
+                {% endif %}
+                <div class="text-[10px] text-slate-500">
+                    <p class="font-bold text-slate-800">Authentification Officielle IAI-Cameroun</p>
+                    <p>Ce résultat est certifié par la direction des études.</p>
+                    <p class="font-mono text-[9px] text-slate-400 mt-0.5">Réf: S{{ bulletin.semestre }}-{{ bulletin.etudiant.matricule }}</p>
+                </div>
+            </div>
+
+            <div class="text-right text-xs">
+                <p class="font-bold text-slate-900 mb-8">Le Chef du Service des Études</p>
+                <p class="text-[10px] text-slate-400">(Signature & Cachet Officiel)</p>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
