@@ -247,7 +247,33 @@
 <script>
     let selectedOperator = 'MTN';
 
-    function selectOperator(op) {
+    function detectOperatorFromNumber(cleanPhone) {
+        if (!cleanPhone || cleanPhone.length < 2) return null;
+        const prefix3 = cleanPhone.substring(0, 3);
+        const prefix2 = cleanPhone.substring(0, 2);
+        const pNum = parseInt(prefix3, 10);
+
+        if (prefix2 === '67' || prefix2 === '68' || (pNum >= 650 && pNum <= 654)) {
+            return 'MTN';
+        } else if (prefix2 === '69' || (pNum >= 655 && pNum <= 659)) {
+            return 'ORANGE';
+        }
+        return null;
+    }
+
+    function selectOperator(op, isManual = true) {
+        const phoneInput = document.getElementById('input-telephone');
+        if (phoneInput && isManual) {
+            const cleanPhone = phoneInput.value.replace(/\D/g, '');
+            const detected = detectOperatorFromNumber(cleanPhone);
+            if (detected && detected !== op) {
+                const detectedLabel = detected === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
+                const chosenLabel = op === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
+                alert(`⚠️ Opérateur incompatible :\n\nLe numéro saisi (${cleanPhone}) appartient au réseau ${detectedLabel}.\nVous ne pouvez pas effectuer un paiement via ${chosenLabel}.`);
+                return;
+            }
+        }
+
         selectedOperator = op;
         const cardMtn = document.getElementById('card-mtn');
         const cardOrange = document.getElementById('card-orange');
@@ -284,20 +310,28 @@
     }
 
     function onPhoneInput(val) {
-        const clean = val.replace(/\D/g, '');
-        if (clean.length >= 2) {
-            const prefix = clean.substring(0, 3);
-            const prefix2 = clean.substring(0, 2);
-            
-            // Détection automatique préfixes Cameroun (MTN vs Orange)
-            // MTN: 67x, 68x, 650, 651, 652, 653, 654
-            // Orange: 69x, 655, 656, 657, 658, 659
-            const pNum = parseInt(prefix, 10);
-            if (prefix2 === '67' || prefix2 === '68' || (pNum >= 650 && pNum <= 654)) {
-                selectOperator('MTN');
-            } else if (prefix2 === '69' || (pNum >= 655 && pNum <= 659)) {
-                selectOperator('ORANGE');
-            }
+        const inputEl = document.getElementById('input-telephone');
+        let clean = val.replace(/\D/g, '');
+
+        // Suppression automatique de l'indicatif +237, 237 ou 00237 si présent
+        if (clean.startsWith('00237') && clean.length > 9) {
+            clean = clean.substring(5);
+        } else if (clean.startsWith('237') && clean.length > 9) {
+            clean = clean.substring(3);
+        }
+
+        // Tronquer à 9 chiffres maximum
+        if (clean.length > 9) {
+            clean = clean.substring(0, 9);
+        }
+
+        if (inputEl && inputEl.value !== clean) {
+            inputEl.value = clean;
+        }
+
+        const detected = detectOperatorFromNumber(clean);
+        if (detected) {
+            selectOperator(detected, false);
         }
     }
 
@@ -318,31 +352,32 @@
 
     function startPayment() {
         const phoneInput = document.getElementById('input-telephone');
-        const phone = phoneInput.value.trim();
-        const cleanPhone = phone.replace(/\D/g, '');
+        let phone = phoneInput.value.trim();
+        let cleanPhone = phone.replace(/\D/g, '');
 
-        if (cleanPhone.length < 9) {
+        if (cleanPhone.startsWith('00237') && cleanPhone.length > 9) {
+            cleanPhone = cleanPhone.substring(5);
+        } else if (cleanPhone.startsWith('237') && cleanPhone.length > 9) {
+            cleanPhone = cleanPhone.substring(3);
+        }
+
+        if (cleanPhone.length !== 9) {
             phoneInput.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/20');
-            alert("⚠️ Veuillez saisir un numéro Mobile Money valide à 9 chiffres (ex: 682487912 ou 699123456).");
+            alert("⚠️ Veuillez saisir un numéro Mobile Money valide à 9 chiffres (ex: 682487912 ou 699123456).\nL'indicatif +237 est déjà pré-renseigné.");
             return;
         }
 
-        // Validation stricte préfixe / opérateur Cameroun (+237)
-        const prefix3 = cleanPhone.substring(0, 3);
-        const prefix2 = cleanPhone.substring(0, 2);
-        const pNum = parseInt(prefix3, 10);
-        
-        let detectedOp = null;
-        if (prefix2 === '67' || prefix2 === '68' || (pNum >= 650 && pNum <= 654)) {
-            detectedOp = 'MTN';
-        } else if (prefix2 === '69' || (pNum >= 655 && pNum <= 659)) {
-            detectedOp = 'ORANGE';
+        const detectedOp = detectOperatorFromNumber(cleanPhone);
+        if (!detectedOp) {
+            alert("⚠️ Le numéro saisi ne correspond à aucun réseau Mobile Money au Cameroun.\n\n- MTN MoMo: 67x, 68x, 650-654\n- Orange Money: 69x, 655-659");
+            return;
         }
 
-        if (detectedOp && detectedOp !== selectedOperator) {
-            const opNameDetected = detectedOp === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
-            selectOperator(detectedOp);
-            alert(`⚠️ Incohérence d'opérateur :\n\nLe numéro ${cleanPhone} (préfixe ${prefix3}) est un numéro ${opNameDetected}.\n\nL'opérateur a été automatiquement basculé sur ${opNameDetected} pour garantir la réception du prompt USSD sur votre téléphone.`);
+        if (detectedOp !== selectedOperator) {
+            const detectedLabel = detectedOp === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
+            const selectedLabel = selectedOperator === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
+            selectOperator(detectedOp, false);
+            alert(`⚠️ Incohérence d'opérateur :\n\nLe numéro ${cleanPhone} est un numéro ${detectedLabel}.\nVous ne pouvez pas effectuer un paiement via ${selectedLabel}.\n\nL'opérateur a été automatiquement basculé sur ${detectedLabel}.`);
             return;
         }
 
@@ -401,8 +436,10 @@
 
     // Initialiser la sélection de l'opérateur au chargement
     document.addEventListener('DOMContentLoaded', () => {
-        const phone = document.getElementById('input-telephone').value;
-        if (phone) onPhoneInput(phone);
+        const phoneInput = document.getElementById('input-telephone');
+        if (phoneInput && phoneInput.value) {
+            onPhoneInput(phoneInput.value);
+        }
     });
 </script>
 {% endblock %}
