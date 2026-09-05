@@ -1491,7 +1491,7 @@ def statistiques(request):
         'annees_list': annees_list,
     })
 
-    if type_user == 'CHEF_ANONYMAT' or type_user in ['ADMIN_SYSTEME', 'DIRECTEUR', 'CHEF_ETUDES'] or request.user.is_superuser:
+    if type_user == 'CHEF_ANONYMAT':
         from apps.notes.models import FicheNotesAnonymat, LigneFicheNotesAnonymat, ProcesVerbalNotes
 
         fiches = FicheNotesAnonymat.objects.filter(annee_academique=annee_code) if FicheNotesAnonymat.objects.filter(annee_academique=annee_code).exists() else FicheNotesAnonymat.objects.all()
