@@ -1551,7 +1551,9 @@ def statistiques(request):
         })
 
     else:
-        # Scolarité / Études / Admin Général
+        # Scolarité / Chef des Études / Admin Général - Statistiques Pédagogiques Avancées
+        from apps.notes.models import LigneProcesVerbalNotes, ProcesVerbalNotes, FicheNotesAnonymat
+
         total_etudiants = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).count()
 
         classes = Classe.objects.filter(est_active=True)
@@ -1567,25 +1569,73 @@ def statistiques(request):
             if valid_classes > 0:
                 taux_remplissage = round(total_remplissage / valid_classes, 1)
 
-        toutes_notes = Note.objects.all()
-        total_notes = toutes_notes.count()
-        taux_reussite_global = round((toutes_notes.filter(valeur__gte=10).count() / total_notes * 100), 1) if total_notes > 0 else 0.0
+        # Collecte consolidée des notes (LPVs + Notes directes)
+        lpv_qs = LigneProcesVerbalNotes.objects.filter(pv__est_transmis=True)
+        lpv_vals = [float(l.note_finale) for l in lpv_qs if l.note_finale is not None]
+        direct_vals = [float(n.valeur) for n in Note.objects.filter(est_validee=True) if n.valeur is not None]
+        all_notes_vals = lpv_vals + direct_vals
+
+        total_notes_eval = len(all_notes_vals)
+        if total_notes_eval > 0:
+            notes_validees = sum(1 for v in all_notes_vals if v >= 10.0)
+            taux_reussite_global = round((notes_validees / total_notes_eval) * 100, 1)
+            moyenne_generale_globale = round(sum(all_notes_vals) / total_notes_eval, 2)
+        else:
+            taux_reussite_global = 0.0
+            moyenne_generale_globale = 0.0
+
+        # Répartition des mentions
+        mentions_stats = {
+            'tres_bien': sum(1 for v in all_notes_vals if v >= 16.0),
+            'bien': sum(1 for v in all_notes_vals if 14.0 <= v < 16.0),
+            'assez_bien': sum(1 for v in all_notes_vals if 12.0 <= v < 14.0),
+            'passable': sum(1 for v in all_notes_vals if 10.0 <= v < 12.0),
+            'ajourne': sum(1 for v in all_notes_vals if v < 10.0),
+            'total': total_notes_eval,
+        }
+
+        # Délibérations et Procès-Verbaux
+        pv_total = ProcesVerbalNotes.objects.count()
+        pv_transmis = ProcesVerbalNotes.objects.filter(est_transmis=True).count()
+        pv_attente = max(0, pv_total - pv_transmis)
+
+        fiches_total = FicheNotesAnonymat.objects.count()
+        fiches_transmises = FicheNotesAnonymat.objects.filter(statut__in=['TRANSMIS_CHEF_ANONYMAT', 'TRANSMIS_CHEF_ETUDES', 'MATCH_EFFECTUE', 'PV_GENERE', 'VALIDE']).count()
+
+        # Analyse détaillée par filière
+        effectifs_filiere = []
+        for f in Filiere.objects.filter(est_active=True):
+            eff = Etudiant.objects.filter(filiere=f, statut__in=['ACTIF', 'INSCRIT']).count()
+            f_lpv = [float(l.note_finale) for l in LigneProcesVerbalNotes.objects.filter(etudiant__filiere=f, pv__est_transmis=True) if l.note_finale is not None]
+            f_direct = [float(n.valeur) for n in Note.objects.filter(etudiant__filiere=f, est_validee=True) if n.valeur is not None]
+            f_all = f_lpv + f_direct
+
+            if f_all:
+                f_avg = round(sum(f_all) / len(f_all), 2)
+                f_pass = round((sum(1 for x in f_all if x >= 10.0) / len(f_all)) * 100, 1)
+                f_status = "Notes Publiées"
+            else:
+                f_avg = None
+                f_pass = None
+                f_status = "En attente"
+
+            nb_classes = Classe.objects.filter(filiere=f, est_active=True).count()
+
+            effectifs_filiere.append({
+                'id': f.id,
+                'code': f.code,
+                'nom': f.nom,
+                'effectif': eff,
+                'moyenne': f_avg,
+                'taux_reussite': f_pass,
+                'nb_notes': len(f_all),
+                'nb_classes': nb_classes,
+                'statut_deliberation': f_status,
+            })
 
         total_recettes = RecuPaiement.objects.filter(statut='VALIDE').aggregate(
             total=Coalesce(Sum('montant_mentionne', output_field=DecimalField()), Value(0, output_field=DecimalField()))
         )['total'] or 0
-
-        effectifs_filiere = list(Etudiant.objects.filter(
-            statut__in=['ACTIF', 'INSCRIT']
-        ).values('filiere__code', 'filiere__nom').annotate(
-            effectif=Count('id')
-        ))
-        
-        for item in effectifs_filiere:
-            filiere_code = item['filiere__code']
-            notes_fil = Note.objects.filter(etudiant__filiere__code=filiere_code)
-            item['taux_reussite'] = round((notes_fil.filter(valeur__gte=10).count() / notes_fil.count() * 100), 1) if notes_fil.exists() else 0.0
-            item['nom'] = item['filiere__nom'] or filiere_code or "Non renseigné"
 
         # Évolution dynamique par année académique
         annees_histo = list(AnneeAcademique.objects.order_by('code'))
@@ -1605,7 +1655,15 @@ def statistiques(request):
                 'total_etudiants': total_etudiants,
                 'taux_remplissage': taux_remplissage,
                 'taux_reussite_global': taux_reussite_global,
+                'moyenne_generale_globale': moyenne_generale_globale,
+                'total_notes_eval': total_notes_eval,
+                'pv_total': pv_total,
+                'pv_transmis': pv_transmis,
+                'pv_attente': pv_attente,
+                'fiches_total': fiches_total,
+                'fiches_transmises': fiches_transmises,
             },
+            'mentions_stats': mentions_stats,
             'total_recettes': float(total_recettes),
             'effectifs_filiere': effectifs_filiere,
             'labels_evolution': labels_evolution,

@@ -389,110 +389,186 @@
         <canvas id="monthlyRevenueChart" height="120"></canvas>
     </div>
 
-    <!-- ==================== SCOLARITE / ADMIN / AUTRES ==================== -->
+    <!-- ==================== CHEF DES ÉTUDES / SCOLARITÉ / ADMIN ==================== -->
     {% else %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+        <!-- Effectifs -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-emerald-500 border border-gray-100">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500">Total étudiants</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ admin_stats.total_etudiants }}</p>
-                    <p class="text-xs text-green-600 mt-1">+12% cette année</p>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Effectif Académique</span>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ admin_stats.total_etudiants }} <span class="text-xs text-gray-400 font-normal">étudiant(s)</span></p>
+                    <p class="text-xs text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-check-circle"></i> Inscrits & Actifs ({{ effectifs_filiere|length }} filières)
+                    </p>
                 </div>
-                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-user-graduate text-green-600 text-xl"></i>
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-emerald-100">
+                    <i class="fas fa-user-graduate"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+
+        <!-- Taux de réussite global -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-blue-500 border border-gray-100">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500">Taux de réussite global</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ admin_stats.taux_reussite_global|default:"0.0" }}%</p>
-                    <p class="text-xs text-green-600 mt-1">Moyenne des évaluations</p>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Taux de Réussite Global</span>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ admin_stats.taux_reussite_global|default:"0.0" }}%</p>
+                    <p class="text-xs text-blue-600 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-award"></i> Moyenne globale : {{ admin_stats.moyenne_generale_globale|default:"0.0" }}/20
+                    </p>
                 </div>
-                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-chart-line text-yellow-600 text-xl"></i>
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-blue-100">
+                    <i class="fas fa-chart-line"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-green-500">
+
+        <!-- Procès-Verbaux & Délibérations -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-amber-500 border border-gray-100">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500">Recettes totales</p>
-                    <p class="text-3xl font-bold text-green-600">{{ total_recettes|default:"0"|floatformat:0 }} FCFA</p>
-                    <p class="text-xs text-green-600 mt-1">Paiements validés</p>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Procès-Verbaux (PV)</span>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ admin_stats.pv_transmis }} <span class="text-xs text-gray-400 font-normal">/ {{ admin_stats.pv_total }}</span></p>
+                    <p class="text-xs text-amber-700 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-file-signature"></i> Transmis au Chef des Études
+                    </p>
                 </div>
-                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-money-bill-wave text-green-600 text-xl"></i>
+                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-amber-100">
+                    <i class="fas fa-file-invoice"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-6 stat-card border-t-4 border-yellow-500">
+
+        <!-- Taux d'Occupation / Capacité -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-purple-500 border border-gray-100">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500">Taux d'occupation</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ admin_stats.taux_remplissage|default:"0.0" }}%</p>
-                    <p class="text-xs text-green-600 mt-1">Des classes</p>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Remplissage des Salles</span>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ admin_stats.taux_remplissage|default:"0.0" }}%</p>
+                    <p class="text-xs text-purple-600 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-school"></i> Ratio effectif / capacité max
+                    </p>
                 </div>
-                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-chart-pie text-yellow-600 text-xl"></i>
+                <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-purple-100">
+                    <i class="fas fa-building"></i>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Graphiques Admin -->
+    <!-- Graphiques Pédagogiques du Chef des Études -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Évolution des inscriptions -->
-        <div class="bg-white rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                <i class="fas fa-chart-line text-green-600 mr-2"></i>
-                Évolution des inscriptions
-            </h3>
-            <canvas id="evolutionChart" height="250"></canvas>
+        <!-- Distribution des Mentions -->
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-extrabold text-gray-800">
+                    <i class="fas fa-chart-pie text-emerald-600 mr-2"></i>
+                    Distribution des Mentions Académiques
+                </h3>
+                <span class="text-xs font-semibold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-200">
+                    Sur {{ mentions_stats.total }} évaluation(s)
+                </span>
+            </div>
+            <div class="h-64">
+                <canvas id="mentionsChart"></canvas>
+            </div>
         </div>
 
-        <!-- Répartition par filière -->
-        <div class="bg-white rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                <i class="fas fa-chart-pie text-yellow-600 mr-2"></i>
-                Répartition par filière
-            </h3>
-            <canvas id="filiereChart" height="250"></canvas>
+        <!-- Performance par Filière -->
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-extrabold text-gray-800">
+                    <i class="fas fa-bar-chart text-blue-600 mr-2"></i>
+                    Performance Comparée par Filière
+                </h3>
+                <span class="text-xs font-semibold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-200">
+                    Moyennes & Taux de Réussite
+                </span>
+            </div>
+            <div class="h-64">
+                <canvas id="filierePerfChart"></canvas>
+            </div>
         </div>
     </div>
 
-    <!-- Statistiques détaillées -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">
-                <i class="fas fa-table text-green-600 mr-2"></i>
-                Détails par filière
-            </h3>
+    <!-- Tableau de Pilotage Pédagogique par Filière -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <div>
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-table text-emerald-600 mr-2"></i>
+                    Matrice Analytique des Filières Académiques
+                </h3>
+                <p class="text-xs text-gray-400 mt-0.5">Suivi de l'effectif, de la moyenne générale et de l'état des délibérations</p>
+            </div>
+            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                Chef des Études — Année {{ annee_academique }}
+            </span>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Filière</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effectif</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taux réussite moyen</th>
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-gray-50/70 border-b border-gray-100 text-xs font-black text-gray-500 uppercase tracking-wider">
+                        <th class="p-4">Filière / Spécialité</th>
+                        <th class="p-4 text-center">Classes</th>
+                        <th class="p-4 text-center">Effectif Inscrit</th>
+                        <th class="p-4 text-center">Moyenne Générale</th>
+                        <th class="p-4 text-center">Taux de Réussite</th>
+                        <th class="p-4 text-center">Statut Délibération</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for item in effectifs_filiere %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 font-medium text-gray-900">{{ item.nom }}</td>
-                        <td class="px-6 py-4">{{ item.effectif }}</td>
-                        <td class="px-6 py-4">
-                            <div class="flex items-center">
-                                <span class="mr-2">{{ item.taux_reussite|default:"0" }}%</span>
-                                <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div class="h-full bg-green-500 rounded-full" style="width: {{ item.taux_reussite|default:0|unlocalize }}%"></div>
+                    <tr class="hover:bg-gray-50/60 transition">
+                        <td class="p-4 font-extrabold text-gray-900">
+                            {{ item.nom }}
+                            <span class="block text-[11px] text-gray-400 font-normal">{{ item.code }}</span>
+                        </td>
+                        <td class="p-4 text-center font-semibold text-gray-700">
+                            {{ item.nb_classes }} classe(s)
+                        </td>
+                        <td class="p-4 text-center font-bold text-gray-800">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-black text-xs border border-emerald-100">
+                                {{ item.effectif }} étudiant(s)
+                            </span>
+                        </td>
+                        <td class="p-4 text-center font-black text-gray-900">
+                            {% if item.moyenne != None %}
+                                <span class="{% if item.moyenne >= 12 %}text-emerald-600{% elif item.moyenne >= 10 %}text-blue-600{% else %}text-rose-600{% endif %}">
+                                    {{ item.moyenne|floatformat:2 }}/20
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400 text-xs font-semibold">En attente</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-center">
+                            {% if item.taux_reussite != None %}
+                            <div class="flex items-center justify-center gap-2">
+                                <span class="font-extrabold text-xs text-gray-700">{{ item.taux_reussite|unlocalize }}%</span>
+                                <div class="w-20 bg-gray-100 rounded-full h-2 overflow-hidden border border-gray-200">
+                                    <div class="h-2 rounded-full {% if item.taux_reussite >= 75 %}bg-emerald-500{% elif item.taux_reussite >= 50 %}bg-blue-500{% else %}bg-rose-500{% endif %}" style="width: {{ item.taux_reussite|unlocalize }}%"></div>
                                 </div>
                             </div>
+                            {% else %}
+                            <span class="text-xs text-gray-400 font-semibold">--</span>
+                            {% endif %}
                         </td>
+                        <td class="p-4 text-center">
+                            {% if item.statut_deliberation == 'Notes Publiées' %}
+                            <span class="text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-xs">
+                                <i class="fas fa-check-circle mr-1"></i> Notes Publiées
+                            </span>
+                            {% else %}
+                            <span class="text-xs font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 shadow-xs">
+                                <i class="fas fa-clock mr-1"></i> En attente de PV
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-gray-400">Aucune filière configurée.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -553,39 +629,61 @@
     });
 
     {% else %}
-    // Évolution des inscriptions (Admin / Scolarité)
-    const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
-    new Chart(evolutionCtx, {
-        type: 'line',
-        data: {
-            labels: [{% for l in labels_evolution %}'{{ l }}',{% endfor %}],
-            datasets: [{
-                label: 'Effectifs inscrits',
-                data: [{% for d in data_evolution %}{{ d }},{% endfor %}],
-                borderColor: '#10B981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true
-        }
-    });
-
-    // Répartition par filière
-    const filiereCtx = document.getElementById('filiereChart').getContext('2d');
-    new Chart(filiereCtx, {
+    // 1. Distribution des Mentions (Doughnut Chart)
+    const mentionsCtx = document.getElementById('mentionsChart').getContext('2d');
+    new Chart(mentionsCtx, {
         type: 'doughnut',
         data: {
-            labels: [{% for item in effectifs_filiere %}'{{ item.nom }}',{% endfor %}],
+            labels: ['Très Bien (>=16)', 'Bien (14-16)', 'Assez Bien (12-14)', 'Passable (10-12)', 'Échec (<10)'],
             datasets: [{
-                data: [{% for item in effectifs_filiere %}{{ item.effectif }},{% endfor %}],
-                backgroundColor: ['#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6']
+                data: [
+                    {{ mentions_stats.tres_bien|default:0 }},
+                    {{ mentions_stats.bien|default:0 }},
+                    {{ mentions_stats.assez_bien|default:0 }},
+                    {{ mentions_stats.passable|default:0 }},
+                    {{ mentions_stats.ajourne|default:0 }}
+                ],
+                backgroundColor: ['#10B981', '#059669', '#3B82F6', '#F59E0B', '#EF4444'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+
+    // 2. Performance Comparée par Filière (Bar Chart)
+    const filierePerfCtx = document.getElementById('filierePerfChart').getContext('2d');
+    new Chart(filierePerfCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for item in effectifs_filiere %}'{{ item.code }}',{% endfor %}],
+            datasets: [
+                {
+                    label: 'Moyenne Générale (/20)',
+                    data: [{% for item in effectifs_filiere %}{{ item.moyenne|default:0|unlocalize }},{% endfor %}],
+                    backgroundColor: '#10B981',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Taux de Réussite (%)',
+                    data: [{% for item in effectifs_filiere %}{{ item.taux_reussite|default:0|unlocalize }},{% endfor %}],
+                    backgroundColor: '#3B82F6',
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, max: 100 }
+            },
             plugins: {
                 legend: { position: 'bottom' }
             }
