@@ -164,6 +164,17 @@
                             class="block w-full pl-28 pr-4 py-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-black text-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition tracking-wider">
                     </div>
                     
+                    <!-- Message d'Erreur / Incompatibilité Opérateur -->
+                    <div id="operator-mismatch-alert" class="hidden p-3.5 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 flex items-start gap-3 shadow-xs">
+                        <div class="w-7 h-7 rounded-lg bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-600 font-bold flex-shrink-0 mt-0.5">
+                            <i class="fas fa-ban text-sm"></i>
+                        </div>
+                        <div>
+                            <span class="font-black block text-rose-900 text-sm">🚫 Paiement Impossible — Opérateur Incompatible</span>
+                            <span id="mismatch-text" class="leading-relaxed font-medium mt-0.5 block"></span>
+                        </div>
+                    </div>
+
                     <!-- Guide USSD Dynamique -->
                     <div id="ussd-prompt-guide" class="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-3 shadow-xs">
                         <div id="ussd-op-logo" class="w-9 h-9 rounded-xl p-0.5 bg-yellow-400 border border-yellow-300 shadow-xs flex-shrink-0 overflow-hidden">
@@ -261,19 +272,58 @@
         return null;
     }
 
-    function selectOperator(op, isManual = true) {
+    function validateOperatorMatch() {
         const phoneInput = document.getElementById('input-telephone');
-        if (phoneInput && isManual) {
-            const cleanPhone = phoneInput.value.replace(/\D/g, '');
-            const detected = detectOperatorFromNumber(cleanPhone);
-            if (detected && detected !== op) {
-                const detectedLabel = detected === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
-                const chosenLabel = op === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
-                alert(`⚠️ Opérateur incompatible :\n\nLe numéro saisi (${cleanPhone}) appartient au réseau ${detectedLabel}.\nVous ne pouvez pas effectuer un paiement via ${chosenLabel}.`);
-                return;
-            }
+        const mismatchAlert = document.getElementById('operator-mismatch-alert');
+        const mismatchText = document.getElementById('mismatch-text');
+        const btnPay = document.getElementById('btn-pay');
+        const ussdGuide = document.getElementById('ussd-prompt-guide');
+
+        if (!phoneInput) return true;
+
+        let cleanPhone = phoneInput.value.replace(/\D/g, '');
+        if (cleanPhone.startsWith('00237') && cleanPhone.length > 9) {
+            cleanPhone = cleanPhone.substring(5);
+        } else if (cleanPhone.startsWith('237') && cleanPhone.length > 9) {
+            cleanPhone = cleanPhone.substring(3);
         }
 
+        const detected = detectOperatorFromNumber(cleanPhone);
+
+        if (cleanPhone.length >= 8 && detected && detected !== selectedOperator) {
+            const detectedLabel = detected === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
+            const selectedLabel = selectedOperator === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
+            
+            if (mismatchAlert && mismatchText) {
+                mismatchText.innerHTML = `Le numéro <strong>${cleanPhone}</strong> appartient au réseau <strong>${detectedLabel}</strong>.<br>Vous avez sélectionné <strong>${selectedLabel}</strong>. Il est impossible d'effectuer un paiement ${selectedLabel} avec ce numéro.<br><span class="font-extrabold text-rose-900 underline mt-1 inline-block">Veuillez cliquer sur la carte ${detectedLabel} ci-dessus pour corriger l'opérateur.</span>`;
+                mismatchAlert.classList.remove('hidden');
+            }
+            if (ussdGuide) ussdGuide.classList.add('hidden');
+            
+            phoneInput.classList.add('border-rose-500', 'bg-rose-50/40', 'ring-2', 'ring-rose-500/20');
+            phoneInput.classList.remove('border-slate-300', 'bg-white');
+            
+            if (btnPay) {
+                btnPay.disabled = true;
+                btnPay.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            }
+            return false;
+        } else {
+            if (mismatchAlert) mismatchAlert.classList.add('hidden');
+            if (ussdGuide) ussdGuide.classList.remove('hidden');
+
+            phoneInput.classList.remove('border-rose-500', 'bg-rose-50/40', 'ring-2', 'ring-rose-500/20');
+            phoneInput.classList.add('border-slate-300', 'bg-white');
+
+            if (btnPay) {
+                btnPay.disabled = false;
+                btnPay.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            }
+            return true;
+        }
+    }
+
+    function selectOperator(op) {
         selectedOperator = op;
         const cardMtn = document.getElementById('card-mtn');
         const cardOrange = document.getElementById('card-orange');
@@ -307,6 +357,8 @@
             if (ussdImg) ussdImg.src = "{% static 'images/logo_orange.png' %}";
             if (ussdLogoBox) ussdLogoBox.className = "w-9 h-9 rounded-xl p-0.5 bg-black border border-gray-800 shadow-xs flex-shrink-0 overflow-hidden";
         }
+
+        validateOperatorMatch();
     }
 
     function onPhoneInput(val) {
@@ -329,10 +381,7 @@
             inputEl.value = clean;
         }
 
-        const detected = detectOperatorFromNumber(clean);
-        if (detected) {
-            selectOperator(detected, false);
-        }
+        validateOperatorMatch();
     }
 
     function getCookie(name) {
@@ -351,6 +400,10 @@
     }
 
     function startPayment() {
+        if (!validateOperatorMatch()) {
+            return;
+        }
+
         const phoneInput = document.getElementById('input-telephone');
         let phone = phoneInput.value.trim();
         let cleanPhone = phone.replace(/\D/g, '');
@@ -370,14 +423,6 @@
         const detectedOp = detectOperatorFromNumber(cleanPhone);
         if (!detectedOp) {
             alert("⚠️ Le numéro saisi ne correspond à aucun réseau Mobile Money au Cameroun.\n\n- MTN MoMo: 67x, 68x, 650-654\n- Orange Money: 69x, 655-659");
-            return;
-        }
-
-        if (detectedOp !== selectedOperator) {
-            const detectedLabel = detectedOp === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
-            const selectedLabel = selectedOperator === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
-            selectOperator(detectedOp, false);
-            alert(`⚠️ Incohérence d'opérateur :\n\nLe numéro ${cleanPhone} est un numéro ${detectedLabel}.\nVous ne pouvez pas effectuer un paiement via ${selectedLabel}.\n\nL'opérateur a été automatiquement basculé sur ${detectedLabel}.`);
             return;
         }
 
@@ -434,7 +479,7 @@
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
 
-    // Initialiser la sélection de l'opérateur au chargement
+    // Initialiser au chargement
     document.addEventListener('DOMContentLoaded', () => {
         const phoneInput = document.getElementById('input-telephone');
         if (phoneInput && phoneInput.value) {
