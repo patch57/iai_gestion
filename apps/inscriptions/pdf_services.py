@@ -98,7 +98,7 @@ def generer_carte_etudiant_pdf(etudiant, domain_url="http://localhost:8000"):
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo_iai.png')
     logo_header = Image(logo_path, width=8.5 * mm, height=8.5 * mm) if os.path.exists(logo_path) else Paragraph("", text_style)
 
-    header_text_p = Paragraph("<b>IAI-CAMEROUN — CENTRE DE DOUALA</b>", title_white_style)
+    header_text_p = Paragraph("<b>IAI-CAMEROUN</b>", title_white_style)
     header_sub_p = Paragraph(f"CARTE D'ÉTUDIANT OFFICIELLE — NIVEAU {niveau_num}", sub_title_white_style)
     header_box = [header_text_p, header_sub_p]
 
