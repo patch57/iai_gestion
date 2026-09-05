@@ -53,6 +53,41 @@ def structurer_donnees_bulletin(etudiant, classe):
             notes_map[eid][mcode] = {}
         notes_map[eid][mcode][tcode] = float(n.valeur)
 
+    # Precharger les Détails de Bulletins (remplis depuis les PVs)
+    from apps.notes.models import DetailBulletin, LigneProcesVerbalNotes
+    details_qs = DetailBulletin.objects.filter(
+        bulletin__etudiant__in=tous_etudiants
+    ).select_related('bulletin', 'matiere')
+
+    details_dict = {}
+    for d in details_qs:
+        eid = d.bulletin.etudiant_id
+        mid = d.matiere_id
+        mcode = d.matiere.code.strip().upper() if (d.matiere and d.matiere.code) else None
+        val_mat = float(d.moyenne_matiere) if d.moyenne_matiere is not None else 0.0
+        
+        details_dict[(eid, mid)] = val_mat
+        if mcode:
+            details_dict[(eid, mcode)] = val_mat
+
+    # Precharger les PVs validés/transmis
+    lignes_pv_qs = LigneProcesVerbalNotes.objects.filter(
+        etudiant__in=tous_etudiants,
+        pv__est_transmis=True
+    ).select_related('pv', 'pv__matiere')
+
+    pvs_dict = {}
+    for l in lignes_pv_qs:
+        eid = l.etudiant_id
+        mid = l.pv.matiere_id if l.pv else None
+        mcode = l.pv.matiere.code.strip().upper() if (l.pv and l.pv.matiere and l.pv.matiere.code) else None
+        val_pv = float(l.note_finale) if l.note_finale is not None else 0.0
+
+        if mid:
+            pvs_dict[(eid, mid)] = val_pv
+        if mcode:
+            pvs_dict[(eid, mcode)] = val_pv
+
     # Fonction d'extraction des données d'un étudiant
     def calculer_bilan_etudiant(et):
         et_notes = notes_map.get(et.id, {})
@@ -82,13 +117,22 @@ def structurer_donnees_bulletin(etudiant, classe):
                 exam = mat_n.get('EXAM')
                 ratt = mat_n.get('RATT')
 
-                exam_final = ratt if ratt is not None else (exam if exam is not None else 0.0)
-                cc_final = cc if cc is not None else 0.0
+                mcode_key = mat.code.strip().upper() if getattr(mat, 'code', None) else ''
 
-                if cc is None and exam is None and ratt is None:
-                    note_finale = 0.0
+                if cc is not None or exam is not None or ratt is not None:
+                    exam_final = ratt if ratt is not None else (exam if exam is not None else 0.0)
+                    cc_final = cc if cc is not None else 0.0
+                    note_calc = (cc_final * 0.4) + (exam_final * 0.6)
+                    if note_calc == 0.0 and ((et.id, mat.id) in details_dict or (et.id, mcode_key) in details_dict or (et.id, mat.id) in pvs_dict or (et.id, mcode_key) in pvs_dict):
+                        note_finale = details_dict.get((et.id, mat.id), details_dict.get((et.id, mcode_key), pvs_dict.get((et.id, mat.id), pvs_dict.get((et.id, mcode_key), 0.0))))
+                    else:
+                        note_finale = note_calc
+                elif (et.id, mat.id) in details_dict or (et.id, mcode_key) in details_dict:
+                    note_finale = details_dict.get((et.id, mat.id), details_dict.get((et.id, mcode_key), 0.0))
+                elif (et.id, mat.id) in pvs_dict or (et.id, mcode_key) in pvs_dict:
+                    note_finale = pvs_dict.get((et.id, mat.id), pvs_dict.get((et.id, mcode_key), 0.0))
                 else:
-                    note_finale = (cc_final * 0.4) + (exam_final * 0.6)
+                    note_finale = 0.0
 
                 note_finale = round(note_finale, 2)
                 coef = float(mat.credit)

@@ -2,6 +2,7 @@
 Vues pour la gestion des paiements
 IAI-Cameroun - Centre de Douala
 """
+from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, permission_required
 from apps.authentification.decorators import role_required
@@ -702,6 +703,18 @@ def initier_paiement_momo(request):
 
     telephone = data.get('telephone') or request.POST.get('telephone', '')
     operateur = data.get('operateur') or request.POST.get('operateur', '')
+
+    # Validation et auto-détection du préfixe opérateur Cameroun (+237)
+    clean_tel = str(telephone).replace(' ', '').replace('-', '').replace('+237', '').strip()
+    if len(clean_tel) == 9 and clean_tel.isdigit():
+        p2 = clean_tel[:2]
+        p3_int = int(clean_tel[:3])
+        if p2 in ['67', '68'] or (650 <= p3_int <= 654):
+            operateur = 'MTN'
+        elif p2 == '69' or (655 <= p3_int <= 659):
+            operateur = 'ORANGE'
+    
+    telephone = clean_tel
 
     etudiant = get_object_or_404(Etudiant, utilisateur=request.user)
     penalites_info = calculer_penalites_etudiant(etudiant)

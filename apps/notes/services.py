@@ -364,6 +364,7 @@ def remplir_bordereau_depuis_pv(salle, semestre=1, user=None):
     Seules les matières disposant d'un PV dûment transmis avec notes finales calculées
     alimentent automatiquement le bordereau de notes et les bulletins de la salle.
     """
+    from django.db.models import Q
     from .models import ProcesVerbalNotes, Bulletin, DetailBulletin
     from apps.cours.models import Matiere, Cours
 
@@ -372,68 +373,95 @@ def remplir_bordereau_depuis_pv(salle, semestre=1, user=None):
     ann_val = getattr(salle, 'annee_academique', '2025-2026')
     annee_academique = str(getattr(ann_val, 'code', getattr(ann_val, 'annee', ann_val)))
 
-    is_annuel = str(semestre).lower() in ['annuel', 'annual', '3', '0']
-    if is_annuel:
-        matieres = Matiere.objects.all()
-    else:
-        try:
-            sem_int = int(semestre)
-        except (ValueError, TypeError):
-            sem_int = 1
-        matieres = Matiere.objects.filter(semestre=sem_int)
+    # 1. Sélectionner les matières rattachées au programme de la classe
+    from .services_bordereau import calculer_bordereau_matrice
+    matrice_data = calculer_bordereau_matrice(salle, semestre=semestre)
+    matieres = matrice_data.get('matieres_all', [])
+    
+    if not matieres:
+        if is_annuel:
+            matieres = list(Matiere.objects.all())
+        else:
+            try:
+                sem_int = int(semestre)
+            except (ValueError, TypeError):
+                sem_int = 1
+            matieres = list(Matiere.objects.filter(semestre=sem_int))
 
     resultats = {
         'remplis': [],
         'en_attente': [],
-        'total': matieres.count()
+        'total': len(matieres)
     }
 
     etudiants = salle.etudiants.filter(est_actif=True)
+    salle_obj = getattr(salle, 'salle', None)
 
     for mat in matieres:
         pv = None
+        mat_code = getattr(mat, 'code', '')
 
-        # Si le premier paramètre est une Salle physique
-        if hasattr(salle, 'type_salle'):
+        # Recherche 1 : Salle physique rattachée + Matière
+        if salle_obj:
             pv = ProcesVerbalNotes.objects.filter(
-                matiere=mat,
-                salle=salle,
+                Q(matiere_id=getattr(mat, 'id', None)) | Q(matiere__code=mat_code),
+                salle=salle_obj,
                 est_transmis=True
             ).first()
 
-        # Fallback par Filière et Niveau si pas trouvé par Salle directe
+        # Recherche 2 : Filière + Niveau + Matière
         if not pv and filiere and niveau:
             pv = ProcesVerbalNotes.objects.filter(
-                matiere=mat,
+                Q(matiere_id=getattr(mat, 'id', None)) | Q(matiere__code=mat_code),
                 filiere=filiere,
                 niveau=niveau,
                 est_transmis=True
             ).first()
 
+        # Recherche 3 : Par correspondance avec le nom de la classe
+        if not pv and hasattr(salle, 'nom'):
+            pv = ProcesVerbalNotes.objects.filter(
+                Q(matiere_id=getattr(mat, 'id', None)) | Q(matiere__code=mat_code),
+                Q(salle__nom__icontains=salle.nom) | Q(titre__icontains=salle.nom),
+                est_transmis=True
+            ).first()
+
+        # Si le PV n'est pas encore transmis, vérifier s'il existe une fiche transmise à actualiser
         if not pv:
+            from .services import actualiser_pv_unifie
+            try:
+                pv_auto = actualiser_pv_unifie(mat, salle_obj or salle, filiere, niveau, user)
+                if pv_auto and pv_auto.est_transmis:
+                    pv = pv_auto
+            except Exception:
+                pass
+
+        if not pv or not pv.est_transmis:
             resultats['en_attente'].append(mat.nom)
             continue
 
-        # Le PV existe et est transmis : injecter dans le bordereau / bulletins
+        # Le PV existe et est transmis : injecter dans les bulletins de la classe
         lignes = pv.lignes.select_related('etudiant').all()
         if not lignes.exists():
             resultats['en_attente'].append(mat.nom)
             continue
 
         for ligne in lignes:
+            if not ligne.etudiant:
+                continue
+
             mat_credits = getattr(mat, 'credits', getattr(mat, 'credit', 3))
             
-            # Récupération ou création de la Matiere équivalente du module notes
             from .models import Matiere as NotesMatiere
             notes_mat, _ = NotesMatiere.objects.get_or_create(
                 code=mat.code,
-                defaults={'nom': mat.nom, 'credit': mat_credits, 'semestre': semestre}
+                defaults={'nom': mat.nom, 'credit': mat_credits, 'semestre': 1 if not hasattr(mat, 'semestre') else mat.semestre}
             )
 
             b, _ = Bulletin.objects.get_or_create(
                 etudiant=ligne.etudiant,
                 annee_academique=annee_academique,
-                semestre=semestre
+                semestre=semestre if semestre in [1, 2, '1', '2'] else 1
             )
             detail, _ = DetailBulletin.objects.get_or_create(
                 bulletin=b,
@@ -441,7 +469,8 @@ def remplir_bordereau_depuis_pv(salle, semestre=1, user=None):
                 defaults={'credits': mat_credits}
             )
             detail.note_cc = ligne.note_cc
-            detail.note_examen = ligne.note_rattrapage if ligne.note_rattrapage is not None else ligne.note_examen
+            detail.note_examen = ligne.note_examen
+            detail.note_rattrapage = ligne.note_rattrapage
             detail.moyenne_matiere = ligne.note_finale if ligne.note_finale is not None else Decimal("0.00")
             detail.est_validee = detail.moyenne_matiere >= 10
             if detail.est_validee:
@@ -451,6 +480,33 @@ def remplir_bordereau_depuis_pv(salle, semestre=1, user=None):
             b.save()
 
         resultats['remplis'].append(mat.nom)
+
+    # Actualiser les moyennes, crédits, mentions et rangs officiels sur les bulletins de la classe
+    sem_val = semestre if semestre in [1, 2, '1', '2'] else 1
+    bulletins_classe = Bulletin.objects.filter(
+        etudiant__in=etudiants,
+        annee_academique=annee_academique,
+        semestre=sem_val
+    )
+
+    for b in bulletins_classe:
+        details_b = b.details.all()
+        if details_b.exists():
+            tot_pts = sum(d.moyenne_matiere * d.credits for d in details_b)
+            tot_creds = sum(d.credits for d in details_b)
+            if tot_creds > 0:
+                b.moyenne_semestre = Decimal(str(round(float(tot_pts) / tot_creds, 2)))
+                b.credits_totaux = tot_creds
+                b.credits_obtenus = sum(d.credits_obtenus for d in details_b)
+                b.determiner_decision()
+
+    b_list = list(bulletins_classe)
+    b_list.sort(key=lambda x: x.moyenne_semestre, reverse=True)
+    eff = len(b_list)
+    for idx, b in enumerate(b_list, start=1):
+        b.rang = idx
+        b.effectif = eff
+        b.save()
 
     return resultats
 

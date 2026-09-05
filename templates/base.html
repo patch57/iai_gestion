@@ -410,7 +410,7 @@
                     <a href="{% url 'notes:mon_bulletin' %}" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700 transition-all group">
                         <i class="fas fa-file-invoice w-5 h-5 mr-3 group-hover:text-green-600 text-gray-500"></i>
-                        <span>Mon Bulletin</span>
+                        <span>Mes Résultats</span>
                     </a>
                 </li>
                 <li>
@@ -442,15 +442,6 @@
                 </li>
                 {% endif %}
 
-                {% if user.type_utilisateur in 'CHEF_ANONYMAT ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}
-                <li>
-                    <a href="{% url 'notes:dashboard_chef_anonymat' %}" 
-                       class="sidebar-link flex items-center px-4 py-3 text-purple-700 font-medium rounded-lg hover:bg-purple-50 transition-all group">
-                        <i class="fas fa-user-ninja w-5 h-5 mr-3 text-purple-600"></i>
-                        <span>Anonymat Chef Anonymat</span>
-                    </a>
-                </li>
-                {% endif %}
 
                 {% if user.type_utilisateur in 'CHEF_ETUDES CHEF_ANONYMAT ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}
                 <li>

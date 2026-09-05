@@ -6,8 +6,8 @@
 {% block content %}
 <style>
 @page {
-    margin: 0;
-    size: auto;
+    size: A4 portrait;
+    margin: 3mm 4mm;
 }
 @media print {
     * {
@@ -15,12 +15,18 @@
         print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
-    /* Isolation stricte d'impression : Masquer tout sauf #printable-pv */
-    body * {
-        visibility: hidden !important;
+    html, body {
+        width: 210mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
     }
     .no-print, nav, header, footer, aside, .sidebar, #sidebar, button, a {
         display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     #printable-pv, #printable-pv * {
         visibility: visible !important;
@@ -32,42 +38,81 @@
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
-        padding: 12mm 15mm !important;
+        padding: 2mm 3mm !important;
         box-shadow: none !important;
         border: none !important;
         background: white !important;
+        font-size: 8px !important;
+    }
+    .pv-header-logo {
+        height: 38px !important;
+    }
+    .pv-header-block {
+        margin-bottom: 6px !important;
+        padding-bottom: 3px !important;
+    }
+    .pv-title-block {
+        margin-bottom: 6px !important;
+    }
+    .pv-meta-block {
+        margin-bottom: 6px !important;
+        padding: 4px 6px !important;
+        font-size: 8px !important;
     }
     table {
         width: 100% !important;
         border-collapse: collapse !important;
+        page-break-inside: avoid !important;
+    }
+    tr {
+        page-break-inside: avoid !important;
     }
     th, td {
         border: 1px solid #000 !important;
-        padding: 4px 6px !important;
-        font-size: 11px !important;
+        padding: 1px 2px !important;
+        font-size: 8px !important;
+        line-height: 1.0 !important;
     }
     th {
         background-color: #f0f0f0 !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+    .signature-block {
+        page-break-inside: avoid !important;
+        margin-top: 8px !important;
+        padding-top: 4px !important;
+    }
+    .signature-block div.h-14 {
+        height: 28px !important;
+    }
 }
 </style>
-<div class="max-w-7xl mx-auto px-4 py-6">
+<div class="max-w-7xl mx-auto px-2 py-4">
 
     <!-- Actions Bar (Masquée à l'impression) -->
-    <div class="no-print mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+    <div class="no-print mb-4 bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-3">
             <a href="{% url 'notes:liste_proces_verbaux' %}" class="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-semibold transition">
                 <i class="fas fa-arrow-left"></i> Retour aux PVs
             </a>
             <div>
-                <h1 class="text-lg font-bold text-slate-900">Procès-Verbal Officiel de Matière</h1>
+                <h1 class="text-base font-bold text-slate-900">Procès-Verbal Officiel de Matière (Format A4 Portrait)</h1>
                 <p class="text-xs text-slate-500">{{ pv.matiere.code }} - {{ pv.matiere.nom }}</p>
             </div>
         </div>
 
         <div class="flex items-center gap-3">
+            {% if is_chef_anonymat %}
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                    <i class="fas fa-eye"></i> Mode Consultation Seule (Chef Anonymat)
+                </span>
+            {% elif can_edit %}
+                <button type="submit" form="pvForm" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition cursor-pointer">
+                    <i class="fas fa-save"></i> Enregistrer les modifications des notes (Chef des Études)
+                </button>
+            {% endif %}
+
             {% if pv.est_transmis %}
                 <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
                     <i class="fas fa-check-circle"></i> Transmis au Chef des Études
@@ -78,45 +123,50 @@
                 </span>
             {% endif %}
 
-            <button onclick="window.print()" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition">
-                <i class="fas fa-print"></i> Imprimer / Enregistrer PDF
+            <button onclick="window.print()" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition cursor-pointer">
+                <i class="fas fa-print"></i> Imprimer / Enregistrer PDF (A4 Portrait)
             </button>
         </div>
     </div>
 
-    <!-- Feuille/Fiche Officielle IAI (Printable Sheet) -->
-    <div class="print-container bg-white rounded-2xl shadow-xl border border-slate-300 p-6 md:p-10 text-slate-900" id="printable-pv">
+    {% if can_edit %}
+    <form method="post" id="pvForm">
+        {% csrf_token %}
+    {% endif %}
 
-        <!-- Entête Institutionnel Paul Biya (Exactement selon le document physique officiel) -->
-        <div class="text-center border-b-2 border-slate-900 pb-3 mb-6 relative">
-            <div class="flex justify-center mb-2">
-                <img src="{% static 'images/logo_iai.png' %}" alt="Logo IAI" class="h-16 w-auto object-contain" onerror="this.src='{% static 'images/logo.png' %}'">
+    <!-- Feuille/Fiche Officielle IAI (Printable Sheet A4 Portrait) -->
+    <div class="print-container bg-white rounded-2xl shadow-xl border border-slate-300 p-4 md:p-6 text-slate-900 max-w-4xl mx-auto" id="printable-pv">
+
+        <!-- Entête Institutionnel Paul Biya -->
+        <div class="pv-header-block text-center border-b-2 border-slate-900 pb-2 mb-4 relative">
+            <div class="flex justify-center mb-1">
+                <img src="{% static 'images/logo_iai.png' %}" alt="Logo IAI" class="pv-header-logo h-12 w-auto object-contain" onerror="this.src='{% static 'images/logo.png' %}'">
             </div>
             <div class="text-center max-w-3xl mx-auto">
-                <h2 class="text-sm font-black text-slate-900 tracking-wider uppercase">Établissement Inter – États d'Enseignement Supérieur</h2>
-                <p class="text-xs font-bold text-emerald-800 uppercase mt-0.5">Représentation du Cameroun</p>
-                <p class="text-xs font-extrabold text-slate-800 uppercase mt-0.5">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</p>
-                <p class="text-[11px] text-slate-600 mt-1 font-medium">
+                <h2 class="text-xs font-black text-slate-900 tracking-wider uppercase">Établissement Inter – États d'Enseignement Supérieur</h2>
+                <p class="text-[11px] font-bold text-emerald-800 uppercase mt-0.5">Représentation du Cameroun</p>
+                <p class="text-[11px] font-extrabold text-slate-800 uppercase mt-0.5">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</p>
+                <p class="text-[10px] text-slate-600 mt-0.5 font-medium">
                     BP 13 719 Yaoundé (Cameroun) Tél. (237) 242 72 99 58 / 691 902 120
                 </p>
-                <p class="text-[10px] text-slate-500 font-medium">
+                <p class="text-[9px] text-slate-500 font-medium">
                     Site web: www.iaicameroun.com &bull; E-mail: contact@iaicameroun.com
                 </p>
             </div>
         </div>
 
         <!-- Titre Officiel du Document -->
-        <div class="text-center mb-6">
-            <h1 class="text-xl md:text-2xl font-black text-slate-900 tracking-wider uppercase underline underline-offset-4">
+        <div class="pv-title-block text-center mb-4">
+            <h1 class="text-lg md:text-xl font-black text-slate-900 tracking-wider uppercase underline underline-offset-4">
                 FICHE DE NOTES / PROCÈS-VERBAL DE NOTES
             </h1>
-            <p class="text-base font-extrabold text-emerald-800 uppercase mt-1">
+            <p class="text-sm font-extrabold text-emerald-800 uppercase mt-0.5">
                 Classe : <span class="text-slate-900 font-black">{% if pv.salle %}{{ pv.salle.code }}{% else %}{{ pv.filiere.code }}{% endif %}</span>
             </p>
         </div>
 
-        <!-- Grille des Métadonnées (Format exact du formulaire manuscrit officiel) -->
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-300 mb-6 text-xs md:text-sm font-semibold text-slate-800 grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-6">
+        <!-- Grille des Métadonnées -->
+        <div class="pv-meta-block bg-slate-50 p-3 rounded-lg border border-slate-300 mb-4 text-xs font-semibold text-slate-800 grid grid-cols-1 md:grid-cols-3 gap-y-2 gap-x-4">
             <div>
                 <span class="text-slate-500 font-medium">Année Académique :</span> 
                 <span class="text-slate-900 font-bold ml-1">{{ pv.annee_academique|default:"2025-2026" }}</span>
@@ -138,7 +188,7 @@
                     {% elif pv.cree_par %}
                         {{ pv.cree_par.get_full_name|upper }}
                     {% else %}
-                        ENSEIGNANT TITULAIRE
+                        JOËL OTABELA
                     {% endif %}
                 </span>
             </div>
@@ -147,19 +197,19 @@
                 <span class="text-slate-900 font-bold ml-1">{% if pv.matiere %}{{ pv.matiere.credit|default:pv.matiere.credits|default:3 }}{% else %}3{% endif %}</span>
             </div>
 
-            <div class="md:col-span-3 border-t border-slate-200 pt-2 flex flex-wrap justify-between items-center">
+            <div class="md:col-span-3 border-t border-slate-200 pt-1.5 flex flex-wrap justify-between items-center">
                 <div>
                     <span class="text-slate-500 font-medium">Matière :</span> 
-                    <span class="text-emerald-900 font-black text-sm ml-1 uppercase">{{ pv.matiere.code }} - {{ pv.matiere.nom }}</span>
+                    <span class="text-emerald-900 font-black text-xs ml-1 uppercase">{{ pv.matiere.code }} - {{ pv.matiere.nom }}</span>
                 </div>
-                <div class="text-slate-600 text-xs">
-                    <span class="inline-block bg-blue-100 text-blue-900 px-2 py-0.5 rounded font-bold mr-2">CC: 40%</span>
-                    <span class="inline-block bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded font-bold">Examen/Rattrapage: 60%</span>
+                <div class="text-slate-600 text-[11px]">
+                    <span class="inline-block bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold mr-1.5">CC: 40%</span>
+                    <span class="inline-block bg-indigo-100 text-indigo-900 px-1.5 py-0.5 rounded font-bold">Examen/Rattrapage: 60%</span>
                 </div>
             </div>
         </div>
 
-        <!-- Tableau Officiel des Notes (Reprenant la structure complète de l'exemplaire physique) -->
+        <!-- Tableau Officiel des Notes -->
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse border border-slate-900 text-xs">
                 <thead>
@@ -209,36 +259,51 @@
                         
                         <!-- Moyenne CC -->
                         <td class="border border-slate-900 py-2 px-2 text-center font-black text-slate-900 bg-blue-100/50 text-sm">
-                            {% if lg.note_cc is not None %}
-                                {{ lg.note_cc|floatformat:2 }}
+                            {% if can_edit %}
+                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_cc" value="{% if lg.note_cc is not None %}{{ lg.note_cc|floatformat:2 }}{% endif %}" placeholder="0.00" class="no-print w-16 text-center border border-blue-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-blue-500 text-xs py-0.5">
+                                <span class="hidden print:inline">{% if lg.note_cc is not None %}{{ lg.note_cc|floatformat:2 }}{% else %}0.00{% endif %}</span>
                             {% else %}
-                                {% if pv.est_transmis %}
-                                    <span class="text-red-600 font-bold">0.00</span>
+                                {% if lg.note_cc is not None %}
+                                    {{ lg.note_cc|floatformat:2 }}
                                 {% else %}
-                                    <span class="text-slate-400 italic text-[10px]">N/A</span>
+                                    {% if pv.est_transmis %}
+                                        <span class="text-red-600 font-bold">0.00</span>
+                                    {% else %}
+                                        <span class="text-slate-400 italic text-[10px]">N/A</span>
+                                    {% endif %}
                                 {% endif %}
                             {% endif %}
                         </td>
 
                         <!-- Note Examen -->
                         <td class="border border-slate-900 py-2 px-3 text-center font-black text-slate-900 bg-indigo-100/50 text-sm">
-                            {% if lg.note_examen is not None %}
-                                {{ lg.note_examen|floatformat:2 }}
+                            {% if can_edit %}
+                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_exam" value="{% if lg.note_examen is not None %}{{ lg.note_examen|floatformat:2 }}{% endif %}" placeholder="0.00" class="no-print w-16 text-center border border-indigo-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-indigo-500 text-xs py-0.5">
+                                <span class="hidden print:inline">{% if lg.note_examen is not None %}{{ lg.note_examen|floatformat:2 }}{% else %}0.00{% endif %}</span>
                             {% else %}
-                                {% if pv.est_transmis and lg.note_rattrapage is None %}
-                                    <span class="text-red-600 font-bold">0.00</span>
+                                {% if lg.note_examen is not None %}
+                                    {{ lg.note_examen|floatformat:2 }}
                                 {% else %}
-                                    <span class="text-slate-400 italic text-[10px]">N/A</span>
+                                    {% if pv.est_transmis and lg.note_rattrapage is None %}
+                                        <span class="text-red-600 font-bold">0.00</span>
+                                    {% else %}
+                                        <span class="text-slate-400 italic text-[10px]">N/A</span>
+                                    {% endif %}
                                 {% endif %}
                             {% endif %}
                         </td>
 
                         <!-- Rattrapage -->
                         <td class="border border-slate-900 py-2 px-3 text-center font-black text-purple-900 bg-purple-100/50 text-sm">
-                            {% if lg.note_rattrapage is not None %}
-                                {{ lg.note_rattrapage|floatformat:2 }}
+                            {% if can_edit %}
+                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_ratt" value="{% if lg.note_rattrapage is not None %}{{ lg.note_rattrapage|floatformat:2 }}{% endif %}" placeholder="—" class="no-print w-16 text-center border border-purple-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-purple-500 text-xs py-0.5">
+                                <span class="hidden print:inline">{% if lg.note_rattrapage is not None %}{{ lg.note_rattrapage|floatformat:2 }}{% else %}-{% endif %}</span>
                             {% else %}
-                                <span class="text-slate-300">-</span>
+                                {% if lg.note_rattrapage is not None %}
+                                    {{ lg.note_rattrapage|floatformat:2 }}
+                                {% else %}
+                                    <span class="text-slate-300">-</span>
+                                {% endif %}
                             {% endif %}
                         </td>
 
@@ -276,29 +341,32 @@
         </div>
 
         <!-- Bloc des Signatures Officiel IAI-Cameroun -->
-        <div class="mt-10 pt-6 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-center text-xs font-bold text-slate-800">
+        <div class="signature-block mt-6 pt-4 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-center text-xs font-bold text-slate-800">
             <div>
                 <p class="uppercase font-black text-slate-900">Le Chef de l'Anonymat</p>
-                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 italic text-[11px]">
+                <div class="h-14 mt-1.5 border border-dashed border-slate-400 rounded-lg flex items-center justify-center text-slate-400 italic text-[10px]">
                     Signature & Cachet
                 </div>
             </div>
 
             <div>
                 <p class="uppercase font-black text-slate-900">Le Chef des Études</p>
-                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 italic text-[11px]">
+                <div class="h-14 mt-1.5 border border-dashed border-slate-400 rounded-lg flex items-center justify-center text-slate-400 italic text-[10px]">
                     Signature & Cachet
                 </div>
             </div>
 
             <div>
                 <p class="uppercase font-black text-slate-900">Le Directeur du Centre</p>
-                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 italic text-[11px]">
+                <div class="h-14 mt-1.5 border border-dashed border-slate-400 rounded-lg flex items-center justify-center text-slate-400 italic text-[10px]">
                     Signature & Cachet
                 </div>
             </div>
         </div>
 
     </div>
+    {% if can_edit %}
+    </form>
+    {% endif %}
 </div>
 {% endblock %}

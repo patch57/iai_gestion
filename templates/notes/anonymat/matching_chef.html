@@ -140,17 +140,35 @@
 
     <!-- TABLEAU DE MATCHING (CODE ANONYMAT -> ETUDIANT REEL) -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
-            <h3 class="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
-                <i class="fa-solid fa-user-tag text-purple-600"></i>
-                Correspondances : Code Anonymat ↔ Étudiant Réel
-            </h3>
-            <span class="text-xs text-gray-500">
-                Effectif inscrit : {{ etudiants_classe.count }} étudiant(s)
-            </span>
+        <!-- BARRE DE PROGRESSION & STATUT DU MATCHING -->
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h3 class="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-user-tag text-purple-600"></i>
+                    Correspondances : Code Anonymat ↔ Étudiant Réel
+                </h3>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        Effectif inscrit : <strong class="text-purple-600 dark:text-purple-400">{{ etudiants_classe.count }}</strong> étudiant(s)
+                    </span>
+                    <span id="matching-progress-text" class="px-2.5 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
+                        0 / {{ lignes.count }} matchés (0%)
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Barre d'avancement fluide -->
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div id="matching-progress-bar" class="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 pt-1">
+                <span><i class="fa-solid fa-lock text-emerald-500 mr-1"></i> Règle d'unicité active : Un étudiant matché est automatiquement grisé pour les autres codes.</span>
+                <span class="font-semibold text-purple-600 dark:text-purple-400"><i class="fa-solid fa-shield-halved mr-1"></i> Mode Sécurisé Chef Anonymat</span>
+            </div>
         </div>
 
-        <form method="POST">
+        <form method="POST" id="form-matching-anonymat">
             {% csrf_token %}
             <input type="hidden" name="action" value="enregistrer_matching">
 
@@ -158,27 +176,41 @@
                 <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
                     <thead class="bg-gray-100 dark:bg-gray-700 text-xs uppercase font-semibold text-gray-500 dark:text-gray-400">
                         <tr>
-                            <th class="px-6 py-3.5">Code Anonymat</th>
-                            <th class="px-6 py-3.5 text-center">Note / 20</th>
+                            <th class="px-5 py-3.5 w-16 text-center">Statut</th>
+                            <th class="px-6 py-3.5 font-mono">Code Anonymat</th>
+                            <th class="px-4 py-3.5 text-center w-28">Note / 20</th>
                             <th class="px-6 py-3.5">Nom Manuscrit Détecté</th>
                             <th class="px-6 py-3.5">Étudiant Réel Associé (Matricule)</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                         {% for ligne in lignes %}
-                        <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
-                            <td class="px-6 py-4 font-mono font-bold text-purple-700 dark:text-purple-300">
+                        <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition" data-ligne-row="{{ ligne.id }}">
+                            <td class="px-5 py-4 text-center">
+                                <span class="badge-status-ligne inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                    <i class="fa-solid fa-clock mr-1"></i> À matcher
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 font-mono font-bold text-purple-700 dark:text-purple-300 text-base">
                                 {{ ligne.numero_anonymat }}
                             </td>
-                            <td class="px-6 py-4 text-center">
+                            <td class="px-4 py-4 text-center">
                                 <input type="text" name="note_{{ ligne.id }}" value="{% if ligne.note is not None %}{{ ligne.note }}{% endif %}"
-                                       class="w-20 px-2 py-1 border rounded text-center font-bold text-sm dark:bg-gray-700 dark:border-gray-600">
+                                       class="w-20 px-2 py-1 border rounded-lg text-center font-black text-sm text-purple-900 dark:text-purple-200 dark:bg-gray-700 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-purple-500">
                             </td>
-                            <td class="px-6 py-4 text-xs font-mono text-gray-500">
-                                {{ ligne.nom_manuscrit_detecte|default:"-" }}
+                            <td class="px-6 py-4 text-xs font-mono text-gray-500 dark:text-gray-400">
+                                {% if ligne.nom_manuscrit_detecte %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold">
+                                        <i class="fa-solid fa-pen-nib text-purple-500 mr-1.5"></i> {{ ligne.nom_manuscrit_detecte }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-gray-400 font-normal italic">- Aucun -</span>
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4">
-                                <select name="etudiant_{{ ligne.id }}" class="w-full px-3 py-1.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-xs">
+                                <select name="etudiant_{{ ligne.id }}" 
+                                        data-code="{{ ligne.numero_anonymat }}"
+                                        class="select-etudiant-matching w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-xs font-medium shadow-sm transition focus:ring-2 focus:ring-purple-500">
                                     <option value="">-- Sélectionner l'Étudiant --</option>
                                     {% for e in etudiants_classe %}
                                         <option value="{{ e.id }}" {% if ligne.etudiant_id == e.id %}selected{% endif %}>
@@ -193,9 +225,12 @@
                 </table>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex justify-end">
-                <button type="submit" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs rounded-lg shadow-sm">
-                    <i class="fa-solid fa-floppy-disk mr-1.5"></i> Enregistrer le Matching
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    💡 Les modifications de notes et de correspondances seront appliquées au Procès-Verbal.
+                </span>
+                <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-floppy-disk text-amber-300 text-sm"></i> Enregistrer le Matching
                 </button>
             </div>
         </form>
@@ -203,4 +238,111 @@
     {% endif %}
 
 </div>
+
+<!-- SCRIPT JS INTERACTIF POUR L'UNICITE ET LE SUIVI DU MATCHING -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('.select-etudiant-matching');
+    const progressBar = document.getElementById('matching-progress-bar');
+    const progressText = document.getElementById('matching-progress-text');
+    const formMatching = document.getElementById('form-matching-anonymat');
+
+    function synchroniserMatching() {
+        const selectedMap = new Map(); // etudiantId -> { selectElement, codeAnonymat }
+
+        // 1. Recenser toutes les sélections actives
+        selects.forEach(select => {
+            const val = select.value;
+            const code = select.getAttribute('data-code');
+            if (val) {
+                selectedMap.set(val, { select: select, code: code });
+            }
+        });
+
+        // 2. Mettre à jour l'état de chaque menu déroulant et des badges de ligne
+        selects.forEach(select => {
+            const currentVal = select.value;
+            const row = select.closest('tr');
+            const badge = row ? row.querySelector('.badge-status-ligne') : null;
+
+            // Mise à jour visuelle du badge de statut
+            if (badge) {
+                if (currentVal) {
+                    badge.className = 'badge-status-ligne inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 shadow-sm';
+                    badge.innerHTML = '<i class="fa-solid fa-circle-check mr-1 text-emerald-600 dark:text-emerald-400"></i> Matché';
+                } else {
+                    badge.className = 'badge-status-ligne inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
+                    badge.innerHTML = '<i class="fa-solid fa-clock mr-1"></i> À matcher';
+                }
+            }
+
+            // Activer / Désactiver les options selon la règle d'unicité
+            Array.from(select.options).forEach(opt => {
+                if (!opt.value) return; // saut de l'option vide
+
+                // Sauvegarder le libellé original s'il n'est pas encore mémorisé
+                if (!opt.getAttribute('data-original-label')) {
+                    opt.setAttribute('data-original-label', opt.textContent.replace(/ \(Déjà attribué.*\)/, ''));
+                }
+                const originalLabel = opt.getAttribute('data-original-label');
+
+                if (opt.value !== currentVal && selectedMap.has(opt.value)) {
+                    const info = selectedMap.get(opt.value);
+                    opt.disabled = true;
+                    opt.textContent = `${originalLabel} 🔒 (Attribué sur ${info.code})`;
+                } else {
+                    opt.disabled = false;
+                    opt.textContent = originalLabel;
+                }
+            });
+        });
+
+        // 3. Calculer et mettre à jour la barre de progression
+        const total = selects.length;
+        const countMatched = selectedMap.size;
+        const percent = total > 0 ? Math.round((countMatched / total) * 100) : 0;
+
+        if (progressBar) {
+            progressBar.style.width = percent + '%';
+        }
+        if (progressText) {
+            progressText.textContent = `${countMatched} / ${total} matchés (${percent}%)`;
+        }
+    }
+
+    // Attacher l'événement change sur chaque menu déroulant
+    selects.forEach(select => {
+        select.addEventListener('change', synchroniserMatching);
+    });
+
+    // Synchronisation initiale au chargement de la page
+    synchroniserMatching();
+
+    // Validation Javascript de sécurité avant soumission du formulaire
+    if (formMatching) {
+        formMatching.addEventListener('submit', function(e) {
+            const values = [];
+            let hasDuplicates = false;
+            let duplicateLabel = '';
+
+            selects.forEach(select => {
+                if (select.value) {
+                    if (values.includes(select.value)) {
+                        hasDuplicates = true;
+                        duplicateLabel = select.options[select.selectedIndex].getAttribute('data-original-label') || select.options[select.selectedIndex].text;
+                    }
+                    values.push(select.value);
+                }
+            });
+
+            if (hasDuplicates) {
+                e.preventDefault();
+                alert(`❌ Erreur de matching : L'étudiant "${duplicateLabel}" est sélectionné sur plusieurs codes d'anonymat. Un étudiant ne peut être associé qu'à un seul code.`);
+                return false;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
+

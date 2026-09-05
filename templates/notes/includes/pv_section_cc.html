@@ -1,0 +1,12 @@
+{% if fiches_cc %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for f in fiches_cc %}
+    {% include 'notes/includes/pv_card_item.html' with fiche=f type_badge="CC" badge_bg="bg-indigo-100 text-indigo-800" %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-md">
+    <i class="fas fa-clipboard-check text-4xl text-gray-300 mb-3 block"></i>
+    <p class="text-sm font-bold text-gray-600">Aucun Procès-Verbal de Contrôle Continu (CC) trouvé.</p>
+</div>
+{% endif %}

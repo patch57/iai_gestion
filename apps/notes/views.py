@@ -37,42 +37,247 @@ def get_annee_academique_active(request):
 
 @login_required
 def liste_evaluations(request):
-    """Liste des évaluations"""
+    """
+    Gestion des Évaluations - Espace Enseignants & Notes
+    - Section du haut : Évaluations de l'enseignant issues de l'emploi du temps téléversé par le chef des études.
+    - Section du bas : Notes de CC (Exposés, TP, TD, Contrôles Continus) de ses matières.
+    """
     if getattr(request.user, 'type_utilisateur', None) == 'CHEF_ANONYMAT':
         messages.warning(request, "⚠️ L'accès à la liste générale des évaluations est restreint pour le Chef Anonymat.")
         return redirect('notes:dashboard_chef_anonymat')
 
-    queryset = Evaluation.objects.all().select_related('cours__matiere', 'type_evaluation')
-    
-    # Filtres
+    annee = get_annee_academique_active(request)
+
+    # Récupérer le profil professeur si l'utilisateur est un enseignant
+    professeur = None
+    if hasattr(request.user, 'profil_professeur'):
+        professeur = request.user.profil_professeur
+    else:
+        from apps.professeurs.models import Professeur
+        professeur = Professeur.objects.filter(email=request.user.email).first()
+
+    nom_famille_prof = professeur.nom if professeur else request.user.last_name
+
+    # Récupération des matières et des salles pour les dropdowns de filtres
+    from apps.cours.models import Matiere as CoursMatiere, Salle as CoursSalle
+    matieres_list = CoursMatiere.objects.all().order_by('nom')
+    salles_list = CoursSalle.objects.all().order_by('code')
+
+    matiere_id = request.GET.get('matiere', '')
+    salle_id = request.GET.get('salle', '')
+
+    # 1. ÉVALUATIONS DE L'EMPLOI DU TEMPS (TÉLÉVERSÉ PAR LE CHEF DES ÉTUDES)
+    from apps.cours.models import CreneauEmploiDuTemps, EmploiDuTempsHebdomadaire
+    from django.db.models import Q, Avg, Count
+
+    creneaux_eval_qs = CreneauEmploiDuTemps.objects.filter(
+        Q(type_evenement='EVALUATION') |
+        Q(intitule__icontains='EXAMEN') |
+        Q(intitule__icontains='DEVOIR') |
+        Q(intitule__icontains='CONTROLE') |
+        Q(intitule__icontains='RATTRAPAGE') |
+        Q(intitule__icontains='EVALUATION') |
+        Q(intitule__icontains='CC') |
+        Q(intitule__icontains='TP') |
+        Q(intitule__icontains='EXPOSE')
+    ).select_related('emploi_du_temps', 'emploi_du_temps__filiere', 'emploi_du_temps__salle')
+
+    if professeur and nom_famille_prof:
+        creneaux_eval_qs = creneaux_eval_qs.filter(
+            Q(enseignant_nom__icontains=nom_famille_prof) |
+            Q(intitule__icontains=nom_famille_prof)
+        )
+
+    if salle_id:
+        try:
+            creneaux_eval_qs = creneaux_eval_qs.filter(
+                Q(emploi_du_temps__salle_id=int(salle_id)) |
+                Q(salle_nom__icontains=str(salle_id))
+            )
+        except ValueError:
+            pass
+
+    if matiere_id:
+        try:
+            mat_obj = CoursMatiere.objects.filter(pk=int(matiere_id)).first()
+            if mat_obj:
+                creneaux_eval_qs = creneaux_eval_qs.filter(
+                    Q(intitule__icontains=mat_obj.nom) | Q(intitule__icontains=mat_obj.code)
+                )
+        except ValueError:
+            pass
+
+    evaluations_edt = list(creneaux_eval_qs.order_by('-emploi_du_temps__date_debut_semaine', 'jour')[:30])
+
+    # Évaluations globales enregistrées en base
+    queryset = Evaluation.objects.all().select_related('cours__matiere', 'cours__professeur', 'type_evaluation')
+
+    # Si profil enseignant, filtrer les évaluations qui le concernent
+    if professeur:
+        queryset = queryset.filter(
+            Q(cours__professeur=request.user) |
+            Q(cours__professeur_id=professeur.id) |
+            Q(cree_par=request.user)
+        )
+
+    # Filtres formulaires généraux
     cours_id = request.GET.get('cours', '')
     if cours_id:
         queryset = queryset.filter(cours_id=cours_id)
-    
+
+    if matiere_id:
+        try:
+            queryset = queryset.filter(cours__matiere_id=int(matiere_id))
+        except ValueError:
+            pass
+
+    if salle_id:
+        try:
+            salle_obj = CoursSalle.objects.filter(pk=int(salle_id)).first()
+            if salle_obj:
+                queryset = queryset.filter(
+                    Q(salle__icontains=salle_obj.code) | Q(salle__icontains=salle_obj.nom)
+                )
+        except ValueError:
+            pass
+
     type_eval = request.GET.get('type', '')
     if type_eval:
         queryset = queryset.filter(type_evaluation_id=type_eval)
-    
+
     statut = request.GET.get('statut', '')
     if statut:
         queryset = queryset.filter(statut=statut)
-    
-    annee = get_annee_academique_active(request)
-    queryset = queryset.filter(cours__annee_academique=annee)
-    
-    # Pagination
-    paginator = Paginator(queryset.order_by('-date_evaluation'), 20)
+
+    if annee:
+        queryset = queryset.filter(cours__annee_academique=annee)
+
+    # Évaluations de la section du haut (Examens & Planning)
+    evaluations_haut = queryset.order_by('-date_evaluation')
+
+    # 2. SECTION DU BAS : NOTES DE CC (EXPOSÉS, TP, TD UNIQUEMENT - HORS DEVOIRS SUR TABLE)
+    from apps.notes.models import FicheNotesAnonymat, LigneFicheNotesAnonymat
+
+    # A. Fiches de Notes / CC créées par l'enseignant EXCLUSIVEMENT en mode Exposés, TP, TD (HORS DEVOIRS SUR TABLE)
+    fiches_cc_qs = FicheNotesAnonymat.objects.filter(
+        mode_fiche='EXPOSE_TP_TD'
+    ).exclude(
+        mode_fiche='DEVOIR_SUR_TABLE'
+    ).select_related('matiere', 'filiere', 'niveau', 'salle', 'type_evaluation')
+
+    if professeur and nom_famille_prof:
+        fiches_cc_qs = fiches_cc_qs.filter(
+            Q(enseignant=request.user) |
+            Q(cree_par=request.user) |
+            Q(enseignant_nom__icontains=nom_famille_prof)
+        )
+    elif not request.user.is_superuser and getattr(request.user, 'type_utilisateur', None) == 'ENSEIGNANT':
+        fiches_cc_qs = fiches_cc_qs.filter(
+            Q(enseignant=request.user) | Q(cree_par=request.user)
+        )
+
+    # Application des filtres Matière et Salle sur fiches_cc_qs
+    if matiere_id:
+        try:
+            fiches_cc_qs = fiches_cc_qs.filter(matiere_id=int(matiere_id))
+        except ValueError:
+            pass
+
+    if salle_id:
+        try:
+            fiches_cc_qs = fiches_cc_qs.filter(salle_id=int(salle_id))
+        except ValueError:
+            pass
+
+    fiches_cc_list = list(fiches_cc_qs.order_by('-date_creation'))
+
+    fiches_cc_cards = []
+    # Transformation des fiches anonymat en cartes unifiées
+    for f in fiches_cc_list:
+        lignes = f.lignes.all()
+        lignes_avec_notes = [l for l in lignes if l.note is not None or l.moyenne_cc is not None]
+        nb_notes = len(lignes_avec_notes)
+        total_lignes = len(lignes)
+        
+        notes_vals = [float(l.moyenne_cc if l.moyenne_cc is not None else l.note) for l in lignes_avec_notes if (l.moyenne_cc is not None or l.note is not None)]
+        moyenne_generale = round(sum(notes_vals) / len(notes_vals), 2) if notes_vals else None
+
+        fiches_cc_cards.append({
+            'id': f.id,
+            'is_fiche_anonymat': True,
+            'titre_matiere': f.matiere.nom,
+            'code_matiere': f.matiere.code,
+            'filiere_code': f.filiere.code if f.filiere else '',
+            'niveau_num': f.niveau.numero if f.niveau else '',
+            'salle_nom': f.salle.nom if f.salle else (f.salle.code if f.salle else ''),
+            'type_nom': f.type_evaluation.nom if f.type_evaluation else 'Exposé / TP / TD',
+            'mode_display': f.get_mode_fiche_display(),
+            'statut_code': f.statut,
+            'statut_label': f.get_statut_display(),
+            'date_creation': f.date_creation,
+            'nb_notes': nb_notes,
+            'total_etudiants': total_lignes,
+            'moyenne_cc': moyenne_generale,
+            'url_saisie': f"/notes/anonymat/enseignant/saisie/{f.id}/"
+        })
+
+    # B. Évaluations officielles de type TP / TD / Exposés (Hors devoirs sur table & examens)
+    evaluations_cc_qs = queryset.filter(
+        Q(type_evaluation__code__in=['TP', 'TD', 'EXPOSE']) |
+        Q(type_evaluation__nom__icontains='TP') |
+        Q(type_evaluation__nom__icontains='TD') |
+        Q(type_evaluation__nom__icontains='Exposé')
+    ).exclude(
+        Q(type_evaluation__nom__icontains='Table') |
+        Q(type_evaluation__nom__icontains='Examen') |
+        Q(titre__icontains='Sur Table') |
+        Q(titre__icontains='Examen')
+    ).annotate(
+        nb_notes=Count('notes'),
+        moyenne_cc=Avg('notes__valeur')
+    ).order_by('-date_evaluation')
+
+    for ev in evaluations_cc_qs:
+        fiches_cc_cards.append({
+            'id': ev.id,
+            'is_fiche_anonymat': False,
+            'titre_matiere': ev.cours.matiere.nom,
+            'code_matiere': ev.cours.matiere.code,
+            'filiere_code': ev.cours.filiere.code if ev.cours and ev.cours.filiere else '',
+            'niveau_num': ev.cours.niveau.numero if ev.cours and hasattr(ev.cours, 'niveau') and ev.cours.niveau else '',
+            'salle_nom': ev.salle or '',
+            'type_nom': ev.type_evaluation.nom,
+            'mode_display': ev.titre,
+            'statut_code': ev.statut,
+            'statut_label': ev.get_statut_display(),
+            'date_creation': ev.date_evaluation,
+            'nb_notes': ev.nb_notes,
+            'total_etudiants': ev.nb_notes,
+            'moyenne_cc': round(ev.moyenne_cc, 2) if ev.moyenne_cc else None,
+            'url_saisie': f"/notes/evaluations/{ev.id}/saisie/"
+        })
+
+    # Pagination section haut
+    paginator = Paginator(evaluations_haut, 15)
     page = request.GET.get('page')
     evaluations = paginator.get_page(page)
-    
+
     context = {
         'evaluations': evaluations,
+        'evaluations_edt': evaluations_edt,
+        'evaluations_cc_cards': fiches_cc_cards,
         'types_eval': TypeEvaluation.objects.filter(est_actif=True),
+        'matieres_list': matieres_list,
+        'salles_list': salles_list,
+        'selected_matiere': int(matiere_id) if matiere_id and matiere_id.isdigit() else None,
+        'selected_salle': int(salle_id) if salle_id and salle_id.isdigit() else None,
         'annee': annee,
         'statut_choices': Evaluation.STATUT_CHOICES,
-        'titre': 'Liste des Évaluations'
+        'professeur': professeur,
+        'titre': 'Gestion des Évaluations'
     }
     return render(request, 'notes/liste_evaluations.html', context)
+
 
 
 @login_required
@@ -682,19 +887,12 @@ def mes_notes(request):
         messages.error(request, '❌ Vous n\'êtes pas un étudiant.')
         return redirect('tableau_bord:tableau_bord')
     
-    from .models import Note, LigneProcesVerbalNotes, FicheNotesAnonymat
+    from .models import Note, LigneProcesVerbalNotes, FicheNotesAnonymat, DetailBulletin
     from apps.cours.models import Matiere
 
     salle_etu = getattr(etudiant, 'salle', None)
     filiere_etu = etudiant.filiere
     niveau_etu = etudiant.niveau
-
-    # Matières du cursus de l'étudiant
-    matieres_qs = Matiere.objects.all().order_by('code', 'nom')
-    if filiere_etu:
-        mats_fil = matieres_qs.filter(cours__filiere=filiere_etu).distinct()
-        if mats_fil.exists():
-            matieres_qs = mats_fil
 
     # Notes saisies directement (Note objects)
     notes_directes = Note.objects.filter(
@@ -724,6 +922,30 @@ def mes_notes(request):
     if salle_etu:
         fiches_transmises_qs = fiches_transmises_qs.filter(salle=salle_etu)
 
+    # Récupérer les détails de bulletin existants
+    details_bulletin_dict = {
+        db.matiere_id: db for db in DetailBulletin.objects.filter(bulletin__etudiant=etudiant).select_related('matiere') if db.matiere_id
+    }
+
+    # Construire la liste complète des matières concernées
+    mat_ids = set()
+    if filiere_etu:
+        mats_fil = Matiere.objects.filter(cours__filiere=filiere_etu).values_list('id', flat=True)
+        mat_ids.update(mats_fil)
+
+    mat_ids.update(pv_dict_by_matiere.keys())
+    for (m_id, _) in notes_directes_dict.keys():
+        mat_ids.add(m_id)
+    for f in fiches_transmises_qs:
+        if f.matiere_id:
+            mat_ids.add(f.matiere_id)
+    mat_ids.update(details_bulletin_dict.keys())
+
+    if mat_ids:
+        matieres_qs = Matiere.objects.filter(id__in=mat_ids).order_by('code', 'nom')
+    else:
+        matieres_qs = Matiere.objects.all().order_by('code', 'nom')
+
     fiches_by_matiere = {}
     for f in fiches_transmises_qs:
         mid = f.matiere_id
@@ -741,10 +963,11 @@ def mes_notes(request):
 
     for mat in matieres_qs:
         lpv = pv_dict_by_matiere.get(mat.id)
+        db_entry = details_bulletin_dict.get(mat.id)
         f_types = fiches_by_matiere.get(mat.id, set())
 
-        cc_tr = 'CC' in f_types or (lpv and lpv.note_cc is not None)
-        exam_tr = 'EXAM' in f_types or (lpv and lpv.note_examen is not None)
+        cc_tr = 'CC' in f_types or (lpv and lpv.note_cc is not None) or (db_entry and db_entry.note_cc is not None)
+        exam_tr = 'EXAM' in f_types or (lpv and lpv.note_examen is not None) or (db_entry and db_entry.note_examen is not None)
 
         les_deux_transmis = cc_tr and exam_tr
 
@@ -757,6 +980,8 @@ def mes_notes(request):
         elif lpv and lpv.note_cc is not None:
             val_cc = float(lpv.note_cc)
             is_cc_manquante = lpv.note_cc_manquante and les_deux_transmis
+        elif db_entry and db_entry.note_cc is not None:
+            val_cc = float(db_entry.note_cc)
 
         # Note Examen
         val_exam = None
@@ -767,6 +992,8 @@ def mes_notes(request):
         elif lpv and lpv.note_examen is not None:
             val_exam = float(lpv.note_examen)
             is_exam_manquante = lpv.note_examen_manquante and les_deux_transmis
+        elif db_entry and db_entry.note_examen is not None:
+            val_exam = float(db_entry.note_examen)
 
         # Note Rattrapage
         val_ratt = None
@@ -774,22 +1001,26 @@ def mes_notes(request):
             val_ratt = notes_directes_dict[(mat.id, 'RATT')]
         elif lpv and lpv.note_rattrapage is not None:
             val_ratt = float(lpv.note_rattrapage)
+        elif db_entry and getattr(db_entry, 'note_rattrapage', None) is not None:
+            val_ratt = float(db_entry.note_rattrapage)
 
         # Ne retenir que les matières ayant au moins une note ou une transmission
         if val_cc is None and val_exam is None and val_ratt is None and not cc_tr and not exam_tr:
             continue
 
         # Note finale / Moyenne
-        note_finale = 0.0
-        if les_deux_transmis:
+        note_finale = None
+        if lpv and lpv.note_finale is not None and lpv.pv.est_transmis:
+            note_finale = float(lpv.note_finale)
+        elif db_entry and db_entry.moyenne_anonyme is not None:
+            note_finale = float(db_entry.moyenne_anonyme)
+        elif les_deux_transmis or (val_cc is not None and (val_exam is not None or val_ratt is not None)):
             exam_eff = val_ratt if val_ratt is not None else (val_exam if val_exam is not None else 0.0)
             cc_eff = val_cc if val_cc is not None else 0.0
             note_finale = round((cc_eff * 0.40) + (exam_eff * 0.60), 2)
-        elif lpv and lpv.note_finale is not None and lpv.pv.est_transmis and les_deux_transmis:
-            note_finale = float(lpv.note_finale)
 
         # Déterminer la mention / observation
-        if les_deux_transmis:
+        if note_finale is not None and note_finale > 0:
             if note_finale >= 16:
                 mention = "Très Bien"
                 badge_style = "bg-green-100 text-green-800 border-green-200"
@@ -825,8 +1056,8 @@ def mes_notes(request):
             'exam_transmis': exam_tr,
             'is_exam_manquante': is_exam_manquante,
             'val_ratt': val_ratt,
-            'note_finale': note_finale,
-            'les_deux_transmis': les_deux_transmis,
+            'note_finale': note_finale if note_finale is not None else 0.0,
+            'les_deux_transmis': les_deux_transmis or (note_finale is not None and note_finale > 0),
             'mention': mention,
             'badge_style': badge_style
         })
@@ -834,14 +1065,18 @@ def mes_notes(request):
     bulletins = Bulletin.objects.filter(etudiant=etudiant).order_by('-annee_academique', 'semestre')
 
     # Statistiques
-    notes_completes = [m['note_finale'] for m in releve_matieres if m['les_deux_transmis']]
-    mat_validees = sum(1 for m in releve_matieres if m['les_deux_transmis'] and m['note_finale'] >= 10)
-    moyenne_gen = round(sum(notes_completes) / len(notes_completes), 2) if notes_completes else 0.0
-    meilleure_note = max(notes_completes) if notes_completes else 0.0
+    notes_completes = [m['note_finale'] for m in releve_matieres if m['les_deux_transmis'] and m['note_finale'] is not None and m['note_finale'] > 0]
+    mat_validees = sum(1 for m in releve_matieres if m['note_finale'] is not None and m['note_finale'] >= 10.0)
+    moyenne_gen = round(sum(notes_completes) / len(notes_completes), 2) if notes_completes else None
+    meilleure_note = max([m['note_finale'] for m in releve_matieres if m['note_finale'] is not None and m['note_finale'] > 0], default=None)
+
+    total_creds_bulletin = bulletins.aggregate(Sum('credits_obtenus'))['credits_obtenus__sum'] or 0
+    if total_creds_bulletin == 0 and mat_validees > 0:
+        total_creds_bulletin = sum(getattr(m['matiere'], 'credit', getattr(m['matiere'], 'credits', 3)) for m in releve_matieres if m['note_finale'] is not None and m['note_finale'] >= 10.0)
 
     stats = {
         'moyenne_generale': moyenne_gen,
-        'total_credits': bulletins.aggregate(Sum('credits_obtenus'))['credits_obtenus__sum'] or 0,
+        'total_credits': total_creds_bulletin,
         'meilleure_note': meilleure_note,
         'matieres_validees': mat_validees,
         'total_matieres': len(releve_matieres),
@@ -1813,6 +2048,16 @@ def mon_bulletin(request):
         except (ValueError, TypeError):
             semestre_int = 1
         
+    # Auto-synchronisation dynamique depuis les PVs de la classe
+    classe_etu = getattr(etudiant, 'classe', None) or getattr(etudiant, 'salle', None)
+    if classe_etu:
+        from .services import remplir_bordereau_depuis_pv
+        try:
+            remplir_bordereau_depuis_pv(classe_etu, semestre=1 if semestre_int not in [1, 2] else semestre_int)
+        except Exception:
+            pass
+
+    bulletins = Bulletin.objects.filter(etudiant=etudiant).order_by('-annee_academique', 'semestre')
     bulletin_actif = bulletins.filter(annee_academique=annee, semestre=semestre_int).first()
     
     details = []
@@ -1915,43 +2160,9 @@ def api_moyennes_filiere(request, filiere_id):
 # ========== PROCÈS-VERBAUX DE NOTES ==========
 
 @login_required
-def detail_pv(request, pk):
-    """Affiche le procès-verbal de notes (format imprimable officiel)"""
-    role = getattr(request.user, 'type_utilisateur', None)
-    if role not in ('CHEF_ANONYMAT', 'CHEF_ETUDES', 'ADMIN_SYSTEME') and not request.user.is_superuser:
-        messages.error(request, "❌ Accès réservé aux personnes autorisées.")
-        return redirect('tableau_bord:tableau_bord')
-        
-    from apps.notes.models import ProcesVerbalNotes
-    from django.utils import timezone
-    pv = get_object_or_404(ProcesVerbalNotes, pk=pk)
-    
-    lignes = []
-    coefficient = 1.00
-    enseignant_nom = ""
-    niveau_nom = "I"
-    
-    if pv.fiche_anonymat:
-        lignes = pv.fiche_anonymat.lignes.all().select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom')
-        coefficient = pv.fiche_anonymat.type_evaluation.coefficient_default
-        enseignant_nom = pv.fiche_anonymat.enseignant_nom
-        
-        # Déterminer le niveau
-        if lignes.exists() and lignes.first().etudiant and lignes.first().etudiant.niveau:
-            num = lignes.first().etudiant.niveau.numero
-            romains = {1: 'I', 2: 'II', 3: 'III'}
-            niveau_nom = romains.get(num, str(num))
-            
-    context = {
-        'pv': pv,
-        'lignes': lignes,
-        'coefficient': coefficient,
-        'enseignant_nom': enseignant_nom,
-        'niveau_nom': niveau_nom,
-        'date_impression': timezone.now(),
-        'titre': pv.titre
-    }
-    return render(request, 'notes/pv/detail_pv.html', context)
+def detail_pv_old(request, pk):
+    """Affiche le procès-verbal de notes (Redirige vers la vue unifiée)"""
+    return redirect('notes:detail_pv', pk=pk)
 
 
 @login_required
@@ -2566,6 +2777,91 @@ def voir_bulletin_officiel(request, bulletin_id):
 # WORKFLOW CONFIDENTIEL DES FICHES D'ANONYMAT (PAR SALLE, FILIÈRE ET NIVEAU)
 # ==============================================================================
 
+def _obtenir_etudiants_salle_fiche(fiche):
+    """
+    Retourne la liste des étudiants de la classe/salle (ou filière/niveau)
+    dans l'ordre alphabétique strict (Nom, Prénom).
+    """
+    from apps.etudiants.models import Classe, Etudiant, AnneeAcademique
+
+    annee_obj = AnneeAcademique.objects.filter(code=fiche.annee_academique).first() or AnneeAcademique.get_active()
+
+    etudiants = []
+    # 1. Tenter la Classe rattachée à la salle ou filière/niveau
+    if fiche.salle:
+        filters = {'nom__icontains': fiche.salle.code, 'est_active': True}
+        if annee_obj:
+            filters['annee_academique'] = annee_obj
+
+        classe = Classe.objects.filter(**filters).first()
+        if not classe:
+            filters_nom = {'nom__icontains': fiche.salle.nom, 'est_active': True}
+            if annee_obj:
+                filters_nom['annee_academique'] = annee_obj
+            classe = Classe.objects.filter(**filters_nom).first()
+
+        if not classe and fiche.filiere and fiche.niveau:
+            filters_fn = {'filiere': fiche.filiere, 'niveau': fiche.niveau, 'est_active': True}
+            if annee_obj:
+                filters_fn['annee_academique'] = annee_obj
+            classe = Classe.objects.filter(**filters_fn).first()
+
+        if classe:
+            etudiants = list(classe.etudiants.filter(statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom'))
+
+    # 2. Fallback par Filière et Niveau si pas de classe directe
+    if not etudiants and fiche.filiere and fiche.niveau:
+        etudiants = list(Etudiant.objects.filter(
+            filiere=fiche.filiere,
+            niveau=fiche.niveau,
+            statut__in=['INSCRIT', 'ACTIF']
+        ).order_by('nom', 'prenom'))
+
+    # 3. Fallback par Filière seule
+    if not etudiants and fiche.filiere:
+        etudiants = list(Etudiant.objects.filter(
+            filiere=fiche.filiere,
+            statut__in=['INSCRIT', 'ACTIF']
+        ).order_by('nom', 'prenom'))
+
+    return etudiants
+
+
+def _synchroniser_lignes_etudiants_cc(fiche):
+    """
+    Pour une fiche en mode EXPOSE_TP_TD, s'assure que chaque étudiant de la salle/classe
+    possède sa ligne dans l'ordre alphabétique (nom, prenom) SANS JAMAIS effacer les notes déjà saisies !
+    """
+    if fiche.mode_fiche != 'EXPOSE_TP_TD':
+        return
+
+    from .models import LigneFicheNotesAnonymat
+    etudiants = _obtenir_etudiants_salle_fiche(fiche)
+    if not etudiants:
+        return
+
+    lignes_existantes = list(fiche.lignes.all().select_related('etudiant'))
+    lignes_par_etudiant = {l.etudiant_id: l for l in lignes_existantes if l.etudiant_id}
+    lignes_sans_etudiant = [l for l in lignes_existantes if not l.etudiant_id]
+
+    for idx, et in enumerate(etudiants):
+        if et.id in lignes_par_etudiant:
+            # L'étudiant a déjà sa ligne avec ses notes conservées intactes !
+            continue
+
+        if lignes_sans_etudiant:
+            ligne_libre = lignes_sans_etudiant.pop(0)
+            ligne_libre.etudiant = et
+            ligne_libre.save()
+            lignes_par_etudiant[et.id] = ligne_libre
+        else:
+            LigneFicheNotesAnonymat.objects.create(
+                fiche=fiche,
+                numero_anonymat=f"A{idx+1}",
+                etudiant=et
+            )
+
+
 @login_required
 def dashboard_anonymat_enseignant(request):
     """
@@ -2650,8 +2946,8 @@ def dashboard_anonymat_enseignant(request):
                 statut='BROUILLON'
             )
 
-            # Pré-générer les lignes
-            etudiants_liste = list(Etudiant.objects.filter(filiere=filiere, niveau=niveau).order_by('nom', 'prenom'))
+            # Pré-générer les lignes avec les étudiants réels de la salle dans l'ordre alphabétique
+            etudiants_liste = _obtenir_etudiants_salle_fiche(fiche)
             if mode_fiche == 'EXPOSE_TP_TD' and etudiants_liste:
                 for i, et in enumerate(etudiants_liste, start=1):
                     LigneFicheNotesAnonymat.objects.create(
@@ -2714,53 +3010,74 @@ def saisie_fiche_enseignant(request, fiche_id):
         return redirect('notes:liste_proces_verbaux')
 
     if request.method == 'POST':
-        action = request.POST.get('action')
+        if fiche.statut != 'BROUILLON':
+            messages.warning(request, "🔒 Fiche transmise au Chef de l'Anonymat : Cette fiche a déjà été transmise et ne peut plus être modifiée (Consultation uniquement).")
+            return redirect('notes:saisie_fiche_enseignant', fiche_id=fiche.id)
+
+        actions = request.POST.getlist('action')
+        if 'transmettre_chef_anonymat' in actions:
+            action = 'transmettre_chef_anonymat'
+        elif 'ajouter_ligne' in actions:
+            action = 'ajouter_ligne'
+        elif 'supprimer_ligne' in actions:
+            action = 'supprimer_ligne'
+        elif 'importer_ocr' in actions:
+            action = 'importer_ocr'
+        else:
+            action = request.POST.get('action')
 
         def _sauvegarder_post():
-            for key, value in request.POST.items():
-                if key.startswith('code_'):
-                    ligne_id = key.replace('code_', '')
-                    code_val = value.strip()
+            for ligne in fiche.lignes.all():
+                ligne_id = str(ligne.id)
+
+                # Si aucun champ de cette ligne n'est présent dans POST, ne pas écraser les données en base
+                has_notes_in_post = any(
+                    k in request.POST for k in [
+                        f'note1_{ligne_id}', f'note2_{ligne_id}', f'note3_{ligne_id}',
+                        f'note4_{ligne_id}', f'note5_{ligne_id}', f'note_{ligne_id}', f'code_{ligne_id}'
+                    ]
+                )
+                if not has_notes_in_post:
+                    continue
+
+                code_val = request.POST.get(f'code_{ligne_id}')
+                if code_val and code_val.strip():
+                    ligne.numero_anonymat = code_val.strip()
+
+                def _parse_val(val_str):
+                    if val_str is None or not val_str.strip():
+                        return None
                     try:
-                        ligne = LigneFicheNotesAnonymat.objects.get(pk=ligne_id, fiche=fiche)
-                        if code_val:
-                            ligne.numero_anonymat = code_val
+                        v = float(val_str.replace(',', '.'))
+                        if v > 20.0:
+                            return 20.0
+                        elif v < 0.0:
+                            return 0.0
+                        return v
+                    except ValueError:
+                        return None
 
-                        def _parse_val(val_str):
-                            if not val_str or not val_str.strip():
-                                return None
-                            try:
-                                v = float(val_str.replace(',', '.'))
-                                if v > 20.0:
-                                    return 20.0
-                                elif v < 0.0:
-                                    return 0.0
-                                return v
-                            except ValueError:
-                                return None
+                if f'note1_{ligne_id}' in request.POST:
+                    ligne.note_1 = _parse_val(request.POST.get(f'note1_{ligne_id}'))
+                if f'note2_{ligne_id}' in request.POST:
+                    ligne.note_2 = _parse_val(request.POST.get(f'note2_{ligne_id}'))
+                if f'note3_{ligne_id}' in request.POST:
+                    ligne.note_3 = _parse_val(request.POST.get(f'note3_{ligne_id}'))
+                if f'note4_{ligne_id}' in request.POST:
+                    ligne.note_4 = _parse_val(request.POST.get(f'note4_{ligne_id}'))
+                if f'note5_{ligne_id}' in request.POST:
+                    ligne.note_5 = _parse_val(request.POST.get(f'note5_{ligne_id}'))
 
-                        n1 = _parse_val(request.POST.get(f'note1_{ligne_id}'))
-                        n2 = _parse_val(request.POST.get(f'note2_{ligne_id}'))
-                        n3 = _parse_val(request.POST.get(f'note3_{ligne_id}'))
-                        n4 = _parse_val(request.POST.get(f'note4_{ligne_id}'))
-                        n5 = _parse_val(request.POST.get(f'note5_{ligne_id}'))
+                if f'note_{ligne_id}' in request.POST:
+                    note_unique = _parse_val(request.POST.get(f'note_{ligne_id}'))
+                    if note_unique is not None:
+                        if ligne.note_1 is None:
+                            ligne.note_1 = note_unique
+                        if fiche.mode_fiche == 'DEVOIR_SUR_TABLE':
+                            ligne.note = note_unique
 
-                        note_unique = _parse_val(request.POST.get(f'note_{ligne_id}'))
-                        if note_unique is not None and n1 is None:
-                            n1 = note_unique
-                            if fiche.mode_fiche == 'DEVOIR_SUR_TABLE':
-                                ligne.note = note_unique
-
-                        ligne.note_1 = n1
-                        ligne.note_2 = n2
-                        ligne.note_3 = n3
-                        ligne.note_4 = n4
-                        ligne.note_5 = n5
-                        
-                        ligne.calculer_moyenne_cc(imputer_zero_si_vide=True)
-                        ligne.save()
-                    except LigneFicheNotesAnonymat.DoesNotExist:
-                        pass
+                ligne.calculer_moyenne_cc(imputer_zero_si_vide=True)
+                ligne.save()
             
             # Recalculer les moyennes de toutes les lignes sur le nombre d'évaluations global N_eval
             fiche.recalculer_toutes_les_moyennes()
@@ -2809,7 +3126,25 @@ def saisie_fiche_enseignant(request, fiche_id):
             if fichier:
                 fiche.fichier_fiche = fichier
                 fiche.save()
+
+                from .ocr_anonymat_service import analyser_fiche_anonymat, verifier_entete_fiche_ocr
                 
+                # 1. Vérification OCR intelligente de l'en-tête (Matière, Enseignant, Type d'évaluation, Classe)
+                res_entete = verifier_entete_fiche_ocr(
+                    fiche.fichier_fiche.path,
+                    matiere_attendue=fiche.matiere.nom,
+                    enseignant_attendu=fiche.enseignant_nom or (fiche.enseignant.get_full_name() if fiche.enseignant else ""),
+                    type_eval_attendu=fiche.type_evaluation.nom,
+                    classe_attendue=fiche.salle.nom if fiche.salle else (fiche.filiere.code if fiche.filiere else "")
+                )
+
+                if res_entete['alertes']:
+                    for al in res_entete['alertes']:
+                        messages.warning(request, f"⚠️ OCR Entête : {al}")
+                else:
+                    messages.info(request, f"🔍 Vérification Entête OCR : Matière '{res_entete['matiere_detectee']}', Enseignant '{res_entete['enseignant_detecte']}', Évaluation '{res_entete['type_eval_detecte']}'")
+
+                # 2. Extraction des lignes de notes
                 resultats = analyser_fiche_anonymat(fiche.fichier_fiche.path, mode_enseignant=True)
                 if resultats:
                     for item in resultats:
@@ -2842,15 +3177,17 @@ def saisie_fiche_enseignant(request, fiche_id):
                             ligne.note_5 = n5
                             ligne.calculer_moyenne_cc(imputer_zero_si_vide=True)
                             ligne.save()
-                    messages.success(request, f"✨ OCR exécuté : {len(resultats)} ligne(s) de note CC extraite(s) avec succès !")
+                    messages.success(request, f"✨ OCR exécuté : {len(resultats)} ligne(s) de note extraite(s) avec succès !")
                 else:
                     messages.warning(request, "⚠️ OCR terminé, aucune note détectée. Saisie manuelle requise.")
             return redirect('notes:saisie_fiche_enseignant', fiche_id=fiche.id)
 
         elif action == 'transmettre_chef_anonymat':
             from django.db.models import Q
-            lignes = fiche.lignes.all()
+            # 1. Sauvegarder impérativement les notes saisies dans le formulaire avant la transmission
+            _sauvegarder_post()
 
+            lignes = fiche.lignes.all()
             if not lignes.exists():
                 messages.error(request, "❌ Transmission impossible : La fiche d'anonymat est vide (aucune ligne).")
                 return redirect('notes:saisie_fiche_enseignant', fiche_id=fiche.id)
@@ -2931,10 +3268,16 @@ def saisie_fiche_enseignant(request, fiche_id):
             messages.success(request, "📨 Procès-Verbal de CC transmis confidentiellement au Chef de l'Anonymat !")
             return redirect('notes:dashboard_anonymat_enseignant')
 
+    if fiche.mode_fiche == 'EXPOSE_TP_TD':
+        _synchroniser_lignes_etudiants_cc(fiche)
+        lignes = fiche.lignes.all().select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom', 'id')
+    else:
+        lignes = fiche.lignes.all().order_by('id')
+
     context = {
         'fiche': fiche,
-        'lignes': fiche.lignes.all().order_by('id'),
-        'titre': f"Saisie Anonymat - {fiche.matiere.nom}"
+        'lignes': lignes,
+        'titre': f"Saisie Notes CC - {fiche.matiere.nom}"
     }
     return render(request, 'notes/anonymat/saisie_enseignant.html', context)
 
@@ -2946,8 +3289,8 @@ def dashboard_chef_anonymat(request):
     Réception des fiches transmises par les enseignants, matching et génération du PV.
     """
     role = getattr(request.user, 'type_utilisateur', None)
-    if role not in ('CHEF_ANONYMAT', 'ADMIN_PEDAGOGIQUE', 'ADMIN_SYSTEME') and not request.user.is_superuser:
-        messages.error(request, "❌ Accès réservé au Chef de l'Anonymat.")
+    if role not in ('CHEF_ANONYMAT', 'CHEF_ETUDES', 'DIRECTEUR', 'ADMIN_PEDAGOGIQUE', 'ADMIN_SYSTEME') and not request.user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de l'Anonymat et à la Direction Pédagogique.")
         return redirect('tableau_bord:tableau_bord')
 
     from .models import FicheNotesAnonymat
@@ -2980,16 +3323,23 @@ def matching_anonymat_chef(request, fiche_id):
     2. Génération du Procès-Verbal de Notes officiel.
     3. Transmission confidentielle au Chef des Études.
     """
-    role = getattr(request.user, 'type_utilisateur', None)
-    if role not in ('CHEF_ANONYMAT', 'ADMIN_PEDAGOGIQUE', 'ADMIN_SYSTEME') and not request.user.is_superuser:
-        messages.error(request, "❌ Accès réservé au Chef de l'Anonymat.")
-        return redirect('tableau_bord:tableau_bord')
-
     from .models import FicheNotesAnonymat, LigneFicheNotesAnonymat, ProcesVerbalNotes
     from apps.etudiants.models import Etudiant
     from .ocr_anonymat_service import analyser_fiche_anonymat, effectuer_matching_etudiants
 
     fiche = get_object_or_404(FicheNotesAnonymat, pk=fiche_id)
+    role = getattr(request.user, 'type_utilisateur', None)
+
+    # Si le Chef des Études ou le Directeur consulte une fiche, le rediriger automatiquement vers le PV unifié de la matière
+    if role in ('CHEF_ETUDES', 'DIRECTEUR'):
+        from .services import actualiser_pv_unifie
+        pv = actualiser_pv_unifie(fiche.matiere, fiche.salle, fiche.filiere, fiche.niveau, request.user)
+        return redirect('notes:detail_pv', pk=pv.pk)
+
+    if role not in ('CHEF_ANONYMAT', 'CHEF_ETUDES', 'DIRECTEUR', 'ADMIN_PEDAGOGIQUE', 'ADMIN_SYSTEME') and not request.user.is_superuser:
+        messages.error(request, "❌ Accès réservé au Chef de l'Anonymat et à la Direction Pédagogique.")
+        return redirect('tableau_bord:tableau_bord')
+
     etudiants_classe = Etudiant.objects.filter(filiere=fiche.filiere, niveau=fiche.niveau).order_by('nom', 'prenom')
 
     if request.method == 'POST':
@@ -3047,7 +3397,27 @@ def matching_anonymat_chef(request, fiche_id):
                 fiche.fichier_fiche = fichier
                 fiche.save()
 
-                # OCR mode complet (3 colonnes)
+                from .ocr_anonymat_service import analyser_fiche_anonymat, effectuer_matching_etudiants, verifier_entete_fiche_ocr
+
+                # 1. Contrôle préalable méticuleux de l'en-tête (Matière, Enseignant, Type, Classe)
+                res_entete = verifier_entete_fiche_ocr(
+                    fiche.fichier_fiche.path,
+                    matiere_attendue=fiche.matiere.nom,
+                    enseignant_attendu=fiche.enseignant_nom or (fiche.enseignant.get_full_name() if fiche.enseignant else ""),
+                    type_eval_attendu=fiche.type_evaluation.nom,
+                    classe_attendue=fiche.salle.nom if fiche.salle else (fiche.filiere.code if fiche.filiere else "")
+                )
+
+                if res_entete['alertes']:
+                    for al in res_entete['alertes']:
+                        messages.warning(request, f"⚠️ Contrôle Entête OCR : {al}")
+                else:
+                    messages.info(
+                        request, 
+                        f"🔍 Entête OCR Validé : Matière '{res_entete['matiere_detectee']}', Enseignant '{res_entete['enseignant_detecte']}', Évaluation '{res_entete['type_eval_detecte']}'"
+                    )
+
+                # 2. Matching intelligent des étudiants avec les codes anonymes
                 resultats = analyser_fiche_anonymat(fiche.fichier_fiche.path, mode_enseignant=False)
                 if resultats:
                     correspondances = effectuer_matching_etudiants(resultats, etudiants_classe)
@@ -3079,7 +3449,7 @@ def matching_anonymat_chef(request, fiche_id):
                     from .services import actualiser_pv_unifie
                     actualiser_pv_unifie(fiche.matiere, fiche.salle, fiche.filiere, fiche.niveau, request.user)
 
-                    messages.success(request, f"🔍 Matching OCR complet réussi sur {len(correspondances)} lignes !")
+                    messages.success(request, f"🔍 Matching OCR complet réussi sur {len(correspondances)} lignes avec contrôle d'en-tête !")
                 else:
                     messages.warning(request, "⚠️ OCR incomplet, veuillez vérifier les lignes ci-dessous.")
             return redirect('notes:matching_anonymat_chef', fiche_id=fiche.id)
@@ -3107,9 +3477,14 @@ def matching_anonymat_chef(request, fiche_id):
             )
             return redirect('notes:dashboard_chef_anonymat')
 
+    if fiche.mode_fiche == 'EXPOSE_TP_TD':
+        lignes = fiche.lignes.all().select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom', 'id')
+    else:
+        lignes = fiche.lignes.all().select_related('etudiant').order_by('id')
+
     context = {
         'fiche': fiche,
-        'lignes': fiche.lignes.all().select_related('etudiant'),
+        'lignes': lignes,
         'etudiants_classe': etudiants_classe,
         'pv': getattr(fiche, 'proces_verbal', None),
         'titre': f"Matching & PV Notes - {fiche.matiere.nom}"
@@ -3156,16 +3531,92 @@ def supprimer_fiche_chef_anonymat(request, fiche_id):
 
 @login_required
 def detail_pv(request, pk):
-    """Affiche le Procès-Verbal de Notes unifié d'une Matière (CC 40%, Examen 60%, Rattrapage, Note Finale)."""
-    from .models import ProcesVerbalNotes
+    """
+    Affiche et permet la modification du Procès-Verbal de Notes unifié.
+    RÈGLE STRICTE : Seul le Chef des Études (ou Admin) peut modifier les notes sur le PV.
+    Le Chef de l'Anonymat dispose d'un accès en CONSULTATION SEULE.
+    """
+    from .models import ProcesVerbalNotes, DetailBulletin, Bulletin
+    from decimal import Decimal
+
     pv = get_object_or_404(ProcesVerbalNotes, pk=pk)
     pv.actualiser_depuis_fiches_anonymat()
+
+    user_role = getattr(request.user, 'type_utilisateur', None)
+    can_edit = user_role in ('CHEF_ETUDES', 'ADMIN_PEDAGOGIQUE', 'ADMIN_SYSTEME') or request.user.is_superuser
+    is_chef_anonymat = user_role == 'CHEF_ANONYMAT' and not request.user.is_superuser
+
+    if request.method == 'POST':
+        if not can_edit:
+            messages.error(request, "❌ Seul le Chef des Études est autorisé à modifier les notes sur le Procès-Verbal. Le Chef de l'Anonymat dispose d'un accès en consultation seule.")
+            return redirect('notes:detail_pv', pk=pk)
+
+        # Traitement des modifications de notes soumises par le Chef des Études
+        modified_count = 0
+        lignes = pv.lignes.select_related('etudiant').all()
+
+        for lg in lignes:
+            prefix = f"note_lg_{lg.id}_"
+            
+            val_cc_str = request.POST.get(f"{prefix}cc")
+            val_exam_str = request.POST.get(f"{prefix}exam")
+            val_ratt_str = request.POST.get(f"{prefix}ratt")
+
+            def parse_dec(val_str):
+                if val_str is None or val_str.strip() == '':
+                    return None
+                try:
+                    v = Decimal(val_str.replace(',', '.').strip())
+                    return max(Decimal('0.00'), min(Decimal('20.00'), v))
+                except Exception:
+                    return None
+
+            if f"{prefix}cc" in request.POST:
+                lg.note_cc = parse_dec(val_cc_str)
+            if f"{prefix}exam" in request.POST:
+                lg.note_examen = parse_dec(val_exam_str)
+            if f"{prefix}ratt" in request.POST:
+                lg.note_rattrapage = parse_dec(val_ratt_str)
+
+            # Recalcul de la note finale : (CC * 40%) + (Examen/Rattrapage * 60%)
+            exam_eff = lg.note_rattrapage if lg.note_rattrapage is not None else lg.note_examen
+            if lg.note_cc is not None and exam_eff is not None:
+                lg.note_finale = (lg.note_cc * Decimal('0.4')) + (exam_eff * Decimal('0.6'))
+            elif exam_eff is not None:
+                lg.note_finale = exam_eff * Decimal('0.6')
+            elif lg.note_cc is not None:
+                lg.note_finale = lg.note_cc * Decimal('0.4')
+            else:
+                lg.note_finale = None
+
+            lg.save()
+            modified_count += 1
+
+            # Impact immédiat sur les bulletins étudiants
+            if lg.etudiant and pv.matiere and lg.note_finale is not None:
+                b_qs = Bulletin.objects.filter(etudiant=lg.etudiant)
+                for b in b_qs:
+                    details = DetailBulletin.objects.filter(bulletin=b, matiere__code=pv.matiere.code)
+                    for d in details:
+                        d.note_cc = lg.note_cc
+                        d.note_examen = lg.note_examen
+                        d.note_rattrapage = lg.note_rattrapage
+                        d.moyenne_matiere = lg.note_finale
+                        d.est_validee = d.moyenne_matiere >= Decimal('10.00')
+                        d.save()
+                    b.calculer_moyenne()
+                    b.save()
+
+        messages.success(request, f"✅ Procès-Verbal mis à jour par le Chef des Études ({modified_count} ligne(s) actualisée(s)).")
+        return redirect('notes:detail_pv', pk=pk)
 
     lignes = pv.lignes.select_related('etudiant').order_by('etudiant__nom', 'etudiant__prenom')
 
     context = {
         'pv': pv,
         'lignes': lignes,
+        'can_edit': can_edit,
+        'is_chef_anonymat': is_chef_anonymat,
         'titre': f"Procès-Verbal - {pv.matiere.nom if pv.matiere else ''}"
     }
     return render(request, 'notes/detail_pv.html', context)
@@ -3358,10 +3809,9 @@ def liste_proces_verbaux(request):
     salle_id = request.GET.get('salle_id', '').strip()
     q = request.GET.get('q', '').strip()
 
-    # Queryset de base : uniquement les Procès-Verbaux de Notes générés/transmis (exclut les fiches d'anonymat brutes)
+    # Queryset de base : Procès-Verbaux générés ou fiches transmises par l'Enseignant / Chef Anonymat
     fiches = FicheNotesAnonymat.objects.filter(
-        proces_verbal__isnull=False,
-        statut__in=['TRANSMIS_CHEF_ETUDES', 'PV_GENERE', 'VALIDE']
+        statut__in=['TRANSMIS_CHEF_ANONYMAT', 'TRANSMIS_CHEF_ETUDES', 'PV_GENERE', 'VALIDE', 'MATCH_EFFECTUE']
     ).select_related('matiere', 'filiere', 'niveau', 'salle', 'type_evaluation', 'enseignant', 'proces_verbal').order_by('-date_transmission_etudes', '-date_creation')
 
     # Filtrage dynamique
@@ -3379,15 +3829,65 @@ def liste_proces_verbaux(request):
             Q(proces_verbal__titre__icontains=q)
         )
 
-    # Répartition stricte par type d'évaluation (CC, EXAMEN, RATTRAPAGE)
+    # Répartition par type d'évaluation et raccordement au PV unifié de la matière
+    from .services import actualiser_pv_unifie
+
     fiches_cc = []
     fiches_examen = []
     fiches_rattrapage = []
 
+    # Détermination des types d'évaluations (CC, EXA, RAT) transmis par (matiere, salle/filiere+niveau)
+    eval_types_map = {}
     for f in fiches:
+        key = (f.matiere_id, f.salle_id, f.filiere_id, f.niveau_id)
+        if key not in eval_types_map:
+            eval_types_map[key] = set()
+
         code_type = f.type_evaluation.code.upper() if (f.type_evaluation and hasattr(f.type_evaluation, 'code')) else 'CC'
         nom_type = str(f.type_evaluation).upper() if f.type_evaluation else ''
+
+        if 'EXAM' in code_type or 'EXAM' in nom_type:
+            eval_types_map[key].add('EXA')
+        elif 'RATT' in code_type or 'RATT' in nom_type:
+            eval_types_map[key].add('RAT')
+        else:
+            eval_types_map[key].add('CC')
+
+        if getattr(f, 'proces_verbal', None):
+            pv_lignes = f.proces_verbal.lignes
+            if pv_lignes.filter(note_cc__isnull=False).exists():
+                eval_types_map[key].add('CC')
+            if pv_lignes.filter(note_examen__isnull=False).exists():
+                eval_types_map[key].add('EXA')
+            if pv_lignes.filter(note_rattrapage__isnull=False).exists():
+                eval_types_map[key].add('RAT')
+
+    for f in fiches:
+        if not getattr(f, 'proces_verbal_id', None):
+            try:
+                pv = actualiser_pv_unifie(f.matiere, f.salle, f.filiere, f.niveau, request.user)
+                f.proces_verbal = pv
+                f.save(update_fields=['proces_verbal'])
+            except Exception:
+                pass
+
+        key = (f.matiere_id, f.salle_id, f.filiere_id, f.niveau_id)
+        types_set = eval_types_map.get(key, set())
         
+        # Le type direct de la fiche actuelle est toujours actif
+        code_type = f.type_evaluation.code.upper() if (f.type_evaluation and hasattr(f.type_evaluation, 'code')) else 'CC'
+        nom_type = str(f.type_evaluation).upper() if f.type_evaluation else ''
+        if 'EXAM' in code_type or 'EXAM' in nom_type:
+            types_set.add('EXA')
+        elif 'RATT' in code_type or 'RATT' in nom_type:
+            types_set.add('RAT')
+        else:
+            types_set.add('CC')
+
+        f.has_cc = 'CC' in types_set
+        f.has_exa = 'EXA' in types_set
+        f.has_rat = 'RAT' in types_set
+
         if 'EXAM' in code_type or 'EXAM' in nom_type:
             fiches_examen.append(f)
         elif 'RATT' in code_type or 'RATT' in nom_type:
@@ -3414,7 +3914,20 @@ def liste_proces_verbaux(request):
         'filiere_id': filiere_id,
         'niveau_id': niveau_id,
         'salle_id': salle_id,
+        'salle_id_int': int(salle_id) if (salle_id and salle_id.isdigit()) else None,
         'q': q,
         'titre': 'Procès-Verbaux d\'Anonymat'
     }
+
+    if request.GET.get('ajax') == '1' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        return JsonResponse({
+            'count_cc': len(fiches_cc),
+            'count_examen': len(fiches_examen),
+            'count_rattrapage': len(fiches_rattrapage),
+            'html_cc': render_to_string('notes/includes/pv_section_cc.html', context, request=request),
+            'html_examen': render_to_string('notes/includes/pv_section_examen.html', context, request=request),
+            'html_rattrapage': render_to_string('notes/includes/pv_section_rattrapage.html', context, request=request),
+        })
+
     return render(request, 'notes/liste_proces_verbaux.html', context)

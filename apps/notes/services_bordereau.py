@@ -36,59 +36,86 @@ def calculer_bordereau_matrice(classe, semestre=1):
 
     is_annuel = str(semestre).lower() in ['annuel', 'annual', '3', '0']
 
-    # 1. Récupération des UEs rattachées à la filière/niveau ou globales
-    ues_qs = UniteEnseignement.objects.filter(
-        Q(filiere=filiere, niveau=niveau) | Q(filiere__isnull=True, niveau__isnull=True) | Q(filiere=filiere, niveau__isnull=True)
-    ).distinct().order_by('code')
+    # 1. Détermination stricte des matières rattachées à cette filière / niveau / classe
+    from apps.notes.models import Cours as NotesCours, FicheNotesAnonymat, ProcesVerbalNotes
+    from apps.cours.models import Cours as CoursApp
 
+    # (a) Matières officielles rattachées aux UEs de cette filière et de ce niveau
+    ues_qs = UniteEnseignement.objects.filter(filiere=filiere, niveau=niveau).distinct()
+    matieres_curriculum = set(Matiere.objects.filter(unite_enseignement__in=ues_qs, est_actif=True).values_list('id', flat=True)) if ues_qs.exists() else set()
+
+    # (b) Matières officielles programmées en Cours pour cette filière et ce niveau
+    matieres_cours = set(NotesCours.objects.filter(filiere=filiere, niveau=niveau).values_list('matiere_id', flat=True))
+    salle_obj = getattr(classe, 'salle', None)
+    if salle_obj:
+        matieres_cours.update(CoursApp.objects.filter(filiere=filiere, salle=salle_obj).values_list('matiere_id', flat=True))
+
+    matieres_ids = matieres_curriculum | matieres_cours
+
+    # (c) Si AUCUNE matière officielle (UE / Cours) n'est définie pour ce niveau, rechercher les Fiches/PVs créés spécifiquement pour la classe
+    if not matieres_ids:
+        nom_classe = getattr(classe, 'nom', '')
+        if salle_obj:
+            salle_filter = Q(salle=salle_obj)
+        elif nom_classe:
+            salle_filter = Q(salle__nom__icontains=nom_classe) | Q(salle__code__icontains=nom_classe)
+        else:
+            salle_filter = Q(salle__isnull=True)
+
+        matieres_ids.update(FicheNotesAnonymat.objects.filter(
+            salle_filter, filiere=filiere, niveau=niveau
+        ).values_list('matiere_id', flat=True))
+        matieres_ids.update(ProcesVerbalNotes.objects.filter(
+            salle_filter, filiere=filiere, niveau=niveau
+        ).values_list('matiere_id', flat=True))
+
+        etudiants_classe = list(classe.etudiants.filter(est_actif=True).order_by('nom', 'prenom'))
+        etudiants_ids = [e.id for e in etudiants_classe]
+        if etudiants_ids:
+            matieres_ids.update(Note.objects.filter(etudiant_id__in=etudiants_ids).values_list('evaluation__cours__matiere_id', flat=True))
+
+    matieres_ids = {m_id for m_id in matieres_ids if m_id is not None}
+
+    # Sélection et filtrage des matières actives par semestre
+    if is_annuel:
+        matieres_qs = Matiere.objects.filter(id__in=matieres_ids, est_actif=True).order_by('semestre', 'code')
+    else:
+        try:
+            sem_int = int(semestre)
+        except (ValueError, TypeError):
+            sem_int = 1
+        matieres_qs = Matiere.objects.filter(id__in=matieres_ids, semestre=sem_int, est_actif=True).order_by('code')
+
+    matieres_all = list(matieres_qs)
     ues_structure = []
-    matieres_all = []
-    
-    for ue in ues_qs:
-        if is_annuel:
-            matieres = list(Matiere.objects.filter(unite_enseignement=ue, est_actif=True).order_by('semestre', 'code'))
-        else:
-            try:
-                sem_int = int(semestre)
-            except (ValueError, TypeError):
-                sem_int = 1
-            matieres = list(Matiere.objects.filter(unite_enseignement=ue, semestre=sem_int, est_actif=True).order_by('code'))
-            if not matieres:
-                matieres = list(Matiere.objects.filter(unite_enseignement=ue, est_actif=True).order_by('code'))
-            
-        if matieres:
-            total_credits_ue = sum(m.credit for m in matieres)
-            ues_structure.append({
-                'id': ue.id,
-                'code': ue.code,
-                'nom': ue.nom,
-                'matieres': matieres,
-                'total_credits': total_credits_ue
-            })
-            matieres_all.extend(matieres)
 
-    # Si aucune UE spécifique n'est trouvée, récupérer les matières directement par semestre
-    if not ues_structure:
-        if is_annuel:
-            matieres_orphelines = list(Matiere.objects.filter(est_actif=True).order_by('semestre', 'code'))
-            sem_code = "UE_ANNUEL"
-        else:
-            try:
-                sem_int = int(semestre)
-            except (ValueError, TypeError):
-                sem_int = 1
-            matieres_orphelines = list(Matiere.objects.filter(semestre=sem_int, est_actif=True).order_by('code'))
-            sem_code = f"UE_S{sem_int}"
+    # Regroupement des matières par UE s'il y en a
+    ue_ids = set(m.unite_enseignement_id for m in matieres_all if m.unite_enseignement_id)
+    if ue_ids:
+        ues_defined = UniteEnseignement.objects.filter(id__in=ue_ids).order_by('code')
+        for ue in ues_defined:
+            mats_ue = [m for m in matieres_all if m.unite_enseignement_id == ue.id]
+            if mats_ue:
+                total_credits_ue = sum(m.credit for m in mats_ue)
+                ues_structure.append({
+                    'id': ue.id,
+                    'code': ue.code,
+                    'nom': ue.nom,
+                    'matieres': mats_ue,
+                    'total_credits': total_credits_ue
+                })
 
-        if matieres_orphelines:
-            ues_structure.append({
-                'id': 0,
-                'code': sem_code,
-                'nom': 'Enseignements Généraux',
-                'matieres': matieres_orphelines,
-                'total_credits': sum(m.credit for m in matieres_orphelines)
-            })
-            matieres_all.extend(matieres_orphelines)
+    # Matières orphelines (sans UE)
+    mats_sans_ue = [m for m in matieres_all if not m.unite_enseignement_id]
+    if mats_sans_ue:
+        sem_code = "UE_ANNUEL" if is_annuel else f"UE_S{semestre}"
+        ues_structure.append({
+            'id': 0,
+            'code': sem_code,
+            'nom': 'Enseignements Généraux',
+            'matieres': mats_sans_ue,
+            'total_credits': sum(m.credit for m in mats_sans_ue)
+        })
 
     # 2. Liste des étudiants de la classe
     etudiants = list(classe.etudiants.filter(est_actif=True).order_by('nom', 'prenom'))
@@ -117,6 +144,41 @@ def calculer_bordereau_matrice(classe, semestre=1):
             notes_dict[eid][mid] = {}
         notes_dict[eid][mid][code_type] = float(n.valeur)
 
+    # 3b. Préchargement des Détails de Bulletin (remplis depuis les PVs)
+    details_qs = DetailBulletin.objects.filter(
+        bulletin__etudiant__in=etudiants
+    ).select_related('bulletin', 'matiere')
+
+    details_dict = {}
+    for d in details_qs:
+        eid = d.bulletin.etudiant_id
+        mid = d.matiere_id
+        mcode = d.matiere.code.strip().upper() if (d.matiere and d.matiere.code) else None
+        val_mat = float(d.moyenne_matiere) if d.moyenne_matiere is not None else 0.0
+        
+        details_dict[(eid, mid)] = val_mat
+        if mcode:
+            details_dict[(eid, mcode)] = val_mat
+
+    # 3c. Préchargement des PVs validés/transmis
+    from apps.notes.models import LigneProcesVerbalNotes
+    lignes_pv_qs = LigneProcesVerbalNotes.objects.filter(
+        etudiant__in=etudiants,
+        pv__est_transmis=True
+    ).select_related('pv', 'pv__matiere')
+
+    pvs_dict = {}
+    for l in lignes_pv_qs:
+        eid = l.etudiant_id
+        mid = l.pv.matiere_id if l.pv else None
+        mcode = l.pv.matiere.code.strip().upper() if (l.pv and l.pv.matiere and l.pv.matiere.code) else None
+        val_pv = float(l.note_finale) if l.note_finale is not None else 0.0
+
+        if mid:
+            pvs_dict[(eid, mid)] = val_pv
+        if mcode:
+            pvs_dict[(eid, mcode)] = val_pv
+
     # 4. Calcul par étudiant
     etudiants_rows = []
 
@@ -143,14 +205,23 @@ def calculer_bordereau_matrice(classe, semestre=1):
                 exam = m_dict.get('EXAM') or m_dict.get('EXAMEN')
                 ratt = m_dict.get('RATT') or m_dict.get('RATTRAPAGE')
 
-                # Logique de note finale
-                note_exam = ratt if ratt is not None else (exam if exam is not None else 0.0)
-                note_cc = cc if cc is not None else 0.0
+                m_code_key = mat.code.strip().upper() if getattr(mat, 'code', None) else ''
 
-                if cc is None and exam is None and ratt is None:
-                    note_finale = 0.0
+                # Logique de note finale avec fallbacks sur DetailBulletin et PVs transmis
+                if cc is not None or exam is not None or ratt is not None:
+                    note_exam = ratt if ratt is not None else (exam if exam is not None else 0.0)
+                    note_cc = cc if cc is not None else 0.0
+                    note_calc = (note_cc * 0.4) + (note_exam * 0.6)
+                    if note_calc == 0.0 and ((et.id, mat.id) in details_dict or (et.id, m_code_key) in details_dict or (et.id, mat.id) in pvs_dict or (et.id, m_code_key) in pvs_dict):
+                        note_finale = details_dict.get((et.id, mat.id), details_dict.get((et.id, m_code_key), pvs_dict.get((et.id, mat.id), pvs_dict.get((et.id, m_code_key), 0.0))))
+                    else:
+                        note_finale = note_calc
+                elif (et.id, mat.id) in details_dict or (et.id, m_code_key) in details_dict:
+                    note_finale = details_dict.get((et.id, mat.id), details_dict.get((et.id, m_code_key), 0.0))
+                elif (et.id, mat.id) in pvs_dict or (et.id, m_code_key) in pvs_dict:
+                    note_finale = pvs_dict.get((et.id, mat.id), pvs_dict.get((et.id, m_code_key), 0.0))
                 else:
-                    note_finale = (note_cc * 0.4) + (note_exam * 0.6)
+                    note_finale = 0.0
 
                 note_finale = arrondir_note(note_finale, 2)
                 coef = mat.credit

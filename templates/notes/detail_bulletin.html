@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load l10n %}
 
 {% block title %}Bulletin de Notes - IAI-Cameroun{% endblock %}
 
@@ -58,6 +59,9 @@
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Progression Crédits</span>
                 <p class="font-bold text-gray-800">{{ progression }}%</p>
+                <div class="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden">
+                    <div class="bg-purple-600 h-2 rounded-full transition-all duration-500" style="width: {{ progression|unlocalize }}%"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -71,6 +75,7 @@
                         <th class="p-5">Matière</th>
                         <th class="p-5">CC (40%)</th>
                         <th class="p-5">Examen (60%)</th>
+                        <th class="p-5 text-purple-700 font-bold">Rattrapage</th>
                         <th class="p-5">Moyenne Matière</th>
                         <th class="p-5">Crédits</th>
                         <th class="p-5 text-right">Validation</th>
@@ -87,6 +92,9 @@
                         </td>
                         <td class="p-5 font-semibold text-gray-600">
                             {{ detail.note_examen|default:"--" }}
+                        </td>
+                        <td class="p-5 font-bold text-purple-700">
+                            {{ detail.note_rattrapage|default:"--" }}
                         </td>
                         <td class="p-5 font-extrabold {% if detail.moyenne_matiere >= 10 %}text-green-600{% else %}text-red-500{% endif %}">
                             {{ detail.moyenne_matiere|floatformat:2 }}

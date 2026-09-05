@@ -313,7 +313,26 @@
 
         if (cleanPhone.length < 9) {
             phoneInput.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/20');
-            alert("⚠️ Veuillez saisir un numéro Mobile Money valide à 9 chiffres (ex: 690000008).");
+            alert("⚠️ Veuillez saisir un numéro Mobile Money valide à 9 chiffres (ex: 682487912 ou 699123456).");
+            return;
+        }
+
+        // Validation stricte préfixe / opérateur Cameroun (+237)
+        const prefix3 = cleanPhone.substring(0, 3);
+        const prefix2 = cleanPhone.substring(0, 2);
+        const pNum = parseInt(prefix3, 10);
+        
+        let detectedOp = null;
+        if (prefix2 === '67' || prefix2 === '68' || (pNum >= 650 && pNum <= 654)) {
+            detectedOp = 'MTN';
+        } else if (prefix2 === '69' || (pNum >= 655 && pNum <= 659)) {
+            detectedOp = 'ORANGE';
+        }
+
+        if (detectedOp && detectedOp !== selectedOperator) {
+            const opNameDetected = detectedOp === 'MTN' ? 'MTN Mobile Money' : 'Orange Money';
+            selectOperator(detectedOp);
+            alert(`⚠️ Incohérence d'opérateur :\n\nLe numéro ${cleanPhone} (préfixe ${prefix3}) est un numéro ${opNameDetected}.\n\nL'opérateur a été automatiquement basculé sur ${opNameDetected} pour garantir la réception du prompt USSD sur votre téléphone.`);
             return;
         }
 

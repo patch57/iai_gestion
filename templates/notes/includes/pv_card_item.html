@@ -2,9 +2,26 @@
     <!-- En-tête Carte -->
     <div class="space-y-3">
         <div class="flex items-center justify-between gap-2 flex-wrap">
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase {{ badge_bg }}">
-                {{ type_badge }}
-            </span>
+            <!-- Badges Évaluations Transmises (CC, EXA, RAT) -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+                {% if fiche.has_cc or type_badge == 'CC' %}
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-xs flex items-center gap-1" title="Contrôle Continu Transmis">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>CC
+                </span>
+                {% endif %}
+
+                {% if fiche.has_exa or type_badge == 'EXAMEN' or type_badge == 'EXA' %}
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-100 text-indigo-900 border border-indigo-300 shadow-xs flex items-center gap-1" title="Examen Transmis">
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>EXA
+                </span>
+                {% endif %}
+
+                {% if fiche.has_rat or type_badge == 'RATTRAPAGE' or type_badge == 'RAT' %}
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-900 border border-purple-300 shadow-xs flex items-center gap-1" title="Rattrapage Transmis">
+                    <span class="w-1.5 h-1.5 rounded-full bg-purple-600"></span>RAT
+                </span>
+                {% endif %}
+            </div>
 
             <div class="flex items-center gap-1.5">
                 {% if fiche.filiere %}
@@ -64,7 +81,11 @@
         <div class="flex items-center gap-2">
             {% if fiche.proces_verbal %}
             <a href="{% url 'notes:detail_pv' pk=fiche.proces_verbal.pk %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow transition flex items-center gap-1">
-                <i class="fas fa-eye"></i> Consulter PV
+                <i class="fas fa-print mr-1"></i> Consulter / Imprimer PV
+            </a>
+            {% else %}
+            <a href="{% url 'notes:matching_anonymat_chef' fiche_id=fiche.pk %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow transition flex items-center gap-1">
+                <i class="fas fa-print mr-1"></i> Consulter / Imprimer PV
             </a>
             {% endif %}
         </div>

@@ -475,6 +475,7 @@ class DetailBulletin(models.Model):
     note_cc = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     note_tp = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     note_examen = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    note_rattrapage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     moyenne_matiere = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     
     # Crédits
@@ -899,31 +900,73 @@ class ProcesVerbalNotes(models.Model):
         Remplit et recalcule les colonnes du PV pour chaque étudiant de la classe.
         """
         from apps.etudiants.models import Etudiant
-        
-        # 1. Obtenir les étudiants de la salle/filière/niveau
-        etudiants_qs = Etudiant.objects.filter(est_actif=True)
-        if self.salle and hasattr(self.salle, 'etudiants'):
-            etudiants_salle = etudiants_qs.filter(salle=self.salle)
-            if etudiants_salle.exists():
-                etudiants_qs = etudiants_salle
-            else:
-                etudiants_qs = etudiants_qs.filter(filiere=self.filiere, niveau=self.niveau)
-        elif self.filiere and self.niveau:
-            etudiants_qs = etudiants_qs.filter(filiere=self.filiere, niveau=self.niveau)
 
-        # 2. Chercher toutes les fiches d'anonymat matchées/PV pour cette matière et salle/filière
-        fiches_qs = FicheNotesAnonymat.objects.filter(
-            matiere=self.matiere
-        ).exclude(statut='BROUILLON')
+        # 1. Chercher toutes les fiches d'anonymat pour cette matière
+        fiches_qs = FicheNotesAnonymat.objects.filter(matiere=self.matiere)
+        if fiches_qs.exclude(statut='BROUILLON').exists():
+            fiches_qs = fiches_qs.exclude(statut='BROUILLON')
 
         if self.salle:
             fiches_salle = fiches_qs.filter(salle=self.salle)
             if fiches_salle.exists():
                 fiches_qs = fiches_salle
-            else:
+            elif self.filiere and self.niveau:
                 fiches_qs = fiches_qs.filter(filiere=self.filiere, niveau=self.niveau)
         elif self.filiere and self.niveau:
             fiches_qs = fiches_qs.filter(filiere=self.filiere, niveau=self.niveau)
+
+        # 2. Déduire la filière, le niveau et la fiche référente si manquants sur le PV
+        filiere_target = self.filiere
+        niveau_target = self.niveau
+        fiche_ref = self.fiche_anonymat
+
+        if fiches_qs.exists():
+            first_f = fiches_qs.first()
+            if not filiere_target:
+                filiere_target = first_f.filiere
+            if not niveau_target:
+                niveau_target = first_f.niveau
+            if not fiche_ref:
+                fiche_ref = first_f
+
+        to_update = []
+        if filiere_target and self.filiere != filiere_target:
+            self.filiere = filiere_target
+            to_update.append('filiere')
+        if niveau_target and self.niveau != niveau_target:
+            self.niveau = niveau_target
+            to_update.append('niveau')
+        if fiche_ref and self.fiche_anonymat != fiche_ref:
+            self.fiche_anonymat = fiche_ref
+            to_update.append('fiche_anonymat')
+        if to_update:
+            self.save(update_fields=to_update)
+
+        # 3. Charger la liste complète des étudiants de la classe (filière, niveau, classe et fiches matchées)
+        from django.db.models import Q
+
+        etudiant_ids_fiches = []
+        if fiches_qs.exists():
+            from .models import LigneFicheNotesAnonymat
+            etudiant_ids_fiches = list(
+                LigneFicheNotesAnonymat.objects.filter(
+                    fiche__in=fiches_qs, etudiant__isnull=False
+                ).values_list('etudiant_id', flat=True)
+            )
+
+        filter_q = Q(id__in=etudiant_ids_fiches)
+
+        if filiere_target and niveau_target:
+            filter_q |= Q(filiere=filiere_target, niveau=niveau_target)
+        elif filiere_target:
+            filter_q |= Q(filiere=filiere_target)
+        elif niveau_target:
+            filter_q |= Q(niveau=niveau_target)
+
+        if self.salle:
+            filter_q |= Q(classe__nom__icontains=self.salle.code) | Q(classe__nom__icontains=self.salle.nom)
+
+        etudiants_qs = Etudiant.objects.filter(filter_q).distinct().order_by('nom', 'prenom')
 
         cc_fiches = []
         exam_fiches = []
@@ -1158,7 +1201,11 @@ class LigneProcesVerbalNotes(models.Model):
 
         if cc is not None and exam_effective is not None:
             self.note_finale = round((cc * 0.40) + (exam_effective * 0.60), 2)
+        elif les_deux_transmises:
+            cc_val = cc if cc is not None else 0.0
+            exam_val = exam_effective if exam_effective is not None else 0.0
+            self.note_finale = round((cc_val * 0.40) + (exam_val * 0.60), 2)
         else:
-            self.note_finale = 0.0
+            self.note_finale = None
 
         return self.note_finale

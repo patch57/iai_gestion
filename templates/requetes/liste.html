@@ -67,8 +67,8 @@
             </div>
         </div>
 
-        <!-- Cartes Statistiques (Pour le Directeur et le Personnel) -->
-        {% if is_directeur or user.type_utilisateur not in 'ETUDIANT APPRENANT' %}
+        <!-- Cartes Statistiques (Seul le Directeur et l'Admin peuvent voir cette partie) -->
+        {% if is_directeur %}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- Total -->
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center justify-between">

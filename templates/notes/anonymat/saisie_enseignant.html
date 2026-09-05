@@ -2,195 +2,247 @@
 {% block title %}{{ titre }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-    <!-- BREADCRUMB & HEADER -->
-    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <a href="{% url 'notes:dashboard_anonymat_enseignant' %}" class="inline-flex items-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline mb-2">
-                <i class="fa-solid fa-arrow-left mr-1.5"></i> Retour au Dashboard Anonymat Enseignant
-            </a>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
-                    <i class="fa-solid fa-graduation-cap text-indigo-600"></i>
-                    Saisie Notes CC (Exposés, TP & TD) : {{ fiche.matiere.nom }}
-                {% else %}
-                    <i class="fa-solid fa-user-secret text-purple-600"></i>
-                    Saisie Anonymat Devoir sur Table / Examen : {{ fiche.matiere.nom }}
-                {% endif %}
-            </h1>
-            <div class="flex flex-wrap gap-2 mt-2 text-xs">
-                <span class="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-semibold px-2.5 py-0.5 rounded-full">
-                    Filière : {{ fiche.filiere.code }} - L{{ fiche.niveau.numero }}
-                </span>
-                <span class="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-0.5 rounded-full">
-                    <i class="fa-solid fa-door-open mr-1"></i> Salle : {% if fiche.salle %}{{ fiche.salle.nom }} ({{ fiche.salle.code }}){% else %}N/A{% endif %}
-                </span>
-                <span class="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2.5 py-0.5 rounded-full font-semibold">
-                    Type : {{ fiche.type_evaluation.nom }}
-                </span>
-                {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
-                <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2.5 py-0.5 rounded-full font-semibold">
-                    <i class="fa-solid fa-id-card mr-1"></i> Mode Identifié (Matricule + Noms + Notes CC 1..5)
-                </span>
-                {% else %}
-                <span class="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2.5 py-0.5 rounded-full font-semibold">
-                    <i class="fa-solid fa-user-secret mr-1"></i> Mode Anonyme Devoir sur Table (3 Colonnes)
-                </span>
-                {% endif %}
-            </div>
+    <!-- BREADCRUMB & BANNER HEADER -->
+    <div class="bg-gradient-to-r {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}from-slate-900 via-indigo-950 to-slate-900{% else %}from-slate-900 via-purple-950 to-slate-900{% endif %} rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+            <i class="{% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}fas fa-graduation-cap{% else %}fas fa-user-secret{% endif %} text-9xl"></i>
         </div>
 
-        {% if fiche.statut == 'BROUILLON' %}
-        <form method="POST" onsubmit="return confirm('Confirmez-vous la transmission confidentielle de cette fiche au Chef de l\'Anonymat ?');">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="transmettre_chef_anonymat">
-            <button type="submit" class="inline-flex items-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm rounded-lg shadow-sm transition">
-                <i class="fa-solid fa-paper-plane mr-2"></i> Transmettre au Chef de l'Anonymat
-            </button>
-        </form>
-        {% else %}
-        <span class="px-4 py-2 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-lg text-sm font-semibold flex items-center gap-2">
-            <i class="fa-solid fa-circle-check"></i> Transmis confidentiellement au Chef de l'Anonymat
-        </span>
-        {% endif %}
+        <div class="relative z-10 space-y-4">
+            <!-- Bouton Retour -->
+            <div>
+                <a href="{% url 'notes:dashboard_anonymat_enseignant' %}" 
+                   class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold transition backdrop-blur-md border border-white/10">
+                    <i class="fa-solid fa-arrow-left text-amber-400"></i> Retour au Dashboard Anonymat Enseignant
+                </a>
+            </div>
+
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="space-y-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
+                        <span class="px-3 py-1 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold rounded-full flex items-center gap-1.5 backdrop-blur-md">
+                            <i class="fa-solid fa-id-card text-emerald-400"></i> Mode Identifié (CC / TP / TD)
+                        </span>
+                        {% else %}
+                        <span class="px-3 py-1 bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-bold rounded-full flex items-center gap-1.5 backdrop-blur-md">
+                            <i class="fa-solid fa-user-secret text-amber-400"></i> Mode Anonyme (3 Colonnes)
+                        </span>
+                        {% endif %}
+
+                        <span class="px-3 py-1 bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold rounded-full backdrop-blur-md">
+                            Filière : {{ fiche.filiere.code }} - L{{ fiche.niveau.numero }}
+                        </span>
+
+                        <span class="px-3 py-1 bg-white/10 border border-white/10 text-slate-300 text-xs font-semibold rounded-full backdrop-blur-md">
+                            <i class="fa-solid fa-door-open text-amber-300 mr-1"></i> {% if fiche.salle %}{{ fiche.salle.nom }} ({{ fiche.salle.code }}){% else %}N/A{% endif %}
+                        </span>
+
+                        <span class="px-3 py-1 bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-semibold rounded-full backdrop-blur-md">
+                            Type : {{ fiche.type_evaluation.nom }}
+                        </span>
+                    </div>
+
+                    <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
+                        {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
+                            <i class="fa-solid fa-graduation-cap text-emerald-400"></i> Saisie Notes CC : <span class="text-emerald-300">{{ fiche.matiere.nom }}</span>
+                        {% else %}
+                            <i class="fa-solid fa-user-secret text-amber-400"></i> Saisie Anonymat Examen : <span class="text-amber-300">{{ fiche.matiere.nom }}</span>
+                        {% endif %}
+                    </h1>
+                    <p class="text-slate-300 text-xs sm:text-sm max-w-2xl">
+                        {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
+                        Saisie des notes de contrôle continu (exposés, travaux pratiques et travaux dirigés). La moyenne est calculée automatiquement.
+                        {% else %}
+                        Saisie confidentielle du devoir sur table. Seuls la numérotation, le code anonymat et la note sur 20 sont requis.
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- Bouton de transmission / Statut -->
+                <div class="shrink-0">
+                    {% if fiche.statut == 'BROUILLON' %}
+                    <button type="submit"
+                            form="{% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}form-saisie-cc{% else %}form-saisie-anonyme{% endif %}"
+                            name="action"
+                            value="transmettre_chef_anonymat"
+                            onclick="const f = document.querySelector('form[id^=form-saisie]'); if (f && f.querySelector('input[name=action]')) { f.querySelector('input[name=action]').value = 'transmettre_chef_anonymat'; } return confirm('Confirmez-vous l\'enregistrement et la transmission confidentielle de cette fiche au Chef de l\'Anonymat ?');"
+                            class="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2 transform hover:-translate-y-0.5 cursor-pointer">
+                        <i class="fa-solid fa-paper-plane text-amber-300 text-sm"></i> Transmettre au Chef de l'Anonymat
+                    </button>
+                    {% else %}
+                    <div class="px-5 py-3 bg-amber-500/20 border border-amber-400/40 text-amber-300 rounded-2xl text-xs font-extrabold flex items-center gap-2 backdrop-blur-md shadow-inner">
+                        <i class="fa-solid fa-lock text-amber-400 text-base"></i> Transmis au Chef de l'Anonymat (Consultation Seule)
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
+
+    {% if fiche.statut != 'BROUILLON' %}
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-2xl text-amber-900 text-xs font-bold flex items-center justify-between shadow-xs">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-lock text-amber-600 text-lg"></i>
+            <span>Cette fiche a été transmise au Chef de l'Anonymat. Les notes ne sont plus modifiables (Mode consultation uniquement).</span>
+        </div>
+        <span class="px-3 py-1 bg-amber-200 text-amber-950 rounded-full text-[10px] font-black uppercase">
+            {{ fiche.get_statut_display }}
+        </span>
+    </div>
+    {% endif %}
 
     <!-- BLOC D'IMPORT OCR MANUSCRIT (IMAGE / PDF) -->
     {% if fiche.statut == 'BROUILLON' %}
-    <div class="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-5 mb-6 border border-indigo-200 dark:border-indigo-800/40 shadow-sm">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h3 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-600 dark:text-indigo-400"></i>
-                    Import & Extraction Automatique par OCR / Scanner
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 rounded-3xl p-6 text-white shadow-xl border border-indigo-500/30 relative overflow-hidden">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div class="space-y-1">
+                <div class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold border border-amber-400/30">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Intelligence Artificielle & OCR
+                </div>
+                <h3 class="text-lg font-black text-white flex items-center gap-2">
+                    Import & Extraction Automatique par Scanner / OCR
                 </h3>
-                <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                    Téléversez le Procès-Verbal scanné (Image JPG/PNG ou PDF).
+                <p class="text-xs text-slate-300 max-w-xl">
+                    Téléversez la fiche ou le Procès-Verbal scanné (Image JPG/PNG ou document PDF). Les notes seront extraites automatiquement.
                 </p>
             </div>
             
-            <form method="POST" enctype="multipart/form-data" class="flex items-center gap-2">
+            <form method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="importer_ocr">
-                <input type="file" name="fichier_ocr" accept=".jpg,.png,.jpeg,.pdf" required class="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700">
-                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shrink-0 shadow-sm">
-                    Analyser OCR
+                
+                <div class="relative w-full sm:w-auto">
+                    <input type="file" name="fichier_ocr" accept=".jpg,.png,.jpeg,.pdf" required 
+                           class="block w-full text-xs text-slate-300 
+                                  file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 
+                                  file:text-xs file:font-extrabold file:bg-white/10 file:text-white 
+                                  hover:file:bg-white/20 file:transition cursor-pointer bg-slate-800/80 border border-slate-700 rounded-2xl p-1">
+                </div>
+
+                <button type="submit" 
+                        class="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 shrink-0 cursor-pointer">
+                    <i class="fa-solid fa-robot text-sm"></i> Analyser OCR
                 </button>
             </form>
         </div>
     </div>
     {% endif %}
 
-    <!-- CAS 1 : EXPOSÉS, TP, TD & CC CONTINU (MATRICULE, NOMS, PRÉNOMS & NOTES CC 1..5) -->
+    <!-- CAS 1 : EXPOSÉS, TP, TD & CC CONTINU -->
     {% if fiche.mode_fiche == 'EXPOSE_TP_TD' %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
+    <div class="bg-white rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden space-y-0">
+        <!-- En-tête de carte -->
+        <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-sm">
-                    <i class="fa-solid fa-list-check text-indigo-500"></i>
+                <h3 class="font-black text-slate-900 flex items-center gap-2 text-base">
+                    <i class="fa-solid fa-list-check text-emerald-600"></i>
                     Grille de Saisie de Contrôle Continu (Exposés, TP, TD)
                 </h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Identité affichée (Matricule, Noms, Prénoms). Renseignez 1, 2, 3 notes de CC ou plus. La moyenne est calculée automatiquement (cases vides = 0.00).
+                <p class="text-xs text-slate-500 mt-0.5">
+                    Identité affichée (Matricule, Noms, Prénoms). Renseignez vos notes de CC. La moyenne est calculée automatiquement.
                 </p>
             </div>
+
             {% if fiche.statut == 'BROUILLON' %}
             <form method="POST" class="inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="ajouter_ligne">
-                <button type="submit" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-md text-xs font-semibold">
-                    <i class="fa-solid fa-plus mr-1"></i> Ajouter une ligne
+                <button type="submit" class="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-plus text-emerald-600"></i> Ajouter une ligne
                 </button>
             </form>
             {% endif %}
         </div>
 
-        <form method="POST">
+        <form method="POST" id="form-saisie-cc">
             {% csrf_token %}
             <input type="hidden" name="action" value="enregistrer_notes">
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
-                    <thead class="bg-gray-100 dark:bg-gray-700/70 uppercase font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
+                <table class="w-full text-left text-xs text-slate-700">
+                    <thead class="bg-slate-100/90 uppercase font-black text-[11px] text-slate-600 border-b border-slate-200">
                         <tr>
-                            <th class="px-3 py-3 w-10 text-center">N°</th>
-                            <th class="px-3 py-3 w-32">Matricule</th>
-                            <th class="px-4 py-3">Noms et Prénoms de l'Étudiant</th>
-                            <th class="px-3 py-3 text-center">Note CC 1</th>
-                            <th class="px-3 py-3 text-center">Note CC 2</th>
-                            <th class="px-3 py-3 text-center">Note CC 3</th>
-                            <th class="px-3 py-3 text-center">Note CC 4</th>
-                            <th class="px-3 py-3 text-center">Note CC 5</th>
-                            <th class="px-4 py-3 text-center bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 font-bold">Moyenne CC (/20)</th>
+                            <th class="px-4 py-3.5 w-12 text-center">N°</th>
+                            <th class="px-4 py-3.5 w-36">Matricule</th>
+                            <th class="px-5 py-3.5">Noms et Prénoms de l'Étudiant</th>
+                            <th class="px-3 py-3.5 text-center w-24">Note CC 1</th>
+                            <th class="px-3 py-3.5 text-center w-24">Note CC 2</th>
+                            <th class="px-3 py-3.5 text-center w-24">Note CC 3</th>
+                            <th class="px-3 py-3.5 text-center w-24">Note CC 4</th>
+                            <th class="px-3 py-3.5 text-center w-24">Note CC 5</th>
+                            <th class="px-5 py-3.5 text-center bg-emerald-100/80 text-emerald-950 font-black w-32 border-l border-r border-emerald-200">Moyenne CC (/20)</th>
                             {% if fiche.statut == 'BROUILLON' %}
-                            <th class="px-3 py-3 w-12 text-center">Action</th>
+                            <th class="px-4 py-3.5 w-14 text-center">Action</th>
                             {% endif %}
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody class="divide-y divide-slate-200 font-medium">
                         {% for ligne in lignes %}
-                        <tr class="hover:bg-gray-50/70 dark:hover:bg-gray-700/40 transition">
-                            <td class="px-3 py-2.5 text-center font-mono text-gray-400">
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                            <td class="px-4 py-3 text-center font-mono font-bold text-slate-400">
                                 {{ forloop.counter }}
                             </td>
-                            <td class="px-3 py-2.5 font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">
-                                {% if ligne.etudiant %}{{ ligne.etudiant.matricule }}{% else %}<span class="text-gray-400">-</span>{% endif %}
+                            <td class="px-4 py-3 font-mono text-xs font-bold text-slate-800">
+                                {% if ligne.etudiant %}{{ ligne.etudiant.matricule }}{% else %}<span class="text-slate-300">-</span>{% endif %}
                             </td>
-                            <td class="px-4 py-2.5 font-bold text-gray-900 dark:text-white">
+                            <td class="px-5 py-3 font-extrabold text-slate-900 uppercase">
                                 {% if ligne.etudiant %}
                                     {{ ligne.etudiant.get_nom_complet }}
                                 {% else %}
-                                    <span class="text-gray-400 font-normal italic">Non assigné</span>
+                                    <span class="text-slate-400 font-normal italic">Non assigné</span>
                                 {% endif %}
                             </td>
                             <td class="px-2 py-2.5 text-center">
                                 <input type="text" name="note1_{{ ligne.id }}" value="{% if ligne.note_1 is not None %}{{ ligne.note_1 }}{% endif %}"
                                        placeholder="-" oninput="calculerMoyenneLigne('{{ ligne.id }}')"
-                                       {% if fiche.statut != 'BROUILLON' %}disabled{% endif %}
-                                       class="w-14 px-1.5 py-1 border rounded-md text-center text-xs dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500">
+                                       {% if fiche.statut != 'BROUILLON' %}disabled readonly{% endif %}
+                                       class="w-16 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
                             </td>
                             <td class="px-2 py-2.5 text-center">
                                 <input type="text" name="note2_{{ ligne.id }}" value="{% if ligne.note_2 is not None %}{{ ligne.note_2 }}{% endif %}"
                                        placeholder="-" oninput="calculerMoyenneLigne('{{ ligne.id }}')"
-                                       {% if fiche.statut != 'BROUILLON' %}disabled{% endif %}
-                                       class="w-14 px-1.5 py-1 border rounded-md text-center text-xs dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500">
+                                       {% if fiche.statut != 'BROUILLON' %}disabled readonly{% endif %}
+                                       class="w-16 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
                             </td>
                             <td class="px-2 py-2.5 text-center">
                                 <input type="text" name="note3_{{ ligne.id }}" value="{% if ligne.note_3 is not None %}{{ ligne.note_3 }}{% endif %}"
                                        placeholder="-" oninput="calculerMoyenneLigne('{{ ligne.id }}')"
-                                       {% if fiche.statut != 'BROUILLON' %}disabled{% endif %}
-                                       class="w-14 px-1.5 py-1 border rounded-md text-center text-xs dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500">
+                                       {% if fiche.statut != 'BROUILLON' %}disabled readonly{% endif %}
+                                       class="w-16 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
                             </td>
                             <td class="px-2 py-2.5 text-center">
                                 <input type="text" name="note4_{{ ligne.id }}" value="{% if ligne.note_4 is not None %}{{ ligne.note_4 }}{% endif %}"
                                        placeholder="-" oninput="calculerMoyenneLigne('{{ ligne.id }}')"
-                                       {% if fiche.statut != 'BROUILLON' %}disabled{% endif %}
-                                       class="w-14 px-1.5 py-1 border rounded-md text-center text-xs dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500">
+                                       {% if fiche.statut != 'BROUILLON' %}disabled readonly{% endif %}
+                                       class="w-16 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
                             </td>
                             <td class="px-2 py-2.5 text-center">
                                 <input type="text" name="note5_{{ ligne.id }}" value="{% if ligne.note_5 is not None %}{{ ligne.note_5 }}{% endif %}"
                                        placeholder="-" oninput="calculerMoyenneLigne('{{ ligne.id }}')"
-                                       {% if fiche.statut != 'BROUILLON' %}disabled{% endif %}
-                                       class="w-14 px-1.5 py-1 border rounded-md text-center text-xs dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500">
+                                       {% if fiche.statut != 'BROUILLON' %}disabled readonly{% endif %}
+                                       class="w-16 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition-all">
                             </td>
-                            <td class="px-4 py-2.5 text-center bg-indigo-50/60 dark:bg-indigo-950/30">
+                            <td class="px-4 py-2.5 text-center bg-emerald-50 border-l border-r border-emerald-200">
                                 <input type="text" id="moyenne_{{ ligne.id }}" name="note_{{ ligne.id }}" value="{% if ligne.moyenne_cc is not None %}{{ ligne.moyenne_cc }}{% elif ligne.note is not None %}{{ ligne.note }}{% else %}0.00{% endif %}"
                                        readonly
-                                       class="w-16 px-1.5 py-1 border border-indigo-300 dark:border-indigo-700 bg-indigo-100/50 dark:bg-indigo-900/40 rounded-md text-center font-extrabold text-xs text-indigo-900 dark:text-indigo-200">
+                                       class="w-20 px-2 py-1.5 border border-emerald-300 bg-emerald-100/80 rounded-xl text-center font-black text-sm text-emerald-950 shadow-inner">
                             </td>
                             {% if fiche.statut == 'BROUILLON' %}
-                            <td class="px-3 py-2.5 text-center">
+                            <td class="px-4 py-2.5 text-center">
                                 <button type="submit" name="action" value="supprimer_ligne" onclick="this.form.action.value='supprimer_ligne'; document.getElementById('del_id').value='{{ ligne.id }}';"
-                                        class="p-1.5 text-gray-400 hover:text-red-600 transition" title="Supprimer la ligne">
-                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                        class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition" title="Supprimer la ligne">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
                                 </button>
                             </td>
                             {% endif %}
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="10" class="px-6 py-12 text-center text-gray-500 text-sm">
+                            <td colspan="10" class="px-6 py-12 text-center text-slate-500 font-bold">
+                                <i class="fa-solid fa-inbox text-3xl text-slate-300 mb-2 block"></i>
                                 Aucune ligne disponible. Cliquez sur "Ajouter une ligne" ci-dessus.
                             </td>
                         </tr>
@@ -201,29 +253,31 @@
             <input type="hidden" id="del_id" name="ligne_id" value="">
 
             {% if fiche.statut == 'BROUILLON' %}
-            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex justify-between items-center">
+            <div class="px-6 py-5 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <button type="submit" name="action" value="ajouter_ligne" onclick="this.form.action.value='ajouter_ligne';"
-                        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-lg text-xs font-semibold">
-                    <i class="fa-solid fa-plus mr-1"></i> Ajouter une ligne
+                        class="w-full sm:w-auto px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-plus text-slate-500"></i> Ajouter une ligne
                 </button>
-                <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-lg shadow-sm">
-                    <i class="fa-solid fa-floppy-disk mr-1.5"></i> Enregistrer & Calculer les Moyennes CC
+                <button type="submit" 
+                        class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-floppy-disk text-amber-300 text-sm"></i> Enregistrer & Calculer les Moyennes CC
                 </button>
             </div>
             {% endif %}
         </form>
     </div>
 
-    <!-- CAS 2 : DEVOIR SUR TABLE / EXAMEN (ANONYMAT 3 COLONNES EXACTES: N°, CODE ANONYMAT, NOTE/20) -->
+    <!-- CAS 2 : DEVOIR SUR TABLE / EXAMEN (ANONYMAT 3 COLONNES) -->
     {% else %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden max-w-3xl mx-auto">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
+    <div class="bg-white rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden max-w-4xl mx-auto space-y-0">
+        <!-- En-tête de carte -->
+        <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-sm">
+                <h3 class="font-black text-slate-900 flex items-center gap-2 text-base">
                     <i class="fa-solid fa-user-secret text-purple-600"></i>
                     Fiche Anonyme Devoir sur Table / Examen (3 Colonnes)
                 </h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                <p class="text-xs text-slate-500 mt-0.5">
                     Noms masqués par sécurité. Seuls la numérotation, le code anonymat et la note sur 20 sont affichés.
                 </p>
             </div>
@@ -231,22 +285,22 @@
             <form method="POST" class="inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="ajouter_ligne">
-                <button type="submit" class="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 rounded-md text-xs font-semibold">
-                    <i class="fa-solid fa-plus mr-1"></i> Ajouter une ligne
+                <button type="submit" class="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-plus text-purple-600"></i> Ajouter une ligne
                 </button>
             </form>
             {% endif %}
         </div>
 
-        <form method="POST">
+        <form method="POST" id="form-saisie-anonyme">
             {% csrf_token %}
             <input type="hidden" name="action" value="enregistrer_notes">
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-                    <thead class="bg-gray-100 dark:bg-gray-700/70 uppercase font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 text-xs">
+                <table class="w-full text-left text-xs text-slate-700">
+                    <thead class="bg-slate-100/90 uppercase font-black text-[11px] text-slate-600 border-b border-slate-200">
                         <tr>
-                            <th class="px-6 py-3.5 w-16 text-center">N°</th>
+                            <th class="px-6 py-3.5 w-20 text-center">N°</th>
                             <th class="px-6 py-3.5 text-center">Code Anonymat</th>
                             <th class="px-6 py-3.5 text-center">Note / 20</th>
                             {% if fiche.statut == 'BROUILLON' %}
@@ -254,28 +308,28 @@
                             {% endif %}
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody class="divide-y divide-slate-200 font-medium">
                         {% for ligne in lignes %}
-                        <tr class="hover:bg-gray-50/70 dark:hover:bg-gray-700/40 transition">
-                            <td class="px-6 py-3.5 text-center font-mono font-bold text-gray-400">
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                            <td class="px-6 py-4 text-center font-mono font-extrabold text-slate-400">
                                 {{ forloop.counter }}
                             </td>
-                            <td class="px-6 py-3.5 text-center">
+                            <td class="px-6 py-4 text-center">
                                 <input type="text" name="code_{{ ligne.id }}" value="{{ ligne.numero_anonymat }}"
                                        placeholder="A{{ forloop.counter }}"
                                        {% if fiche.statut != 'BROUILLON' %}disabled{% endif %}
-                                       class="w-32 px-3 py-1.5 border rounded-lg text-center font-bold text-sm text-purple-700 dark:text-purple-300 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-purple-500">
+                                       class="w-40 px-3 py-2 bg-purple-50/50 border border-purple-200 rounded-xl text-center font-black text-sm text-purple-900 focus:ring-2 focus:ring-purple-500 focus:bg-white focus:outline-none transition-all">
                             </td>
-                            <td class="px-6 py-3.5 text-center">
+                            <td class="px-6 py-4 text-center">
                                 <input type="text" name="note_{{ ligne.id }}" value="{% if ligne.note is not None %}{{ ligne.note }}{% endif %}"
                                        placeholder="0.00"
                                        {% if fiche.statut != 'BROUILLON' %}disabled{% endif %}
-                                       class="w-32 px-3 py-1.5 border rounded-lg text-center font-bold text-base text-gray-900 dark:text-white dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-purple-500">
+                                       class="w-40 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center font-black text-base text-slate-900 focus:ring-2 focus:ring-purple-500 focus:bg-white focus:outline-none transition-all">
                             </td>
                             {% if fiche.statut == 'BROUILLON' %}
-                            <td class="px-6 py-3.5 text-center">
+                            <td class="px-6 py-4 text-center">
                                 <button type="submit" name="action" value="supprimer_ligne" onclick="this.form.action.value='supprimer_ligne'; document.getElementById('del_id_3col').value='{{ ligne.id }}';"
-                                        class="p-2 text-gray-400 hover:text-red-600 transition" title="Supprimer cette ligne">
+                                        class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition" title="Supprimer cette ligne">
                                     <i class="fa-solid fa-trash-can text-sm"></i>
                                 </button>
                             </td>
@@ -283,7 +337,8 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-gray-500 text-sm">
+                            <td colspan="4" class="px-6 py-12 text-center text-slate-500 font-bold">
+                                <i class="fa-solid fa-user-secret text-3xl text-slate-300 mb-2 block"></i>
                                 Aucune ligne anonyme. Cliquez sur "Ajouter une ligne" ci-dessus.
                             </td>
                         </tr>
@@ -294,13 +349,14 @@
             <input type="hidden" id="del_id_3col" name="ligne_id" value="">
 
             {% if fiche.statut == 'BROUILLON' %}
-            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex justify-between items-center">
+            <div class="px-6 py-5 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <button type="submit" name="action" value="ajouter_ligne" onclick="this.form.action.value='ajouter_ligne';"
-                        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-lg text-xs font-semibold">
-                    <i class="fa-solid fa-plus mr-1"></i> Ajouter une ligne
+                        class="w-full sm:w-auto px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-plus text-slate-500"></i> Ajouter une ligne
                 </button>
-                <button type="submit" class="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm rounded-lg shadow-sm">
-                    <i class="fa-solid fa-floppy-disk mr-1.5"></i> Enregistrer les Notes Anonymes
+                <button type="submit" 
+                        class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-floppy-disk text-amber-300 text-sm"></i> Enregistrer les Notes Anonymes
                 </button>
             </div>
             {% endif %}

@@ -6,7 +6,7 @@
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-    <!-- En-tête Institutionnel -->
+    <!-- En-tête Institutionnel avec Indicateur de Temps Réel -->
     <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
         <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
             <i class="fas fa-user-secret text-9xl"></i>
@@ -14,9 +14,18 @@
 
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
             <div class="space-y-2">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
-                    <i class="fas fa-shield-alt"></i> Registre Confidentiel & Délibérations
+                <div class="flex items-center gap-2">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
+                        <i class="fas fa-shield-alt"></i> Registre Confidentiel & Délibérations
+                    </div>
+
+                    <!-- Badge Temps Réel -->
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30 animate-pulse">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <span>En direct (Temps Réel)</span>
+                    </div>
                 </div>
+
                 <h1 class="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">
                     <i class="fas fa-file-contract text-indigo-400"></i> Procès-Verbaux d'Anonymat
                 </h1>
@@ -29,32 +38,32 @@
             <div class="grid grid-cols-3 gap-3 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-center">
                 <div>
                     <span class="block text-[10px] font-bold uppercase text-indigo-300">Contrôles Continus</span>
-                    <span class="text-xl font-black text-white">{{ count_cc }}</span>
+                    <span id="count-cc-summary" class="text-xl font-black text-white">{{ count_cc }}</span>
                 </div>
                 <div class="border-l border-white/20 pl-3">
                     <span class="block text-[10px] font-bold uppercase text-indigo-300">Examens</span>
-                    <span class="text-xl font-black text-amber-400">{{ count_examen }}</span>
+                    <span id="count-examen-summary" class="text-xl font-black text-amber-400">{{ count_examen }}</span>
                 </div>
                 <div class="border-l border-white/20 pl-3">
                     <span class="block text-[10px] font-bold uppercase text-indigo-300">Rattrapages</span>
-                    <span class="text-xl font-black text-rose-400">{{ count_rattrapage }}</span>
+                    <span id="count-rattrapage-summary" class="text-xl font-black text-rose-400">{{ count_rattrapage }}</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Barre de Filtres par Salle et Recherche -->
+    <!-- Barre de Filtres par Salle et Recherche Instantanée -->
     <div class="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 space-y-4">
-        <form method="GET" action="" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form id="form-filtres-pv" method="GET" action="" onsubmit="event.preventDefault(); chargerPVsEnTempsReel();" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Filtre Salle / Classe -->
             <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1 flex items-center">
                     <i class="fas fa-door-open text-indigo-600 mr-1.5"></i> Salle / Classe
                 </label>
-                <select name="salle_id" onchange="this.form.submit()" class="w-full text-xs font-bold rounded-xl border border-gray-300 px-3 py-2 bg-gray-50 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500">
+                <select name="salle_id" id="salle-select" onchange="chargerPVsEnTempsReel()" class="w-full text-xs font-bold rounded-xl border border-gray-300 px-3 py-2 bg-gray-50 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">Toutes les Salles / Classes</option>
                     {% for s in salles %}
-                    <option value="{{ s.id }}" {% if salle_id == s.id|add:"" %}selected{% endif %}>{{ s.nom }}</option>
+                    <option value="{{ s.id }}" {% if salle_id_int == s.id or salle_id == s.id|slugify %}selected{% endif %}>{{ s.nom }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -62,12 +71,12 @@
             <!-- Recherche générale -->
             <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1 flex items-center">
-                    <i class="fas fa-search text-indigo-600 mr-1.5"></i> Recherche Matière / Professeur
+                    <i class="fas fa-search text-indigo-600 mr-1.5"></i> Recherche Matière / Professeur (Temps réel)
                 </label>
                 <div class="flex gap-2">
-                    <input type="text" name="q" value="{{ q }}" placeholder="Matière, Code, Enseignant..." class="w-full text-xs rounded-xl border border-gray-300 px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow transition">
-                        Filtrer
+                    <input type="text" name="q" id="query-search-input" value="{{ q }}" oninput="chargerPVsEnTempsReelDebounced()" placeholder="Matière, Code, Enseignant..." class="w-full text-xs rounded-xl border border-gray-300 px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <button type="button" onclick="chargerPVsEnTempsReel()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow transition flex items-center gap-1.5 cursor-pointer">
+                        <i class="fas fa-sync-alt text-xs" id="icon-refresh"></i> Filtrer
                     </button>
                     {% if salle_id or q %}
                     <a href="{% url 'notes:liste_proces_verbaux' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded-xl text-xs transition flex items-center">
@@ -88,7 +97,7 @@
                     :class="activeTab === 'cc' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'"
                     class="px-5 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 cursor-pointer">
                 <i class="fas fa-edit"></i> Contrôles Continus (CC)
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold" :class="activeTab === 'cc' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-800'">
+                <span id="count-cc-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold" :class="activeTab === 'cc' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-800'">
                     {{ count_cc }}
                 </span>
             </button>
@@ -97,7 +106,7 @@
                     :class="activeTab === 'examen' ? 'bg-amber-600 text-white shadow-lg' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'"
                     class="px-5 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 cursor-pointer">
                 <i class="fas fa-file-alt"></i> Examens (Session Normale)
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold" :class="activeTab === 'examen' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-800'">
+                <span id="count-examen-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold" :class="activeTab === 'examen' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-800'">
                     {{ count_examen }}
                 </span>
             </button>
@@ -106,61 +115,96 @@
                     :class="activeTab === 'rattrapage' ? 'bg-rose-600 text-white shadow-lg' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'"
                     class="px-5 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 cursor-pointer">
                 <i class="fas fa-redo-alt"></i> Rattrapages (Session 2)
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold" :class="activeTab === 'rattrapage' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-800'">
+                <span id="count-rattrapage-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold" :class="activeTab === 'rattrapage' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-800'">
                     {{ count_rattrapage }}
                 </span>
             </button>
         </div>
 
         <!-- Section 1 : Contrôles Continus (CC) -->
-        <div x-show="activeTab === 'cc'" class="space-y-4">
-            {% if fiches_cc %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for f in fiches_cc %}
-                {% include 'notes/includes/pv_card_item.html' with fiche=f type_badge="CC" badge_bg="bg-indigo-100 text-indigo-800" %}
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-md">
-                <i class="fas fa-clipboard-check text-4xl text-gray-300 mb-3 block"></i>
-                <p class="text-sm font-bold text-gray-600">Aucun Procès-Verbal de Contrôle Continu (CC) trouvé.</p>
-            </div>
-            {% endif %}
+        <div x-show="activeTab === 'cc'" class="space-y-4" id="grid-cc-container">
+            {% include 'notes/includes/pv_section_cc.html' %}
         </div>
 
         <!-- Section 2 : Examens -->
-        <div x-show="activeTab === 'examen'" class="space-y-4" style="display: none;">
-            {% if fiches_examen %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for f in fiches_examen %}
-                {% include 'notes/includes/pv_card_item.html' with fiche=f type_badge="EXAMEN" badge_bg="bg-amber-100 text-amber-800" %}
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-md">
-                <i class="fas fa-file-invoice text-4xl text-gray-300 mb-3 block"></i>
-                <p class="text-sm font-bold text-gray-600">Aucun Procès-Verbal d'Examen trouvé.</p>
-            </div>
-            {% endif %}
+        <div x-show="activeTab === 'examen'" class="space-y-4" id="grid-examen-container" style="display: none;">
+            {% include 'notes/includes/pv_section_examen.html' %}
         </div>
 
         <!-- Section 3 : Rattrapages -->
-        <div x-show="activeTab === 'rattrapage'" class="space-y-4" style="display: none;">
-            {% if fiches_rattrapage %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for f in fiches_rattrapage %}
-                {% include 'notes/includes/pv_card_item.html' with fiche=f type_badge="RATTRAPAGE" badge_bg="bg-rose-100 text-rose-800" %}
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-md">
-                <i class="fas fa-redo text-4xl text-gray-300 mb-3 block"></i>
-                <p class="text-sm font-bold text-gray-600">Aucun Procès-Verbal de Rattrapage trouvé.</p>
-            </div>
-            {% endif %}
+        <div x-show="activeTab === 'rattrapage'" class="space-y-4" id="grid-rattrapage-container" style="display: none;">
+            {% include 'notes/includes/pv_section_rattrapage.html' %}
         </div>
 
     </div>
 
 </div>
+
+<!-- SCRIPT TEMPS RÉEL (POLLING DYNAMIQUE) -->
+<script>
+let searchDebounceTimer = null;
+
+function chargerPVsEnTempsReelDebounced() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(chargerPVsEnTempsReel, 300);
+}
+
+async function chargerPVsEnTempsReel() {
+    const icon = document.getElementById('icon-refresh');
+    if (icon) icon.classList.add('fa-spin');
+
+    const salleSelect = document.getElementById('salle-select');
+    const queryInput = document.getElementById('query-search-input');
+    const salleId = salleSelect ? salleSelect.value : '';
+    const query = queryInput ? queryInput.value : '';
+    
+    const params = new URLSearchParams(window.location.search);
+    if (salleId) {
+        params.set('salle_id', salleId);
+    } else {
+        params.delete('salle_id');
+    }
+    if (query) {
+        params.set('q', query);
+    } else {
+        params.delete('q');
+    }
+    params.set('ajax', '1');
+
+    try {
+        const response = await fetch(`${window.location.pathname}?${params.toString()}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Mise à jour des compteurs
+            document.getElementById('count-cc-summary').textContent = data.count_cc;
+            document.getElementById('count-examen-summary').textContent = data.count_examen;
+            document.getElementById('count-rattrapage-summary').textContent = data.count_rattrapage;
+
+            document.getElementById('count-cc-badge').textContent = data.count_cc;
+            document.getElementById('count-examen-badge').textContent = data.count_examen;
+            document.getElementById('count-rattrapage-badge').textContent = data.count_rattrapage;
+
+            // Mise à jour du contenu HTML sans recharger la page
+            document.getElementById('grid-cc-container').innerHTML = data.html_cc;
+            document.getElementById('grid-examen-container').innerHTML = data.html_examen;
+            document.getElementById('grid-rattrapage-container').innerHTML = data.html_rattrapage;
+        }
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour en temps réel des PVs:", error);
+    } finally {
+        if (icon) setTimeout(() => icon.classList.remove('fa-spin'), 400);
+    }
+}
+
+// Polling automatique en arrière-plan toutes les 8 secondes
+document.addEventListener('DOMContentLoaded', function() {
+    setInterval(chargerPVsEnTempsReel, 8000);
+});
+</script>
 {% endblock %}

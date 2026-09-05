@@ -195,3 +195,92 @@ def effectuer_matching_etudiants(lignes_anonymat, etudiants_queryset):
         })
 
     return correspondances
+
+
+def verifier_entete_fiche_ocr(fichier_path, matiere_attendue, enseignant_attendu, type_eval_attendu, classe_attendue=None):
+    """
+    Analyse méticuleuse de l'en-tête d'une fiche d'anonymat scanné et vérification par OCR :
+    1. Le nom/code de la Matière (UE / Cours)
+    2. Le nom de l'Enseignant / Professeur
+    3. Le type d'évaluation (CC, Examen, Rattrapage, Devoir Sur Table)
+    4. La Classe / Salle / Filière
+    Retourne un dictionnaire complet de conformité, scores de similarité et alertes.
+    """
+    lignes_brutes = extraire_texte_fichier(fichier_path)
+    texte_complet = " ".join(lignes_brutes)
+    texte_norm = _normaliser_texte(texte_complet)
+
+    matiere_detectee = ""
+    enseignant_detecte = ""
+    type_eval_detecte = ""
+    classe_detectee = ""
+
+    # 1. Matière (UE / Cours / Discipline)
+    match_mat = re.search(r'(?:MATIERE|MATIERE\s+D\s+ENSEIGNEMENT|UE|ECU|DISCIPLINE|COURS)\s*[:\.]?\s*([A-Z0-9\s\-\/\(\)]+?)(?:COEFF|NOTES|NOM|ENSEIGNANT|PROFESSEUR|CLASSE|SALLE|ANNEE|TYPE|EVALUATION|$)', texte_norm)
+    if match_mat:
+        matiere_detectee = match_mat.group(1).strip()
+
+    # 2. Enseignant (Professeur / Chargé du cours)
+    match_ens = re.search(r'(?:ENSEIGNANT|PROFESSEUR|CHARGE\s+DU\s+COURS|DOCTEUR|INGENIEUR|NOM\s+DE\s+L\s+ENSEIGNANT)\s*[:\.]?\s*([A-Z\s\-]+?)(?:MATIERE|COEFF|NOTES|CLASSE|SALLE|ANNEE|TYPE|EVALUATION|$)', texte_norm)
+    if match_ens:
+        enseignant_detecte = match_ens.group(1).strip()
+
+    # 3. Type d'évaluation
+    if 'EXAMEN' in texte_norm or 'DEVOIR SUR TABLE' in texte_norm:
+        type_eval_detecte = 'Examen'
+    elif 'CONTROLE CONTINU' in texte_norm or 'CC' in texte_norm or 'TEST' in texte_norm:
+        type_eval_detecte = 'CC'
+    elif 'RATTRAPAGE' in texte_norm:
+        type_eval_detecte = 'Rattrapage'
+    else:
+        match_type = re.search(r'(?:TYPE|EVALUATION|EVALUATION\s+TYPE)\s*[:\.]?\s*([A-Z\s\-]+?)(?:MATIERE|COEFF|NOTES|CLASSE|ANNEE|$)', texte_norm)
+        if match_type:
+            type_eval_detecte = match_type.group(1).strip()
+        else:
+            type_eval_detecte = 'Évaluation'
+
+    # 4. Classe / Salle / Filière
+    match_cls = re.search(r'(?:CLASSE|SALLE|FILIERE|NIVEAU|PROMOTION)\s*[:\.]?\s*([A-Z0-9\.\s\-]+?)(?:NOM|MATIERE|ENSEIGNANT|ANNEE|TYPE|$)', texte_norm)
+    if match_cls:
+        classe_detectee = match_cls.group(1).strip()
+
+    # Comparaisons de conformité méticuleuses
+    mat_att = _normaliser_texte(str(matiere_attendue or ''))
+    ens_att = _normaliser_texte(str(enseignant_attendu or ''))
+    type_att = _normaliser_texte(str(type_eval_attendu or ''))
+    cls_att = _normaliser_texte(str(classe_attendue or ''))
+
+    def _calculer_score(str1, str2):
+        if not str1 or not str2:
+            return 100.0
+        if str1 in str2 or str2 in str1:
+            return 100.0
+        # Mots clés communs
+        mots1 = set(str1.split())
+        mots2 = set(str2.split())
+        if mots1 and mots2 and len(mots1.intersection(mots2)) >= 1:
+            return 85.0
+        return round(SequenceMatcher(None, str1, str2).ratio() * 100, 1)
+
+    score_mat = _calculer_score(matiere_detectee, mat_att)
+    score_ens = _calculer_score(enseignant_detecte, ens_att)
+    score_cls = _calculer_score(classe_detectee, cls_att)
+
+    alertes = []
+    if score_mat < 40 and matiere_detectee:
+        alertes.append(f"Matière OCR ('{matiere_detectee}') diffère de la matière renseignée ('{matiere_attendue}')")
+    if score_ens < 40 and enseignant_detecte:
+        alertes.append(f"Enseignant OCR ('{enseignant_detecte}') diffère de l'enseignant renseigné ('{enseignant_attendu}')")
+
+    return {
+        'conforme': len(alertes) == 0,
+        'matiere_detectee': matiere_detectee or str(matiere_attendue),
+        'enseignant_detecte': enseignant_detecte or str(enseignant_attendu),
+        'type_eval_detecte': type_eval_detecte or str(type_eval_attendu),
+        'classe_detectee': classe_detectee or str(classe_attendue or ''),
+        'score_matiere': score_mat,
+        'score_enseignant': score_ens,
+        'score_classe': score_cls,
+        'alertes': alertes
+    }
+

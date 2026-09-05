@@ -60,24 +60,26 @@
         tr { page-break-inside: avoid !important; }
     }
 
-    /* Style strict pour en-têtes verticaux sans chevauchement ni découpage de lettres */
+    /* Style strict pour en-têtes verticaux avec retour à la ligne automatique sans débordement */
     .th-vertical-cell {
         height: 140px !important;
         vertical-align: bottom !important;
         text-align: center !important;
         padding: 4px 2px !important;
-        white-space: nowrap !important;
+        white-space: normal !important;
         background-color: #ffffff;
     }
     .th-vertical-text {
         writing-mode: vertical-rl !important;
         transform: rotate(180deg) !important;
-        white-space: nowrap !important;
-        word-break: keep-all !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
         text-align: left !important;
         font-size: 8.5px !important;
         font-weight: 700 !important;
-        line-height: 1 !important;
+        line-height: 1.1 !important;
         max-height: 135px !important;
         width: auto !important;
         display: inline-block !important;

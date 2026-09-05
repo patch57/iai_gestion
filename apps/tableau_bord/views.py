@@ -1235,10 +1235,10 @@ def dashboard_admin(request):
         if valid_classes > 0:
             taux_remplissage = round(total_remplissage / valid_classes, 1)
     
-    # Pénalités totales
-    penalites_total = PenalitePaiement.objects.filter(est_regle=False).aggregate(
-        total=Coalesce(Sum('montant_penalite', output_field=DecimalField()), Value(0, output_field=DecimalField()))
-    )['total'] or 0
+    # Pénalités totales calculées dynamiquement en temps réel
+    from apps.paiements.services import calculer_penalites_etudiant
+    etudiants_penalites = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT'])
+    penalites_total = sum(float(calculer_penalites_etudiant(etud).get('total', 0)) for etud in etudiants_penalites)
     
     # Alertes
     alertes = []
@@ -1328,6 +1328,49 @@ def statistiques(request):
         nombre=Count('id')
     ).order_by('-mois')[:12]
     
+    # Métriques globales toujours à jour
+    total_etudiants = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).count()
+    toutes_notes = Note.objects.all()
+    total_notes = toutes_notes.count()
+    taux_reussite_global = round((toutes_notes.filter(valeur__gte=10).count() / total_notes * 100), 1) if total_notes > 0 else 0.0
+
+    total_recettes = RecuPaiement.objects.filter(statut='VALIDE').aggregate(
+        total=Coalesce(Sum('montant_mentionne', output_field=DecimalField()), Value(0, output_field=DecimalField()))
+    )['total'] or 0
+
+    classes = Classe.objects.filter(est_active=True)
+    taux_remplissage = 0.0
+    if classes.exists():
+        total_remplissage = 0.0
+        valid_classes = 0
+        for c in classes:
+            eff_max = getattr(c, 'effectif_max', 30) or 30
+            eff_actuel = c.etudiants.filter(statut__in=['ACTIF', 'INSCRIT']).count() if hasattr(c, 'etudiants') else getattr(c, 'effectif_actuel', 0)
+            total_remplissage += (eff_actuel / eff_max * 100)
+            valid_classes += 1
+        if valid_classes > 0:
+            taux_remplissage = round(total_remplissage / valid_classes, 1)
+
+    effectifs_filiere = list(Etudiant.objects.filter(
+        statut__in=['ACTIF', 'INSCRIT']
+    ).values('filiere__code', 'filiere__nom').annotate(
+        effectif=Count('id')
+    ))
+    
+    for item in effectifs_filiere:
+        filiere_code = item['filiere__code']
+        notes_fil = Note.objects.filter(etudiant__filiere__code=filiere_code)
+        item['taux_reussite'] = round((notes_fil.filter(valeur__gte=10).count() / notes_fil.count() * 100), 1) if notes_fil.exists() else 0.0
+        item['nom'] = item['filiere__nom'] or filiere_code or "Filière sans nom"
+
+    annees_histo = list(AnneeAcademique.objects.order_by('code'))
+    labels_evolution = [ann.code for ann in annees_histo]
+    data_evolution = [Etudiant.objects.filter(annee_academique=ann, statut__in=['ACTIF', 'INSCRIT']).count() for ann in annees_histo]
+
+    if not labels_evolution:
+        labels_evolution = ['2023-2024', '2024-2025', '2025-2026']
+        data_evolution = [0, 0, total_etudiants]
+
     context = {
         'annee_academique': annee_code,
         'titre': 'Statistiques',
@@ -1336,6 +1379,15 @@ def statistiques(request):
         'primary_color': '#10B981',
         'secondary_color': '#F59E0B',
         'user_type': request.user.type_utilisateur,
+        'total_recettes': float(total_recettes),
+        'admin_stats': {
+            'total_etudiants': total_etudiants,
+            'taux_remplissage': taux_remplissage,
+            'taux_reussite_global': taux_reussite_global,
+        },
+        'effectifs_filiere': effectifs_filiere,
+        'labels_evolution': labels_evolution,
+        'data_evolution': data_evolution,
     }
 
     type_user = request.user.type_utilisateur
@@ -1430,20 +1482,30 @@ def statistiques(request):
                 'taux_reussite_enseignant': float(taux_reussite_enseignant),
             })
 
-    elif type_user == 'CHEF_ANONYMAT':
+    # Années académiques disponibles
+    annees_list = list(AnneeAcademique.objects.values_list('code', flat=True).order_by('-code'))
+    if not annees_list:
+        annees_list = ['2025-2026', '2024-2025', '2023-2024']
+
+    context.update({
+        'annees_list': annees_list,
+    })
+
+    if type_user == 'CHEF_ANONYMAT' or type_user in ['ADMIN_SYSTEME', 'DIRECTEUR', 'CHEF_ETUDES'] or request.user.is_superuser:
         from apps.notes.models import FicheNotesAnonymat, LigneFicheNotesAnonymat, ProcesVerbalNotes
 
-        fiches = FicheNotesAnonymat.objects.all()
+        fiches = FicheNotesAnonymat.objects.filter(annee_academique=annee_code) if FicheNotesAnonymat.objects.filter(annee_academique=annee_code).exists() else FicheNotesAnonymat.objects.all()
         fiches_total = fiches.count()
         fiches_transmises = fiches.filter(statut='TRANSMIS_CHEF_ANONYMAT').count()
         fiches_matchees = fiches.filter(statut__in=['MATCH_EFFECTUE', 'PV_GENERE', 'TRANSMIS_CHEF_ETUDES', 'VALIDE']).count()
         fiches_brouillon = fiches.filter(statut='BROUILLON').count()
         
-        lignes = LigneFicheNotesAnonymat.objects.all()
+        lignes = LigneFicheNotesAnonymat.objects.filter(fiche__in=fiches) if fiches_total > 0 else LigneFicheNotesAnonymat.objects.all()
         copies_total = lignes.count()
         copies_matchees = lignes.filter(etudiant__isnull=False).count()
         
-        taux_matching = round((fiches_matchees / fiches_total * 100), 1) if fiches_total > 0 else 0.0
+        # Taux de traitement basé sur les copies réellement démasquées / traitées
+        taux_matching = round((copies_matchees / copies_total * 100), 1) if copies_total > 0 else 0.0
         pv_generes = ProcesVerbalNotes.objects.count()
         
         fiches_examens = fiches.filter(mode_fiche='DEVOIR_SUR_TABLE').count()
@@ -1492,21 +1554,26 @@ def statistiques(request):
         # Scolarité / Études / Admin Général
         total_etudiants = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).count()
 
-        classes = Classe.objects.filter(est_active=True, annee_academique=annee_active) if annee_active else Classe.objects.filter(est_active=True)
-        taux_remplissage = 0
+        classes = Classe.objects.filter(est_active=True)
+        taux_remplissage = 0.0
         if classes.exists():
-            total_remplissage = 0
+            total_remplissage = 0.0
             valid_classes = 0
             for c in classes:
-                if c.effectif_max and c.effectif_max > 0:
-                    total_remplissage += (c.effectif_actuel / c.effectif_max * 100)
-                    valid_classes += 1
+                eff_max = getattr(c, 'effectif_max', 30) or 30
+                eff_actuel = c.etudiants.filter(statut__in=['ACTIF', 'INSCRIT']).count() if hasattr(c, 'etudiants') else getattr(c, 'effectif_actuel', 0)
+                total_remplissage += (eff_actuel / eff_max * 100)
+                valid_classes += 1
             if valid_classes > 0:
                 taux_remplissage = round(total_remplissage / valid_classes, 1)
 
         toutes_notes = Note.objects.all()
         total_notes = toutes_notes.count()
-        taux_reussite_global = round((toutes_notes.filter(valeur__gte=10).count() / total_notes * 100), 1) if total_notes > 0 else 78.5
+        taux_reussite_global = round((toutes_notes.filter(valeur__gte=10).count() / total_notes * 100), 1) if total_notes > 0 else 0.0
+
+        total_recettes = RecuPaiement.objects.filter(statut='VALIDE').aggregate(
+            total=Coalesce(Sum('montant_mentionne', output_field=DecimalField()), Value(0, output_field=DecimalField()))
+        )['total'] or 0
 
         effectifs_filiere = list(Etudiant.objects.filter(
             statut__in=['ACTIF', 'INSCRIT']
@@ -1517,8 +1584,21 @@ def statistiques(request):
         for item in effectifs_filiere:
             filiere_code = item['filiere__code']
             notes_fil = Note.objects.filter(etudiant__filiere__code=filiere_code)
-            item['taux_reussite'] = round((notes_fil.filter(valeur__gte=10).count() / notes_fil.count() * 100), 1) if notes_fil.exists() else 75.0
-            item['nom'] = item['filiere__nom']
+            item['taux_reussite'] = round((notes_fil.filter(valeur__gte=10).count() / notes_fil.count() * 100), 1) if notes_fil.exists() else 0.0
+            item['nom'] = item['filiere__nom'] or filiere_code or "Non renseigné"
+
+        # Évolution dynamique par année académique
+        annees_histo = list(AnneeAcademique.objects.order_by('code'))
+        labels_evolution = []
+        data_evolution = []
+        for ann in annees_histo:
+            labels_evolution.append(ann.code)
+            cnt = Etudiant.objects.filter(annee_academique=ann, statut__in=['ACTIF', 'INSCRIT']).count()
+            data_evolution.append(cnt)
+
+        if not labels_evolution:
+            labels_evolution = ['2023-2024', '2024-2025', '2025-2026']
+            data_evolution = [0, 0, total_etudiants]
 
         context.update({
             'admin_stats': {
@@ -1526,7 +1606,10 @@ def statistiques(request):
                 'taux_remplissage': taux_remplissage,
                 'taux_reussite_global': taux_reussite_global,
             },
+            'total_recettes': float(total_recettes),
             'effectifs_filiere': effectifs_filiere,
+            'labels_evolution': labels_evolution,
+            'data_evolution': data_evolution,
         })
     
     return render(request, 'tableau_bord/statistiques.html', context)

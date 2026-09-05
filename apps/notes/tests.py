@@ -649,5 +649,20 @@ class TestPVUnifieWorkflow(TestCase):
         res = remplir_bordereau_depuis_pv(self.classe, semestre=1)
         self.assertIn('Python Avancé', res['remplis'])
 
+        # 7. Vérification que la matrice du bordereau contient bien les notes remplies
+        from apps.notes.services_bordereau import calculer_bordereau_matrice
+        matrice_data = calculer_bordereau_matrice(self.classe, semestre=1)
+        rows = matrice_data['etudiants_rows']
+        self.assertTrue(len(rows) >= 2)
+        
+        # Etudiant 1 doit avoir 15.20 sur Python Avancé
+        et1_row = next(r for r in rows if r['etudiant'].id == self.etudiant1.id)
+        self.assertEqual(et1_row['notes_matiere_flat'].get(self.matiere.id), 15.2)
+
+        # Etudiant 2 doit avoir 7.20 sur Python Avancé
+        et2_row = next(r for r in rows if r['etudiant'].id == self.etudiant2.id)
+        self.assertEqual(et2_row['notes_matiere_flat'].get(self.matiere.id), 7.2)
+
+
 
 

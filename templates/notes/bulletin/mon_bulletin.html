@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% load l10n %}
 
-{% block title %}Mon Bulletin Semestriel — IAI-Cameroun{% endblock %}
+{% block title %}Mes Résultats — IAI-Cameroun{% endblock %}
 
 {% block content %}
 <div class="p-6 max-w-7xl mx-auto space-y-6">
@@ -11,7 +12,7 @@
                 <i class="fas fa-file-invoice text-white text-2xl"></i>
             </div>
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">Mon Bulletin Académique</h1>
+                <h1 class="text-2xl font-bold text-gray-900">Mes Résultats Académiques</h1>
                 <p class="text-sm text-gray-500 mt-1">Consultez votre relevé de notes officiel et l'état de validation de vos crédits.</p>
             </div>
         </div>
@@ -104,7 +105,7 @@
             <!-- Progress Bar -->
             <div>
                 <div class="w-full bg-gray-100 rounded-full h-2">
-                    <div class="bg-purple-600 h-2 rounded-full transition-all duration-500" style="width: {{ progression }}%"></div>
+                    <div class="bg-purple-600 h-2 rounded-full transition-all duration-500" style="width: {{ progression|unlocalize }}%"></div>
                 </div>
                 <div class="flex justify-between text-[10px] font-bold text-gray-400 mt-1">
                     <span>Progression</span>
@@ -158,6 +159,7 @@
                         <th class="px-6 py-3.5 text-xs font-bold text-gray-400 uppercase">Matière</th>
                         <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-28">CC (40%)</th>
                         <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-28">Examen (60%)</th>
+                        <th class="px-6 py-3.5 text-center text-xs font-bold text-purple-600 uppercase w-28">Rattrapage</th>
                         <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-28">Moyenne</th>
                         <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-20">Crédits</th>
                         <th class="px-6 py-3.5 text-center text-xs font-bold text-gray-400 uppercase w-32">Validation</th>
@@ -175,6 +177,9 @@
                         </td>
                         <td class="px-6 py-4 text-center font-medium text-gray-600">
                             {{ detail.note_examen|default_if_none:"—" }}
+                        </td>
+                        <td class="px-6 py-4 text-center font-medium text-purple-700 font-bold">
+                            {{ detail.note_rattrapage|default_if_none:"—" }}
                         </td>
                         <td class="px-6 py-4 text-center">
                             <span class="text-sm font-black {% if detail.moyenne_matiere >= 10 %}text-green-700{% else %}text-red-600{% endif %}">
