@@ -14,6 +14,9 @@
         * {
             box-sizing: border-box;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
         }
 
         body {
@@ -56,16 +59,24 @@
         }
 
         @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
             .no-print-bar {
                 display: none !important;
             }
             body {
-                padding: 0;
-                background: white;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: white !important;
             }
             .badge-card {
                 box-shadow: none !important;
                 margin: 0 !important;
+                border: 1.5px solid #1e293b !important;
+                page-break-inside: avoid;
             }
         }
 
