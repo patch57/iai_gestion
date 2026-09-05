@@ -1046,9 +1046,13 @@ def mes_notes(request):
             mention = "En attente de transmission"
             badge_style = "bg-gray-100 text-gray-700 border-gray-200"
 
+        coeff = float(getattr(mat, 'credits', getattr(mat, 'coefficient', getattr(mat, 'credit', 1.0))))
+        if db_entry and getattr(db_entry, 'credits', None):
+            coeff = float(db_entry.credits)
+
         releve_matieres.append({
             'matiere': mat,
-            'coefficient': float(getattr(mat, 'coefficient', 1.0)),
+            'coefficient': coeff,
             'val_cc': val_cc,
             'cc_transmis': cc_tr,
             'is_cc_manquante': is_cc_manquante,
