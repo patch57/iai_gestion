@@ -820,6 +820,22 @@ def api_update_detail_bulletin(request, detail_id):
     detail.credits_obtenus = detail.credits if detail.est_validee else 0
     detail.save()
 
+    # Synchronisation immédiate avec la ligne de Procès-Verbal de Notes si elle existe
+    try:
+        from apps.notes.models import LigneProcesVerbalNotes
+        lignes_pv = LigneProcesVerbalNotes.objects.filter(
+            etudiant=detail.bulletin.etudiant,
+            pv__matiere=detail.matiere
+        )
+        for l in lignes_pv:
+            l.note_cc = detail.note_cc
+            l.note_examen = detail.note_examen
+            l.note_rattrapage = detail.note_rattrapage
+            l.note_finale = detail.moyenne_matiere
+            l.save()
+    except Exception:
+        pass
+
     # Recalcul du bulletin parent
     bulletin = detail.bulletin
     all_details = bulletin.details.all().select_related('matiere')
@@ -3870,6 +3886,73 @@ def detail_pv(request, pk):
                         d.save()
                     b.calculer_moyenne()
                     b.save()
+
+        # Notifications automatiques multi-acteurs (Directeur & Enseignant de la matière)
+        if modified_count > 0:
+            try:
+                from apps.tableau_bord.services_notification import NotificationService
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+
+                auteur_nom = request.user.get_nom_complet() if hasattr(request.user, 'get_nom_complet') and request.user.get_nom_complet() else request.user.username
+                matiere_nom = pv.matiere.nom if pv.matiere else 'Matière'
+                classe_nom = pv.salle.nom if pv.salle else (f"{pv.filiere.code if pv.filiere else ''} N{pv.niveau.numero if pv.niveau else ''}")
+                pv_url = f"/notes/pv/{pv.id}/"
+
+                notif_titre = f"📝 Révision du PV de Notes : {matiere_nom}"
+                notif_msg = (
+                    f"Le Chef des Études ({auteur_nom}) a révisé les notes du Procès-Verbal de '{matiere_nom}' "
+                    f"pour la classe {classe_nom}. {modified_count} ligne(s) d'étudiants ont été actualisée(s)."
+                )
+
+                # 1. Notifier le Directeur / Administration
+                NotificationService.notifier_directeur(
+                    titre=notif_titre,
+                    message=notif_msg,
+                    type_notif='WARNING',
+                    lien=pv_url
+                )
+
+                # 2. Notifier l'Enseignant attribué à cette matière
+                prof_users = []
+                try:
+                    from apps.cours.models import Cours
+                    cours_list = Cours.objects.filter(
+                        matiere__code=pv.matiere.code
+                    ).select_related('professeur', 'professeur__utilisateur')
+
+                    for c in cours_list:
+                        if c.professeur:
+                            if c.professeur.utilisateur and c.professeur.utilisateur.is_active:
+                                prof_users.append(c.professeur.utilisateur)
+                            elif c.professeur.email:
+                                u = User.objects.filter(email=c.professeur.email, is_active=True).first()
+                                if u:
+                                    prof_users.append(u)
+                except Exception:
+                    pass
+
+                if prof_users:
+                    for prof_u in set(prof_users):
+                        NotificationService.notifier_utilisateur(
+                            user=prof_u,
+                            titre=notif_titre,
+                            message=notif_msg,
+                            type_notif='WARNING',
+                            lien=pv_url
+                        )
+                else:
+                    NotificationService.notifier_roles(
+                        roles=['ENSEIGNANT'],
+                        titre=notif_titre,
+                        message=notif_msg,
+                        type_notif='WARNING',
+                        lien=pv_url,
+                        inclure_superusers=False
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Erreur notification detail_pv update: {e}")
 
         messages.success(request, f"✅ Procès-Verbal mis à jour par le Chef des Études ({modified_count} ligne(s) actualisée(s)).")
         return redirect('notes:detail_pv', pk=pk)

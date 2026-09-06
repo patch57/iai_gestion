@@ -160,11 +160,10 @@ def calculer_bordereau_matrice(classe, semestre=1):
         if mcode:
             details_dict[(eid, mcode)] = val_mat
 
-    # 3c. Préchargement des PVs validés/transmis
+    # 3c. Préchargement de toutes les Lignes de PVs
     from apps.notes.models import LigneProcesVerbalNotes
     lignes_pv_qs = LigneProcesVerbalNotes.objects.filter(
-        etudiant__in=etudiants,
-        pv__est_transmis=True
+        etudiant__in=etudiants
     ).select_related('pv', 'pv__matiere')
 
     pvs_dict = {}
@@ -207,21 +206,41 @@ def calculer_bordereau_matrice(classe, semestre=1):
 
                 m_code_key = mat.code.strip().upper() if getattr(mat, 'code', None) else ''
 
-                # Logique de note finale avec fallbacks sur DetailBulletin et PVs transmis
-                if cc is not None or exam is not None or ratt is not None:
-                    note_exam = ratt if ratt is not None else (exam if exam is not None else 0.0)
-                    note_cc = cc if cc is not None else 0.0
-                    note_calc = (note_cc * 0.4) + (note_exam * 0.6)
-                    if note_calc == 0.0 and ((et.id, mat.id) in details_dict or (et.id, m_code_key) in details_dict or (et.id, mat.id) in pvs_dict or (et.id, m_code_key) in pvs_dict):
-                        note_finale = details_dict.get((et.id, mat.id), details_dict.get((et.id, m_code_key), pvs_dict.get((et.id, mat.id), pvs_dict.get((et.id, m_code_key), 0.0))))
+                # Logique de note finale avec priorité aux modifications du Chef des Études
+                note_finale = None
+
+                # 1. DetailBulletin (Mise à jour directe par le Chef des Études)
+                if (et.id, mat.id) in details_dict and details_dict[(et.id, mat.id)] is not None and details_dict[(et.id, mat.id)] > 0:
+                    note_finale = details_dict[(et.id, mat.id)]
+                elif (et.id, m_code_key) in details_dict and details_dict[(et.id, m_code_key)] is not None and details_dict[(et.id, m_code_key)] > 0:
+                    note_finale = details_dict[(et.id, m_code_key)]
+
+                # 2. Procès-Verbal de Notes (LigneProcesVerbalNotes)
+                if note_finale is None or note_finale == 0.0:
+                    if (et.id, mat.id) in pvs_dict and pvs_dict[(et.id, mat.id)] is not None and pvs_dict[(et.id, mat.id)] > 0:
+                        note_finale = pvs_dict[(et.id, mat.id)]
+                    elif (et.id, m_code_key) in pvs_dict and pvs_dict[(et.id, m_code_key)] is not None and pvs_dict[(et.id, m_code_key)] > 0:
+                        note_finale = pvs_dict[(et.id, m_code_key)]
+
+                # 3. Fallback sur DetailBulletin / PV s'ils valent 0.0 mais sont explicites
+                if note_finale is None:
+                    if (et.id, mat.id) in details_dict:
+                        note_finale = details_dict[(et.id, mat.id)]
+                    elif (et.id, m_code_key) in details_dict:
+                        note_finale = details_dict[(et.id, m_code_key)]
+                    elif (et.id, mat.id) in pvs_dict:
+                        note_finale = pvs_dict[(et.id, mat.id)]
+                    elif (et.id, m_code_key) in pvs_dict:
+                        note_finale = pvs_dict[(et.id, m_code_key)]
+
+                # 4. Évaluations brutes (CC 40% + Examen/Rattrapage 60%)
+                if note_finale is None or note_finale == 0.0:
+                    if cc is not None or exam is not None or ratt is not None:
+                        note_exam = ratt if ratt is not None else (exam if exam is not None else 0.0)
+                        note_cc = cc if cc is not None else 0.0
+                        note_finale = (note_cc * 0.4) + (note_exam * 0.6)
                     else:
-                        note_finale = note_calc
-                elif (et.id, mat.id) in details_dict or (et.id, m_code_key) in details_dict:
-                    note_finale = details_dict.get((et.id, mat.id), details_dict.get((et.id, m_code_key), 0.0))
-                elif (et.id, mat.id) in pvs_dict or (et.id, m_code_key) in pvs_dict:
-                    note_finale = pvs_dict.get((et.id, mat.id), pvs_dict.get((et.id, m_code_key), 0.0))
-                else:
-                    note_finale = 0.0
+                        note_finale = 0.0
 
                 note_finale = arrondir_note(note_finale, 2)
                 coef = mat.credit
