@@ -1316,6 +1316,7 @@ def dashboard_admin(request):
 @login_required
 def statistiques(request):
     """Page des statistiques principales - Style moderne et dynamique par acteur"""
+    from apps.etudiants.models import Etudiant, Filiere, Classe
     annee_active = AnneeAcademique.objects.filter(est_active=True).first()
     annee_code = request.GET.get('annee', annee_active.code if annee_active else '2024-2025')
     
@@ -1549,9 +1550,73 @@ def statistiques(request):
                 'recus_attente': recus_attente,
             }
         })
+    elif type_user == 'CHEF_SCOLARITE':
+        from apps.inscriptions.models import CertificatScolarite
+
+        etudiants_actifs = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT'])
+        total_etudiants = etudiants_actifs.count()
+
+        certifs_qs = CertificatScolarite.objects.all()
+        certifs_total = certifs_qs.count()
+        certifs_valides = certifs_qs.filter(statut='VALIDE').count()
+        certifs_derogation = certifs_qs.filter(derogation_accordee=True).count()
+        certifs_annules = certifs_qs.filter(statut='ANNULE').count()
+
+        consultations_total = certifs_qs.aggregate(
+            total=Coalesce(Sum('telechargements_count'), Value(0))
+        )['total'] or 0
+
+        # Taux de conformité des dossiers / certificats
+        taux_conformite = round(((certifs_total - certifs_derogation) / certifs_total * 100), 1) if certifs_total > 0 else 100.0
+        etudiants_certifies = Etudiant.objects.filter(certificats_scolarite__isnull=False).distinct().count()
+        taux_couverture = round((etudiants_certifies / total_etudiants * 100), 1) if total_etudiants > 0 else 0.0
+
+        # Détail par filière pour le Chef de la Scolarité
+        scolarite_filieres = []
+        for f in Filiere.objects.filter(est_active=True):
+            eff = Etudiant.objects.filter(filiere=f, statut__in=['ACTIF', 'INSCRIT']).count()
+            certifs_f = certifs_qs.filter(etudiant__filiere=f).count()
+            derog_f = certifs_qs.filter(etudiant__filiere=f, derogation_accordee=True).count()
+            classes_f = Classe.objects.filter(filiere=f, est_active=True).count()
+            
+            scolarite_filieres.append({
+                'id': f.id,
+                'code': f.code,
+                'nom': f.nom,
+                'effectif': eff,
+                'certificats_emis': certifs_f,
+                'derogations': derog_f,
+                'nb_classes': classes_f,
+                'taux_certif': round((certifs_f / eff * 100), 1) if eff > 0 else 0.0
+            })
+
+        # Évolution dynamique par année académique
+        annees_histo = list(AnneeAcademique.objects.order_by('code'))
+        labels_evolution = [ann.code for ann in annees_histo]
+        data_evolution = [Etudiant.objects.filter(annee_academique=ann, statut__in=['ACTIF', 'INSCRIT']).count() for ann in annees_histo]
+
+        if not labels_evolution:
+            labels_evolution = ['2023-2024', '2024-2025', '2025-2026']
+            data_evolution = [0, 0, total_etudiants]
+
+        context.update({
+            'scolarite_stats': {
+                'total_etudiants': total_etudiants,
+                'certifs_total': certifs_total,
+                'certifs_valides': certifs_valides,
+                'certifs_derogation': certifs_derogation,
+                'certifs_annules': certifs_annules,
+                'consultations_total': consultations_total,
+                'taux_conformite': float(taux_conformite),
+                'taux_couverture': float(taux_couverture),
+            },
+            'scolarite_filieres': scolarite_filieres,
+            'labels_evolution': labels_evolution,
+            'data_evolution': data_evolution,
+        })
 
     else:
-        # Scolarité / Chef des Études / Admin Général - Statistiques Pédagogiques Avancées
+        # Chef des Études / Admin Général - Statistiques Pédagogiques Avancées
         from apps.notes.models import LigneProcesVerbalNotes, ProcesVerbalNotes, FicheNotesAnonymat
 
         total_etudiants = Etudiant.objects.filter(statut__in=['ACTIF', 'INSCRIT']).count()

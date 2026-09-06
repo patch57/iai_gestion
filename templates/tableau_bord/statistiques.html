@@ -30,6 +30,8 @@
                     Analyse de la santé financière et du recouvrement des scolarités.
                 {% elif user_type == 'CHEF_ANONYMAT' %}
                     Suivi confidentiel du masquage, matching et levée de l'anonymat des examens.
+                {% elif user_type == 'CHEF_SCOLARITE' %}
+                    Suivi des effectifs, registre des certificats de scolarité et dossiers administratifs.
                 {% else %}
                     Analyse globale des données académiques, effectifs et remplissage.
                 {% endif %}
@@ -389,7 +391,152 @@
         <canvas id="monthlyRevenueChart" height="120"></canvas>
     </div>
 
-    <!-- ==================== CHEF DES ÉTUDES / SCOLARITÉ / ADMIN ==================== -->
+    <!-- ==================== CHEF DE LA SCOLARITE ==================== -->
+    {% elif user_type == 'CHEF_SCOLARITE' %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Effectifs -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-emerald-500 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Effectif Académique</span>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ scolarite_stats.total_etudiants }} <span class="text-xs text-gray-400 font-normal">étudiant(s)</span></p>
+                    <p class="text-xs text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-id-card"></i> Inscrits & Actifs ({{ scolarite_filieres|length }} filières)
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-emerald-100">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Certificats de scolarité -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-blue-500 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Certificats de Scolarité</span>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ scolarite_stats.certifs_valides }} <span class="text-xs text-gray-400 font-normal">/ {{ scolarite_stats.certifs_total }}</span></p>
+                    <p class="text-xs text-blue-600 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-certificate"></i> Actifs & Conformes ({{ scolarite_stats.taux_couverture }}%)
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-blue-100">
+                    <i class="fas fa-file-contract"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dérogations administratives -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-amber-500 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Dérogations Accordées</span>
+                    <p class="text-3xl font-black text-amber-600 mt-1">{{ scolarite_stats.certifs_derogation }}</p>
+                    <p class="text-xs text-amber-700 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-exclamation-triangle"></i> Taux conformité : {{ scolarite_stats.taux_conformite }}%
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-amber-100">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consultations & Scans QR -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 stat-card border-t-4 border-purple-500 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Consultations / Scans PDF</span>
+                    <p class="text-3xl font-black text-gray-900 mt-1">{{ scolarite_stats.consultations_total }}</p>
+                    <p class="text-xs text-purple-600 font-bold mt-1.5 flex items-center gap-1">
+                        <i class="fas fa-qrcode"></i> Vérifications d'authenticité
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-xl shadow-xs border border-purple-100">
+                    <i class="fas fa-eye"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table analytique pour la Scolarité par Filière -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden mt-8">
+        <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-emerald-900 to-slate-900 text-white">
+            <div>
+                <h3 class="text-lg font-black flex items-center gap-2">
+                    <i class="fas fa-id-card text-emerald-400"></i> Registre Analytique de la Scolarité par Filière
+                </h3>
+                <p class="text-xs text-emerald-200/80 mt-1">Contrôle des effectifs inscrits, certificats délivrés et dérogations administratives.</p>
+            </div>
+            <a href="{% url 'inscriptions:liste_certificats' %}" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow flex items-center gap-2">
+                <i class="fas fa-file-invoice"></i> Gérer le Registre des Certificats
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th class="p-5">Filière / Spécialité</th>
+                        <th class="p-5">Classes Actives</th>
+                        <th class="p-5">Effectif Inscrit</th>
+                        <th class="p-5">Certificats Émis</th>
+                        <th class="p-5">Dérogations</th>
+                        <th class="p-5">Taux de Couverture</th>
+                        <th class="p-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in scolarite_filieres %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-5">
+                            <span class="font-bold text-gray-800 block">{{ item.nom }}</span>
+                            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">{{ item.code }}</span>
+                        </td>
+                        <td class="p-5 font-bold text-gray-700">
+                            {{ item.nb_classes }} classe(s)
+                        </td>
+                        <td class="p-5 font-extrabold text-gray-900 text-base">
+                            {{ item.effectif }} étudiant(s)
+                        </td>
+                        <td class="p-5 font-bold text-blue-700">
+                            {{ item.certificats_emis }} délivré(s)
+                        </td>
+                        <td class="p-5">
+                            {% if item.derogations > 0 %}
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                                {{ item.derogations }} dérogation(s)
+                            </span>
+                            {% else %}
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                                Conforme (0)
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="p-5">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-800">{{ item.taux_certif }}%</span>
+                                <div class="w-20 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: {{ item.taux_certif|unlocalize }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-5 text-right">
+                            <a href="{% url 'inscriptions:liste_certificats' %}" class="px-3 py-1.5 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 text-gray-700 text-xs font-bold rounded-xl transition inline-flex items-center gap-1">
+                                <i class="fas fa-list-check"></i> Registre
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="p-10 text-center text-gray-400">Aucune filière disponible.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== CHEF DES ÉTUDES / ADMIN ==================== -->
     {% else %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Effectifs -->

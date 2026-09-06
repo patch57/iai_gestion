@@ -452,6 +452,18 @@
                     </a>
                 </li>
                 {% endif %}
+
+                {% if user.type_utilisateur in 'CHEF_ETUDES DIRECTEUR ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}
+                {% if user.type_utilisateur != 'CHEF_SCOLARITE' and user.type_utilisateur != 'SCOLARITE' %}
+                <li>
+                    <a href="{% url 'notes:liste_bulletins' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-emerald-800 font-bold rounded-lg hover:bg-emerald-50 transition-all group">
+                        <i class="fas fa-file-invoice w-5 h-5 mr-3 text-emerald-600 group-hover:text-emerald-700"></i>
+                        <span>Bulletins étudiants</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% endif %}
                 {% endif %}
                 {% endif %}
                 

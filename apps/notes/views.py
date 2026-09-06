@@ -651,35 +651,95 @@ def reveler_identites(request, evaluation_id):
 
 @login_required
 def liste_bulletins(request):
-    """Liste des bulletins"""
-    queryset = Bulletin.objects.all().select_related('etudiant', 'etudiant__filiere')
-    
-    # Filtres
-    filiere_id = request.GET.get('filiere', '')
-    if filiere_id:
-        queryset = queryset.filter(etudiant__filiere_id=filiere_id)
+    """Registre & Gestion Officielle des Bulletins des Étudiants (Chef des Études & Administration)"""
+    if request.user.type_utilisateur in ['CHEF_SCOLARITE', 'SCOLARITE']:
+        messages.error(request, "Accès refusé. Le Chef de la Scolarité n'a pas accès à la gestion des bulletins d'études.")
+        return redirect('tableau_bord:tableau_bord')
+
+    from django.db.models import Avg, Q
+    from apps.etudiants.models import Filiere, Niveau
     
     annee = get_annee_academique_active(request)
+    queryset = Bulletin.objects.all().select_related(
+        'etudiant', 
+        'etudiant__filiere',
+        'etudiant__niveau'
+    )
+
+    # Filtre par recherche textuelle (Nom, Prénom, Matricule, N° Bulletin)
+    search_query = request.GET.get('q', '').strip()
+    if search_query:
+        queryset = queryset.filter(
+            Q(etudiant__nom__icontains=search_query) |
+            Q(etudiant__prenom__icontains=search_query) |
+            Q(etudiant__matricule__icontains=search_query) |
+            Q(numero_bulletin__icontains=search_query)
+        )
+    
+    # Filtre Année Académique
+    annee_param = request.GET.get('annee_academique', '').strip()
+    if annee_param:
+        annee = annee_param
     queryset = queryset.filter(annee_academique=annee)
-    
-    semestre = request.GET.get('semestre', '')
-    if semestre:
-        queryset = queryset.filter(semestre=semestre)
-    
-    decision = request.GET.get('decision', '')
+
+    # Filtre Filière
+    filiere_id = request.GET.get('filiere', '').strip()
+    if filiere_id:
+        queryset = queryset.filter(etudiant__filiere_id=filiere_id)
+
+    # Filtre Niveau (Niveau 1 vs Niveau 2)
+    niveau_param = request.GET.get('niveau', '').strip()
+    if niveau_param:
+        queryset = queryset.filter(etudiant__niveau__numero=int(niveau_param))
+
+    # Filtre Semestre
+    semestre = request.GET.get('semestre', '').strip()
+    if semestre and semestre.isdigit():
+        queryset = queryset.filter(semestre=int(semestre))
+
+    # Filtre Décision
+    decision = request.GET.get('decision', '').strip()
     if decision:
         queryset = queryset.filter(decision=decision)
-    
+
+    # Filtre Statut de validation
+    statut = request.GET.get('statut', '').strip()
+    if statut == 'valide':
+        queryset = queryset.filter(est_valide=True)
+    elif statut == 'brouillon':
+        queryset = queryset.filter(est_valide=False)
+
+    # Statistiques du Registre pour les cartes KPI
+    stats_qs = queryset
+    total_bulletins = stats_qs.count()
+    bulletins_valides = stats_qs.filter(est_valide=True).count()
+    admis_count = stats_qs.filter(decision='ADMIS').count()
+    taux_reussite = (admis_count / total_bulletins * 100) if total_bulletins > 0 else 0
+    moyenne_generale = stats_qs.aggregate(Avg('moyenne_semestre'))['moyenne_semestre__avg'] or 0.0
+
     # Pagination
-    paginator = Paginator(queryset.order_by('-annee_academique', 'semestre', '-moyenne_semestre'), 20)
+    paginator = Paginator(queryset.order_by('-annee_academique', 'semestre', 'etudiant__filiere__code', '-moyenne_semestre'), 25)
     page = request.GET.get('page')
     bulletins = paginator.get_page(page)
-    
+
     context = {
         'bulletins': bulletins,
         'filieres': Filiere.objects.filter(est_active=True),
+        'niveaux': [1, 2],
         'annee': annee,
-        'titre': 'Liste des Bulletins'
+        'search_query': search_query,
+        'filiere_filter': filiere_id,
+        'niveau_filter': niveau_param,
+        'semestre_filter': semestre,
+        'decision_filter': decision,
+        'statut_filter': statut,
+        # KPIs
+        'total_bulletins': total_bulletins,
+        'bulletins_valides': bulletins_valides,
+        'admis_count': admis_count,
+        'taux_reussite': round(taux_reussite, 1),
+        'moyenne_generale': round(moyenne_generale, 2),
+        'titre': 'Registre Officiel des Bulletins Étudiants'
     }
     return render(request, 'notes/liste_bulletins.html', context)
 
@@ -705,38 +765,238 @@ def detail_bulletin(request, pk):
 
 
 @login_required
-@permission_required('notes.add_bulletin', raise_exception=True)
+def api_update_detail_bulletin(request, detail_id):
+    """Mettre à jour les notes d'un DetailBulletin via AJAX et recalculer le bulletin"""
+    import json
+    from decimal import Decimal, InvalidOperation
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+    detail = get_object_or_404(DetailBulletin, pk=detail_id)
+    
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        data = request.POST
+
+    def parse_note(val):
+        if val is None or val == '' or str(val).strip() in ['--', 'None']:
+            return None
+        try:
+            v = Decimal(str(val).replace(',', '.').strip())
+            return max(Decimal('0.00'), min(Decimal('20.00'), v))
+        except (ValueError, TypeError, InvalidOperation):
+            return None
+
+    detail.note_cc = parse_note(data.get('note_cc'))
+    detail.note_examen = parse_note(data.get('note_examen'))
+    detail.note_rattrapage = parse_note(data.get('note_rattrapage'))
+
+    # Calcul de la moyenne matière
+    notes = []
+    coeffs = []
+    if detail.note_cc is not None:
+        notes.append(float(detail.note_cc))
+        coeffs.append(0.4)
+    if detail.note_examen is not None:
+        notes.append(float(detail.note_examen))
+        coeffs.append(0.6)
+
+    if notes and coeffs:
+        base_moy = sum(n * c for n, c in zip(notes, coeffs)) / sum(coeffs)
+        if detail.note_rattrapage is not None:
+            rat_val = float(detail.note_rattrapage)
+            rat_moy = (float(detail.note_cc or 0) * 0.4 + rat_val * 0.6) if detail.note_cc is not None else rat_val
+            detail.moyenne_matiere = Decimal(str(round(max(base_moy, rat_moy), 2)))
+        else:
+            detail.moyenne_matiere = Decimal(str(round(base_moy, 2)))
+    elif detail.note_rattrapage is not None:
+        detail.moyenne_matiere = Decimal(str(round(float(detail.note_rattrapage), 2)))
+    else:
+        detail.moyenne_matiere = Decimal('0.00')
+
+    detail.est_validee = detail.moyenne_matiere >= 10
+    detail.credits_obtenus = detail.credits if detail.est_validee else 0
+    detail.save()
+
+    # Recalcul du bulletin parent
+    bulletin = detail.bulletin
+    all_details = bulletin.details.all().select_related('matiere')
+    
+    total_credits = sum((d.credits or getattr(d.matiere, 'credit', 0) or 0) for d in all_details)
+    total_credits_obtenus = sum(d.credits_obtenus for d in all_details)
+
+    total_weights = sum((d.credits or getattr(d.matiere, 'credit', 0) or 1) for d in all_details)
+    if total_weights > 0:
+        weighted_sum = sum(float(d.moyenne_matiere) * (d.credits or getattr(d.matiere, 'credit', 0) or 1) for d in all_details)
+        bulletin.moyenne_semestre = round(weighted_sum / total_weights, 2)
+
+    elif all_details.exists():
+        bulletin.moyenne_semestre = round(sum(float(d.moyenne_matiere) for d in all_details) / all_details.count(), 2)
+    else:
+        bulletin.moyenne_semestre = Decimal('0.00')
+
+    bulletin.credits_obtenus = total_credits_obtenus
+    bulletin.determiner_decision()
+    bulletin.save()
+
+
+    # Recalculer les rangs des étudiants
+    bulletins_classe = Bulletin.objects.filter(
+        etudiant__filiere=bulletin.etudiant.filiere,
+        annee_academique=bulletin.annee_academique,
+        semestre=bulletin.semestre
+    ).order_by('-moyenne_semestre')
+
+    effectif = bulletins_classe.count()
+    for idx, b in enumerate(bulletins_classe, 1):
+        if b.rang != idx or b.effectif != effectif:
+            b.rang = idx
+            b.effectif = effectif
+            b.save(update_fields=['rang', 'effectif'])
+    progression = round((bulletin.credits_obtenus / total_credits) * 100, 1) if total_credits > 0 else 0
+
+    # Notification multi-acteurs (Enseignant de la matière & Directeur)
+    try:
+        from apps.tableau_bord.services_notification import NotificationService
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        etudiant = bulletin.etudiant
+        matiere = detail.matiere
+        auteur_nom = request.user.get_nom_complet() if hasattr(request.user, 'get_nom_complet') and request.user.get_nom_complet() else request.user.username
+        bulletin_url = f"/notes/bulletins/{bulletin.id}/"
+
+        cc_str = f"{detail.note_cc}" if detail.note_cc is not None else "--"
+        exam_str = f"{detail.note_examen}" if detail.note_examen is not None else "--"
+        rat_str = f"{detail.note_rattrapage}" if detail.note_rattrapage is not None else "--"
+
+        notif_titre = f"📝 Modification de note : {matiere.nom}"
+        notif_msg = (
+            f"Le Chef des Études ({auteur_nom}) a révisé la note de '{matiere.nom}' "
+            f"pour l'étudiant {etudiant.get_nom_complet()} (Matricule: {etudiant.matricule}). "
+            f"Notes saisies -> CC: {cc_str}, Examen: {exam_str}, Rattrapage: {rat_str} "
+            f"(Moyenne Matière: {detail.moyenne_matiere}/20, Moyenne Bulletin: {bulletin.moyenne_semestre}/20)."
+        )
+
+        # 1. Notifier le Directeur / Administration
+        NotificationService.notifier_directeur(
+            titre=notif_titre,
+            message=notif_msg,
+            type_notif='WARNING',
+            lien=bulletin_url
+        )
+
+        # 2. Rechercher l'enseignant attribué à cette matière
+        prof_users = []
+        try:
+            from apps.cours.models import Cours
+            cours_list = Cours.objects.filter(
+                filiere=etudiant.filiere,
+                matiere__code=matiere.code
+            ).select_related('professeur', 'professeur__utilisateur')
+            
+            if not cours_list.exists():
+                cours_list = Cours.objects.filter(matiere__code=matiere.code).select_related('professeur', 'professeur__utilisateur')
+
+            for c in cours_list:
+                if c.professeur:
+                    if c.professeur.utilisateur and c.professeur.utilisateur.is_active:
+                        prof_users.append(c.professeur.utilisateur)
+                    elif c.professeur.email:
+                        u = User.objects.filter(email=c.professeur.email, is_active=True).first()
+                        if u:
+                            prof_users.append(u)
+        except Exception:
+            pass
+
+        # 3. Notifier l'enseignant de la matière (ou les enseignants par rôle en fallback)
+        if prof_users:
+            for prof_u in set(prof_users):
+                NotificationService.notifier_utilisateur(
+                    user=prof_u,
+                    titre=notif_titre,
+                    message=notif_msg,
+                    type_notif='WARNING',
+                    lien=bulletin_url
+                )
+        else:
+            NotificationService.notifier_roles(
+                roles=['ENSEIGNANT'],
+                titre=notif_titre,
+                message=notif_msg,
+                type_notif='WARNING',
+                lien=bulletin_url,
+                inclure_superusers=False
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Erreur envoi notification bulletin update: {e}")
+
+    return JsonResponse({
+        'success': True,
+        'detail_id': detail.id,
+        'note_cc': float(detail.note_cc) if detail.note_cc is not None else None,
+        'note_examen': float(detail.note_examen) if detail.note_examen is not None else None,
+        'note_rattrapage': float(detail.note_rattrapage) if detail.note_rattrapage is not None else None,
+        'moyenne_matiere': float(detail.moyenne_matiere),
+        'est_validee': detail.est_validee,
+        'credits_obtenus_matiere': detail.credits_obtenus,
+        'credits_matiere': detail.credits,
+        'bulletin_moyenne': float(bulletin.moyenne_semestre),
+        'bulletin_rang': bulletin.rang,
+        'bulletin_effectif': bulletin.effectif,
+        'bulletin_credits_obtenus': bulletin.credits_obtenus,
+        'bulletin_credits_totaux': total_credits,
+        'bulletin_decision': bulletin.decision,
+        'bulletin_decision_display': bulletin.get_decision_display(),
+        'progression': progression,
+    })
+
+
+
+@login_required
 def generer_bulletins(request):
-    """Générer les bulletins pour une filière"""
+    """Générer et calculer les bulletins pour une ou toutes les filières"""
+    from apps.etudiants.models import Etudiant
+    annee_active = get_annee_academique_active(request)
+
     if request.method == 'POST':
         filiere_id = request.POST.get('filiere')
-        annee = request.POST.get('annee_academique', get_annee_academique_active(request))
-        semestre = request.POST.get('semestre', 1)
-        
-        filiere = get_object_or_404(Filiere, pk=filiere_id)
-        etudiants = Etudiant.objects.filter(
-            filiere=filiere,
-            annee_academique=annee,
-            statut__in=['ACTIF', 'INSCRIT']
-        )
-        
+        annee = request.POST.get('annee_academique', annee_active)
+        semestre = int(request.POST.get('semestre', 1))
+
+        if filiere_id == 'ALL':
+            filieres = list(Filiere.objects.filter(est_active=True))
+        else:
+            filieres = [get_object_or_404(Filiere, pk=filiere_id)]
+
         count = 0
-        for etudiant in etudiants:
-            bulletin, created = Bulletin.objects.get_or_create(
-                etudiant=etudiant,
-                annee_academique=annee,
-                semestre=semestre,
-                defaults={'filiere': filiere}
+        for fil in filieres:
+            etudiants = Etudiant.objects.filter(
+                filiere=fil,
+                est_actif=True
             )
-            if created:
-                count += 1
-        
-        messages.success(request, f'✅ {count} bulletin(s) généré(s).')
+            for etudiant in etudiants:
+                bulletin, created = Bulletin.objects.get_or_create(
+                    etudiant=etudiant,
+                    annee_academique=annee,
+                    semestre=semestre,
+                )
+                bulletin.calculer_moyenne()
+                bulletin.determiner_decision()
+                bulletin.save()
+                if created:
+                    count += 1
+
+        messages.success(request, f'✅ Traitement effectué : {count} nouveau(x) bulletin(s) généré(s) et mis à jour pour l\'année {annee}.')
         return redirect('notes:liste_bulletins')
-    
+
     context = {
         'filieres': Filiere.objects.filter(est_active=True),
-        'titre': 'Générer les Bulletins'
+        'annee': annee_active,
+        'titre': 'Générer & Calculer les Bulletins'
     }
     return render(request, 'notes/generer_bulletins.html', context)
 

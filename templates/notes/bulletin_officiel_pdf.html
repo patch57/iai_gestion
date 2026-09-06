@@ -422,7 +422,7 @@
             <span style="color: #64748b; font-size: 12px; margin-left: 8px;">{{ etudiant.get_nom_complet|default:"TCHATCHOU NYAMSI HERNANDEZ" }} ({{ etudiant.matricule|default:"GL.CMR.D003.2627A" }})</span>
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
-            <a href="{% url 'tableau_bord:tableau_bord' %}" class="btn-back">← Espace Étudiant</a>
+            <a href="{% if user.type_utilisateur in 'CHEF_ETUDES DIRECTEUR ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}{% url 'notes:liste_bulletins' %}{% else %}{% url 'notes:mes_notes' %}{% endif %}" class="btn-back">Retour</a>
             {% if user.is_superuser or user.type_utilisateur not in 'ETUDIANT,APPRENANT' and not user.est_etudiant %}
             <button onclick="window.print()" class="btn-print">🖨️ Imprimer / Enregistrer PDF</button>
             {% else %}
@@ -704,7 +704,6 @@
         <!-- Official Signatures and Seal Stamp -->
         <div class="signature-grid">
             <div class="sig-left">
-                <span>Fait à Douala, le {{ date_edition|date:"d/m/Y"|default:"03/09/2026" }}</span>
             </div>
             <div class="sig-right">
                 <span>Le Représentant Résident</span><br>

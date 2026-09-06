@@ -17,7 +17,7 @@ class ProfesseurForm(forms.ModelForm):
             'sexe', 'nationalite', 'telephone', 'email', 'adresse',
             'grade', 'departement', 'specialite', 'diplomes', 'annee_experience',
             'date_embauche', 'type_contrat', 'salaire_base',
-            'photo', 'statut'
+            'photo', 'statut', 'utilisateur'
         ]
         widgets = {
             'date_naissance': forms.DateInput(attrs={'type': 'date'}),
@@ -28,6 +28,11 @@ class ProfesseurForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.fields['utilisateur'].queryset = User.objects.all().order_by('username')
+        self.fields['utilisateur'].required = False
+        self.fields['utilisateur'].label = "Compte utilisateur rattaché"
         self.helper = FormHelper()
         self.helper.form_method = 'post'
         self.helper.enctype = 'multipart/form-data'

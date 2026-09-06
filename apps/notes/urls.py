@@ -28,6 +28,8 @@ urlpatterns = [
     path('bulletins/<int:pk>/', views.detail_bulletin, name='detail_bulletin'),
     path('bulletins/generer/', views.generer_bulletins, name='generer_bulletins'),
     path('bulletins/<int:bulletin_id>/exporter/', views.exporter_releve, name='exporter_releve'),
+    path('bulletins/detail/<int:detail_id>/update/', views.api_update_detail_bulletin, name='api_update_detail_bulletin'),
+
     
     # ========== DÉLIBÉRATION ==========
     path('deliberation/', views.deliberation, name='deliberation'),

@@ -95,6 +95,27 @@ class PenalitesServicesTestCase(TestCase):
         self.assertTrue(penalites['details'][0]['penalite_stoppee'])
         self.assertEqual(penalites['details'][0]['date_arret_calcul'], date_paiement_recu)
 
+    def test_arret_calcul_penalites_date_verification(self):
+        """Vérifie que la date de vérification/validation du reçu fait foi pour l'arrêt du calcul."""
+        from apps.paiements.models import RecuPaiement
+        from django.utils import timezone
+        date_validation = timezone.now() - timedelta(days=7)
+        recu = RecuPaiement.objects.create(
+            etudiant=self.etudiant,
+            tranche=self.tranche1,
+            recu_fichier="recus/test.pdf",
+            montant_mentionne=84000,
+            date_verification=date_validation,
+            statut='VALIDE'
+        )
+        self.etudiant.recu_preinscription_valide = True
+        self.etudiant.save()
+
+        penalites = calculer_penalites_etudiant(self.etudiant)
+        self.assertEqual(penalites['total'], 1500)
+        self.assertTrue(penalites['details'][0]['penalite_stoppee'])
+        self.assertEqual(penalites['details'][0]['date_arret_calcul'], date_validation.date())
+
     def test_envoyer_rappels_paiements_command(self):
         """Vérifie que la commande Django calcule bien les pénalités et envoie un courriel d'avertissement"""
         call_command('envoyer_rappels_paiements')

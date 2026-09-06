@@ -9,14 +9,19 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-            <h1 class="text-2xl font-black text-gray-800"><i class="fas fa-file-invoice mr-2 text-green-600"></i>Relevé de Notes {% if bulletin.semestre == 3 %}Annuel (S1 + S2){% else %}Semestriel{% endif %}</h1>
+            <h1 class="text-2xl font-black text-gray-800">
+                <i class="fas fa-file-invoice mr-2 text-green-600"></i>Relevé de Notes {% if bulletin.semestre == 3 %}Annuel (S1 + S2){% else %}Semestriel{% endif %}
+            </h1>
             <p class="text-gray-500 text-sm mt-1">Année Académique : {{ bulletin.annee_academique }} | {% if bulletin.semestre == 3 %}Annuel (S1 + S2){% else %}Semestre {{ bulletin.semestre }}{% endif %}</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-3">
+            <div id="save-indicator" class="hidden text-xs font-bold px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm transition-all duration-300">
+                <i class="fas fa-sync-alt fa-spin mr-1.5" id="save-icon"></i> <span id="save-status-text">Enregistrement...</span>
+            </div>
             <a href="{% url 'notes:exporter_releve' bulletin.id %}" class="bg-green-700 hover:bg-green-800 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
                 <i class="fas fa-file-export mr-2"></i> Exporter en CSV
             </a>
-            <a href="{% url 'notes:mes_notes' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition">
+            <a href="{% if user.type_utilisateur in 'CHEF_ETUDES DIRECTEUR ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}{% url 'notes:liste_bulletins' %}{% else %}{% url 'notes:mes_notes' %}{% endif %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition">
                 Retour
             </a>
         </div>
@@ -24,7 +29,12 @@
 
     <!-- Bulletin Summary Info Card -->
     <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8 mb-8 space-y-6">
-        <h3 class="font-bold text-gray-800 text-lg border-b pb-3 border-gray-100"><i class="fas fa-user-graduate text-green-600 mr-2"></i>Dossier de l'Étudiant</h3>
+        <div class="flex justify-between items-center border-b pb-3 border-gray-100">
+            <h3 class="font-bold text-gray-800 text-lg">
+                <i class="fas fa-user-graduate text-green-600 mr-2"></i>Dossier de l'Étudiant
+            </h3>
+            <span class="text-xs text-emerald-700 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200"><i class="fas fa-bolt mr-1"></i>Saisie temps réel activée</span>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Nom complet</span>
@@ -36,31 +46,33 @@
             </div>
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Moyenne Générale</span>
-                <p class="font-black text-green-600 text-lg">{{ bulletin.moyenne_semestre|floatformat:2 }}/20</p>
+                <p id="bulletin-moyenne" class="font-black text-green-600 text-xl transition-all">{{ bulletin.moyenne_semestre|floatformat:2 }}/20</p>
             </div>
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Rang</span>
-                <p class="font-bold text-gray-800">{{ bulletin.rang }} / {{ bulletin.effectif }}</p>
+                <p id="bulletin-rang" class="font-bold text-gray-800 text-lg">{{ bulletin.rang }} / {{ bulletin.effectif }}</p>
             </div>
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Filière</span>
-                <p class="font-bold text-gray-800">{{ bulletin.filiere.nom }} ({{ bulletin.filiere.code }})</p>
+                <p class="font-bold text-gray-800">{% if bulletin.filiere %}{{ bulletin.filiere.nom }} ({{ bulletin.filiere.code }}){% elif bulletin.etudiant.filiere %}{{ bulletin.etudiant.filiere.nom }} ({{ bulletin.etudiant.filiere.code }}){% else %}-{% endif %}</p>
             </div>
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Crédits acquis</span>
-                <p class="font-bold text-gray-800">{{ bulletin.credits_obtenus }} Credits</p>
+                <p id="bulletin-credits" class="font-bold text-gray-800">{{ bulletin.credits_obtenus }} Credits</p>
             </div>
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Décision du jury</span>
-                <span class="text-xs font-bold px-2.5 py-1 rounded-full inline-block mt-1 {% if bulletin.decision == 'ADMIS' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                    {{ bulletin.get_decision_display }}
-                </span>
+                <div id="bulletin-decision-wrapper">
+                    <span id="bulletin-decision" class="text-xs font-bold px-3 py-1 rounded-full inline-block mt-1 transition-all {% if bulletin.decision == 'ADMIS' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ bulletin.get_decision_display }}
+                    </span>
+                </div>
             </div>
             <div>
                 <span class="text-xs text-gray-400 uppercase font-semibold">Progression Crédits</span>
-                <p class="font-bold text-gray-800">{{ progression }}%</p>
+                <p id="bulletin-progression-text" class="font-bold text-gray-800">{{ progression }}%</p>
                 <div class="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden">
-                    <div class="bg-purple-600 h-2 rounded-full transition-all duration-500" style="width: {{ progression|unlocalize }}%"></div>
+                    <div id="bulletin-progression-bar" class="bg-purple-600 h-2 rounded-full transition-all duration-500" style="width: {{ progression|unlocalize }}%"></div>
                 </div>
             </div>
         </div>
@@ -68,6 +80,12 @@
 
     <!-- Bulletin Details Table -->
     <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+            <h4 class="font-bold text-gray-800 text-sm">
+                <i class="fas fa-edit text-emerald-600 mr-2"></i>Notes par matière (Modifiables en temps réel)
+            </h4>
+            <span class="text-xs text-gray-500">Les modifications se répercutent automatiquement à l'écran et en base de données.</span>
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
@@ -75,7 +93,7 @@
                         <th class="p-5">Matière</th>
                         <th class="p-5">CC (40%)</th>
                         <th class="p-5">Examen (60%)</th>
-                        <th class="p-5 text-purple-700 font-bold">Rattrapage</th>
+                        <th class="p-5 text-purple-700 font-bold notranslate" translate="no">Rattrapage</th>
                         <th class="p-5">Moyenne Matière</th>
                         <th class="p-5">Crédits</th>
                         <th class="p-5 text-right">Validation</th>
@@ -83,27 +101,41 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for detail in details %}
-                    <tr class="hover:bg-gray-50/50 transition">
+                    <tr class="hover:bg-gray-50/50 transition detail-row" data-detail-id="{{ detail.id }}" data-credits="{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}0{% endif %}">
                         <td class="p-5 font-bold text-gray-800">
                             {{ detail.matiere.nom }}
                         </td>
-                        <td class="p-5 font-semibold text-gray-600">
-                            {{ detail.note_cc|default:"--" }}
+                        <td class="p-5">
+                            <input type="number" min="0" max="20" step="0.01" 
+                                   value="{% if detail.note_cc is not None %}{{ detail.note_cc|unlocalize }}{% endif %}" 
+                                   placeholder="--" 
+                                   class="note-input note-cc w-24 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-gray-50/50 hover:bg-white focus:bg-white" 
+                                   data-field="note_cc">
                         </td>
-                        <td class="p-5 font-semibold text-gray-600">
-                            {{ detail.note_examen|default:"--" }}
+                        <td class="p-5">
+                            <input type="number" min="0" max="20" step="0.01" 
+                                   value="{% if detail.note_examen is not None %}{{ detail.note_examen|unlocalize }}{% endif %}" 
+                                   placeholder="--" 
+                                   class="note-input note-examen w-24 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-gray-50/50 hover:bg-white focus:bg-white" 
+                                   data-field="note_examen">
                         </td>
-                        <td class="p-5 font-bold text-purple-700">
-                            {{ detail.note_rattrapage|default:"--" }}
+                        <td class="p-5">
+                            <input type="number" min="0" max="20" step="0.01" 
+                                   value="{% if detail.note_rattrapage is not None %}{{ detail.note_rattrapage|unlocalize }}{% endif %}" 
+                                   placeholder="--" 
+                                   class="note-input note-rattrapage w-24 px-3 py-1.5 border border-purple-200 rounded-xl text-sm font-bold text-purple-900 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition bg-purple-50/30 hover:bg-white focus:bg-white" 
+                                   data-field="note_rattrapage">
                         </td>
-                        <td class="p-5 font-extrabold {% if detail.moyenne_matiere >= 10 %}text-green-600{% else %}text-red-500{% endif %}">
-                            {{ detail.moyenne_matiere|floatformat:2 }}
+                        <td class="p-5">
+                            <span class="moyenne-matiere-val font-extrabold text-base transition-colors {% if detail.moyenne_matiere >= 10 %}text-green-600{% else %}text-red-500{% endif %}">
+                                {{ detail.moyenne_matiere|floatformat:2 }}
+                            </span>
                         </td>
                         <td class="p-5 font-bold text-gray-800">
-                            {{ detail.credits_obtenus }} / {{ detail.matiere.credits }}
+                            <span class="credits-matiere-val">{{ detail.credits_obtenus }}</span> / <span class="credits-matiere-total">{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}0{% endif %}</span>
                         </td>
                         <td class="p-5 text-right">
-                            <span class="text-xs font-bold px-2.5 py-1 rounded-full {% if detail.est_validee %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+                            <span class="validation-badge text-xs font-bold px-3 py-1.5 rounded-full transition-all inline-block {% if detail.est_validee %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
                                 {% if detail.est_validee %}Validé{% else %}Ajourné{% endif %}
                             </span>
                         </td>
@@ -118,4 +150,203 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = '{{ csrf_token }}';
+    const rows = document.querySelectorAll('.detail-row');
+    const saveIndicator = document.getElementById('save-indicator');
+    const saveIcon = document.getElementById('save-icon');
+    const saveStatusText = document.getElementById('save-status-text');
+    let saveTimeout = {};
+
+    function parseVal(val) {
+        if (!val || val.trim() === '' || val.trim() === '--') return null;
+        let n = parseFloat(val.replace(',', '.'));
+        return isNaN(n) ? null : Math.max(0, Math.min(20, n));
+    }
+
+    function showSaveStatus(status, message) {
+        saveIndicator.classList.remove('hidden');
+        if (status === 'saving') {
+            saveIndicator.className = "text-xs font-bold px-3 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 shadow-sm transition-all duration-300";
+            saveIcon.className = "fas fa-sync-alt fa-spin mr-1.5";
+            saveStatusText.textContent = message || "Enregistrement...";
+        } else if (status === 'success') {
+            saveIndicator.className = "text-xs font-bold px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm transition-all duration-300";
+            saveIcon.className = "fas fa-check-circle mr-1.5";
+            saveStatusText.textContent = message || "✓ Enregistré";
+            setTimeout(() => {
+                saveIndicator.classList.add('hidden');
+            }, 3000);
+        } else if (status === 'error') {
+            saveIndicator.className = "text-xs font-bold px-3 py-2 rounded-xl bg-red-50 text-red-700 border border-red-200 shadow-sm transition-all duration-300";
+            saveIcon.className = "fas fa-exclamation-triangle mr-1.5";
+            saveStatusText.textContent = message || "Erreur de sauvegarde";
+        }
+    }
+
+    function calculateClientTotals() {
+        let totalWeightedPoints = 0;
+        let totalWeights = 0;
+        let totalCredits = 0;
+        let creditsObtenus = 0;
+
+        rows.forEach(row => {
+            const cc = parseVal(row.querySelector('.note-cc').value);
+            const exam = parseVal(row.querySelector('.note-examen').value);
+            const rat = parseVal(row.querySelector('.note-rattrapage').value);
+            const maxCredits = parseFloat(row.dataset.credits) || 0;
+            const weight = maxCredits > 0 ? maxCredits : 1;
+
+            let moyMatiere = 0;
+            let notes = [];
+            let coeffs = [];
+
+            if (cc !== null) { notes.push(cc); coeffs.push(0.4); }
+            if (exam !== null) { notes.push(exam); coeffs.push(0.6); }
+
+            if (notes.length > 0) {
+                let baseMoy = notes.reduce((sum, n, i) => sum + n * coeffs[i], 0) / coeffs.reduce((a, b) => a + b, 0);
+                if (rat !== null) {
+                    let ratMoy = (cc !== null ? cc * 0.4 : 0) + rat * 0.6;
+                    moyMatiere = Math.max(baseMoy, ratMoy);
+                } else {
+                    moyMatiere = baseMoy;
+                }
+            } else if (rat !== null) {
+                moyMatiere = rat;
+            } else {
+                moyMatiere = 0;
+            }
+
+            moyMatiere = Math.round(moyMatiere * 100) / 100;
+            const isValide = moyMatiere >= 10;
+            const rowCreditsObtenus = isValide ? maxCredits : 0;
+
+            // Mise à jour de la ligne
+            const moyEl = row.querySelector('.moyenne-matiere-val');
+            moyEl.textContent = moyMatiere.toFixed(2);
+            if (isValide) {
+                moyEl.className = "moyenne-matiere-val font-extrabold text-base transition-colors text-green-600";
+            } else {
+                moyEl.className = "moyenne-matiere-val font-extrabold text-base transition-colors text-red-500";
+            }
+
+            row.querySelector('.credits-matiere-val').textContent = rowCreditsObtenus;
+
+            const badgeEl = row.querySelector('.validation-badge');
+            if (isValide) {
+                badgeEl.className = "validation-badge text-xs font-bold px-3 py-1.5 rounded-full transition-all inline-block bg-green-100 text-green-800";
+                badgeEl.textContent = "Validé";
+            } else {
+                badgeEl.className = "validation-badge text-xs font-bold px-3 py-1.5 rounded-full transition-all inline-block bg-red-100 text-red-800";
+                badgeEl.textContent = "Ajourné";
+            }
+
+            totalWeightedPoints += moyMatiere * weight;
+            totalWeights += weight;
+            totalCredits += maxCredits;
+            creditsObtenus += rowCreditsObtenus;
+        });
+
+        // Mise à jour des totaux globaux du bulletin
+        const avgMoyenne = totalWeights > 0 ? (totalWeightedPoints / totalWeights) : 0;
+        const avgMoyenneFixed = avgMoyenne.toFixed(2);
+        
+        document.getElementById('bulletin-moyenne').textContent = avgMoyenneFixed + '/20';
+        document.getElementById('bulletin-credits').textContent = creditsObtenus + ' Credits';
+
+        const progression = totalCredits > 0 ? Math.round((creditsObtenus / totalCredits) * 1000) / 10 : (avgMoyenne >= 10 ? 100 : 0);
+        document.getElementById('bulletin-progression-text').textContent = progression + '%';
+        document.getElementById('bulletin-progression-bar').style.width = progression + '%';
+
+        const decisionEl = document.getElementById('bulletin-decision');
+        if (avgMoyenne >= 10) {
+            decisionEl.className = "text-xs font-bold px-3 py-1 rounded-full inline-block mt-1 transition-all bg-green-100 text-green-800";
+            decisionEl.textContent = "Admis";
+        } else if (avgMoyenne >= 7) {
+            decisionEl.className = "text-xs font-bold px-3 py-1 rounded-full inline-block mt-1 transition-all bg-red-100 text-red-800";
+            decisionEl.textContent = "Ajourné";
+        } else {
+            decisionEl.className = "text-xs font-bold px-3 py-1 rounded-full inline-block mt-1 transition-all bg-red-100 text-red-800";
+            decisionEl.textContent = "Exclu";
+        }
+    }
+
+    function saveRow(row) {
+        const detailId = row.dataset.detailId;
+        const cc = row.querySelector('.note-cc').value;
+        const exam = row.querySelector('.note-examen').value;
+        const rat = row.querySelector('.note-rattrapage').value;
+
+        showSaveStatus('saving', 'Enregistrement...');
+
+        fetch(`/notes/bulletins/detail/${detailId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                note_cc: cc,
+                note_examen: exam,
+                note_rattrapage: rat
+            })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Erreur HTTP ' + response.status);
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showSaveStatus('success', '✓ Enregistré');
+                if (data.bulletin_rang && data.bulletin_effectif) {
+                    document.getElementById('bulletin-rang').textContent = `${data.bulletin_rang} / ${data.bulletin_effectif}`;
+                }
+                document.getElementById('bulletin-moyenne').textContent = data.bulletin_moyenne.toFixed(2) + '/20';
+                document.getElementById('bulletin-credits').textContent = data.bulletin_credits_obtenus + ' Credits';
+                document.getElementById('bulletin-progression-text').textContent = data.progression + '%';
+                document.getElementById('bulletin-progression-bar').style.width = data.progression + '%';
+
+                const decisionEl = document.getElementById('bulletin-decision');
+                if (data.bulletin_decision === 'ADMIS') {
+                    decisionEl.className = "text-xs font-bold px-3 py-1 rounded-full inline-block mt-1 transition-all bg-green-100 text-green-800";
+                } else {
+                    decisionEl.className = "text-xs font-bold px-3 py-1 rounded-full inline-block mt-1 transition-all bg-red-100 text-red-800";
+                }
+                decisionEl.textContent = data.bulletin_decision_display;
+            } else {
+                showSaveStatus('error', 'Erreur lors de la sauvegarde');
+            }
+        })
+        .catch(err => {
+            console.error('Erreur AJAX:', err);
+            showSaveStatus('error', 'Erreur réseau');
+        });
+    }
+
+    rows.forEach(row => {
+        const detailId = row.dataset.detailId;
+        const inputs = row.querySelectorAll('.note-input');
+
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                calculateClientTotals();
+                showSaveStatus('saving', 'Saisie en cours...');
+                
+                clearTimeout(saveTimeout[detailId]);
+                saveTimeout[detailId] = setTimeout(() => {
+                    saveRow(row);
+                }, 600);
+            });
+
+            input.addEventListener('blur', function() {
+                clearTimeout(saveTimeout[detailId]);
+                saveRow(row);
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

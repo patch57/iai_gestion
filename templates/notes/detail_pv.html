@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load l10n %}
 
 {% block title %}{{ titre }} | IAI-Cameroun{% endblock %}
 
@@ -209,6 +210,24 @@
             </div>
         </div>
 
+        <!-- Bannière d'Information du Chef des Études -->
+        {% if can_edit %}
+        <div class="mb-4 bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-xs text-emerald-900 shadow-sm no-print">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-emerald-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <div>
+                    <strong class="font-bold text-sm text-emerald-950 block">Notes préexistantes intégrées</strong>
+                    <span class="text-emerald-700">Toutes les notes saisies par les enseignants et l'anonymat sont pré-chargées ci-dessous. Vous pouvez consulter et réviser chaque note.</span>
+                </div>
+            </div>
+            <span class="bg-emerald-100 text-emerald-800 font-bold px-3 py-1.5 rounded-xl border border-emerald-300">
+                <i class="fas fa-edit mr-1"></i> Saisie / Édition Chef des Études
+            </span>
+        </div>
+        {% endif %}
+
         <!-- Tableau Officiel des Notes -->
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse border border-slate-900 text-xs">
@@ -260,7 +279,7 @@
                         <!-- Moyenne CC -->
                         <td class="border border-slate-900 py-2 px-2 text-center font-black text-slate-900 bg-blue-100/50 text-sm">
                             {% if can_edit %}
-                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_cc" value="{% if lg.note_cc is not None %}{{ lg.note_cc|floatformat:2 }}{% endif %}" placeholder="0.00" class="no-print w-16 text-center border border-blue-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-blue-500 text-xs py-0.5">
+                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_cc" value="{% if lg.note_cc is not None %}{{ lg.note_cc|unlocalize }}{% endif %}" placeholder="0.00" class="no-print w-16 text-center border border-blue-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-blue-500 text-xs py-0.5">
                                 <span class="hidden print:inline">{% if lg.note_cc is not None %}{{ lg.note_cc|floatformat:2 }}{% else %}0.00{% endif %}</span>
                             {% else %}
                                 {% if lg.note_cc is not None %}
@@ -278,7 +297,7 @@
                         <!-- Note Examen -->
                         <td class="border border-slate-900 py-2 px-3 text-center font-black text-slate-900 bg-indigo-100/50 text-sm">
                             {% if can_edit %}
-                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_exam" value="{% if lg.note_examen is not None %}{{ lg.note_examen|floatformat:2 }}{% endif %}" placeholder="0.00" class="no-print w-16 text-center border border-indigo-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-indigo-500 text-xs py-0.5">
+                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_exam" value="{% if lg.note_examen is not None %}{{ lg.note_examen|unlocalize }}{% endif %}" placeholder="0.00" class="no-print w-16 text-center border border-indigo-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-indigo-500 text-xs py-0.5">
                                 <span class="hidden print:inline">{% if lg.note_examen is not None %}{{ lg.note_examen|floatformat:2 }}{% else %}0.00{% endif %}</span>
                             {% else %}
                                 {% if lg.note_examen is not None %}
@@ -296,7 +315,7 @@
                         <!-- Rattrapage -->
                         <td class="border border-slate-900 py-2 px-3 text-center font-black text-purple-900 bg-purple-100/50 text-sm">
                             {% if can_edit %}
-                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_ratt" value="{% if lg.note_rattrapage is not None %}{{ lg.note_rattrapage|floatformat:2 }}{% endif %}" placeholder="—" class="no-print w-16 text-center border border-purple-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-purple-500 text-xs py-0.5">
+                                <input type="number" step="0.01" min="0" max="20" name="note_lg_{{ lg.id }}_ratt" value="{% if lg.note_rattrapage is not None %}{{ lg.note_rattrapage|unlocalize }}{% endif %}" placeholder="—" class="no-print w-16 text-center border border-purple-400 rounded font-mono font-bold bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-purple-500 text-xs py-0.5">
                                 <span class="hidden print:inline">{% if lg.note_rattrapage is not None %}{{ lg.note_rattrapage|floatformat:2 }}{% else %}-{% endif %}</span>
                             {% else %}
                                 {% if lg.note_rattrapage is not None %}

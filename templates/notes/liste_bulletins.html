@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Header Page Banner -->
+    <div class="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-800 rounded-3xl p-6 sm:p-8 text-white shadow-xl mb-8 relative overflow-hidden">
+        <div class="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+            <div>
+                <div class="flex items-center gap-3 mb-2 flex-wrap">
+                    <span class="bg-emerald-700/60 backdrop-blur-md border border-emerald-500/30 text-emerald-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                        <i class="fas fa-shield-alt mr-1 text-emerald-300"></i> Accès Réglé : {{ user.get_type_utilisateur_display|default:"Chef des Études" }}
+                    </span>
+                    <span class="bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-black px-3 py-1 rounded-full">
+                        <i class="fas fa-calendar-alt mr-1"></i> Année Académique {{ annee }}
+                    </span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
+                    <i class="fas fa-file-invoice text-emerald-400"></i>
+                    Registre des Bulletins d'Études
+                </h1>
+                <p class="text-emerald-100 text-sm mt-1 max-w-2xl">
+                    Gestion officielle, calcul des moyennes, validation et impression des bulletins de notes des étudiants de l'IAI-Cameroun (Centre de Douala).
+                </p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2.5">
+                {% if user.type_utilisateur in 'CHEF_ETUDES ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}
+                <a href="{% url 'notes:generer_bulletins' %}" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center gap-2">
+                    <i class="fas fa-plus-circle text-yellow-300"></i> Générer / Calculer
+                </a>
+                <a href="{% url 'notes:deliberation' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center gap-2">
+                    <i class="fas fa-balance-scale"></i> Délibération
+                </a>
+                {% endif %}
+                {% if user.is_superuser or user.type_utilisateur == 'ADMIN_SYSTEME' %}
+                <a href="/admin/notes/bulletin/" target="_blank" class="bg-white/10 hover:bg-white/20 text-white font-semibold px-3 py-2.5 rounded-xl text-sm transition flex items-center gap-1.5" title="Ouvrir dans Django Admin">
+                    <i class="fas fa-cog"></i> Admin
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Statistics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Card 1: Total Bulletins -->
+        <div class="bg-white rounded-3xl p-6 shadow-md border border-gray-100 flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Bulletins</p>
+                <h3 class="text-3xl font-black text-gray-900 mt-1">{{ total_bulletins }}</h3>
+                <p class="text-xs text-gray-500 mt-1"><i class="fas fa-database text-emerald-500 mr-1"></i> Registre complet</p>
+            </div>
+            <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
+                <i class="fas fa-file-alt"></i>
+            </div>
+        </div>
+
+        <!-- Card 2: Validés & Publiés -->
+        <div class="bg-white rounded-3xl p-6 shadow-md border border-gray-100 flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Bulletins Validés</p>
+                <h3 class="text-3xl font-black text-emerald-600 mt-1">{{ bulletins_valides }}</h3>
+                <p class="text-xs text-gray-500 mt-1"><i class="fas fa-check-circle text-emerald-500 mr-1"></i> Signés et actifs</p>
+            </div>
+            <div class="w-14 h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
+                <i class="fas fa-user-check"></i>
+            </div>
+        </div>
+
+        <!-- Card 3: Admis & Taux de Réussite -->
+        <div class="bg-white rounded-3xl p-6 shadow-md border border-gray-100 flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Taux d'Admission</p>
+                <h3 class="text-3xl font-black text-blue-600 mt-1">{{ taux_reussite }}%</h3>
+                <p class="text-xs text-gray-500 mt-1"><i class="fas fa-award text-amber-500 mr-1"></i> {{ admis_count }} admis</p>
+            </div>
+            <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+        </div>
+
+        <!-- Card 4: Moyenne Générale du Centre -->
+        <div class="bg-white rounded-3xl p-6 shadow-md border border-gray-100 flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Moyenne Générale</p>
+                <h3 class="text-3xl font-black text-purple-700 mt-1">{{ moyenne_generale }}/20</h3>
+                <p class="text-xs text-gray-500 mt-1"><i class="fas fa-chart-bar text-purple-500 mr-1"></i> Performance globale</p>
+            </div>
+            <div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
+                <i class="fas fa-chart-line"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Search Form -->
+    <div class="bg-white rounded-3xl shadow-md border border-gray-100 p-6 mb-8">
+        <form method="get" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <!-- Search -->
+                <div class="md:col-span-2 relative">
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Recherche globale</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" name="q" value="{{ search_query }}" placeholder="Nom, matricule ou N° bulletin..." 
+                               class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <!-- Statut -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Statut</label>
+                    <select name="statut" class="w-full py-2 px-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500">
+                        <option value="">Tous les statuts</option>
+                        <option value="valide" {% if statut_filter == 'valide' %}selected{% endif %}>🟢 Validés / Officiels</option>
+                        <option value="brouillon" {% if statut_filter == 'brouillon' %}selected{% endif %}>🟡 En attente / Brouillon</option>
+                    </select>
+                </div>
+
+                <!-- Filière -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Filière</label>
+                    <select name="filiere" class="w-full py-2 px-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500">
+                        <option value="">Toutes les filières</option>
+                        {% for f in filieres %}
+                        <option value="{{ f.id }}" {% if filiere_filter == f.id|stringformat:"s" %}selected{% endif %}>{{ f.code }} - {{ f.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Niveau -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Niveau</label>
+                    <select name="niveau" class="w-full py-2 px-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500">
+                        <option value="">Tous les niveaux</option>
+                        <option value="1" {% if niveau_filter == '1' %}selected{% endif %}>Niveau 1</option>
+                        <option value="2" {% if niveau_filter == '2' %}selected{% endif %}>Niveau 2</option>
+                    </select>
+                </div>
+
+                <!-- Semestre -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Semestre</label>
+                    <select name="semestre" class="w-full py-2 px-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500">
+                        <option value="">Tous les semestres</option>
+                        <option value="1" {% if semestre_filter == '1' %}selected{% endif %}>Semestre 1</option>
+                        <option value="2" {% if semestre_filter == '2' %}selected{% endif %}>Semestre 2</option>
+                        <option value="3" {% if semestre_filter == '3' %}selected{% endif %}>Annuel (S1 + S2)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Action buttons for filters -->
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                {% if search_query or filiere_filter or niveau_filter or semestre_filter or decision_filter or statut_filter %}
+                <a href="{% url 'notes:liste_bulletins' %}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition">
+                    Réinitialiser
+                </a>
+                {% endif %}
+                <button type="submit" class="px-5 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-bold rounded-xl shadow transition">
+                    <i class="fas fa-filter mr-1"></i> Appliquer les filtres
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Table of Bulletins -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-4">N° Référence</th>
+                        <th class="px-6 py-4">Étudiant & Matricule</th>
+                        <th class="px-6 py-4 text-center">Filière & Niveau</th>
+                        <th class="px-6 py-4 text-center">Semestre</th>
+                        <th class="px-6 py-4 text-center">Moyenne & Rang</th>
+                        <th class="px-6 py-4 text-center">Décision</th>
+                        <th class="px-6 py-4 text-center">Statut</th>
+                        <th class="px-6 py-4 text-center">Actions Officieuses</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-gray-700">
+                    {% for b in bulletins %}
+                    <tr class="hover:bg-emerald-50/40 transition duration-150">
+                        <!-- N° Référence -->
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-emerald-800">
+                            {{ b.numero_bulletin|default:b.id|stringformat:"04d" }}
+                        </td>
+
+                        <!-- Étudiant & Matricule -->
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 font-black text-xs flex items-center justify-center shadow-inner">
+                                    {{ b.etudiant.prenom|slice:":1" }}{{ b.etudiant.nom|slice:":1" }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'etudiants:detail_etudiant' b.etudiant.id %}" class="font-bold text-gray-900 hover:text-emerald-700 transition">
+                                        {{ b.etudiant.get_nom_complet }}
+                                    </a>
+                                    <p class="text-xs font-mono text-gray-400 mt-0.5">{{ b.etudiant.matricule }}</p>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Filière & Niveau -->
+                        <td class="px-6 py-4 text-center">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-800 border border-blue-100">
+                                {{ b.etudiant.filiere.code }} {% if b.etudiant.niveau %}- N{{ b.etudiant.niveau.numero }}{% endif %}
+                            </span>
+                        </td>
+
+                        <!-- Semestre -->
+                        <td class="px-6 py-4 text-center">
+                            {% if b.semestre == 3 %}
+                            <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-50 text-purple-700 border border-purple-100">
+                                Annuel (S1 + S2)
+                            </span>
+                            {% else %}
+                            <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 border border-gray-200">
+                                Semestre {{ b.semestre }}
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Moyenne & Rang -->
+                        <td class="px-6 py-4 text-center font-mono">
+                            <span class="text-base font-black text-gray-900">{{ b.moyenne_semestre|floatformat:2 }}</span><span class="text-xs text-gray-400">/20</span>
+                            {% if b.rang %}
+                            <span class="block text-[11px] font-sans font-semibold text-emerald-700 mt-0.5">
+                                Rang : {{ b.rang }}{% if b.rang == 1 %}er{% else %}e{% endif %} / {{ b.effectif|default:"-" }}
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Décision -->
+                        <td class="px-6 py-4 text-center">
+                            {% if b.decision == 'ADMIS' %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <i class="fas fa-check-circle mr-1"></i> ADMIS
+                            </span>
+                            {% elif b.decision == 'AJOURNE' %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                                <i class="fas fa-exclamation-circle mr-1"></i> AJOURNÉ
+                            </span>
+                            {% elif b.decision == 'EXCLU' %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
+                                <i class="fas fa-times-circle mr-1"></i> EXCLU
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                                EN ATTENTE
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Statut -->
+                        <td class="px-6 py-4 text-center">
+                            {% if b.est_valide or b.est_publie %}
+                            <span class="inline-flex items-center text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span> Validé
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                                <span class="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span> En cours
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="{% url 'notes:voir_bulletin_officiel' b.id %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition" title="Consulter et imprimer le bulletin officiel A4">
+                                    <i class="fas fa-print"></i> Imprimer A4
+                                </a>
+                                <a href="{% url 'notes:detail_bulletin' b.id %}" class="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-gray-100 rounded-lg transition" title="Détails du bulletin">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-400">
+                            <i class="fas fa-file-invoice text-4xl mb-3 text-gray-300 block"></i>
+                            <p class="text-base font-semibold text-gray-600">Aucun bulletin trouvé pour ces critères.</p>
+                            <p class="text-xs text-gray-400 mt-1">Utilisez le bouton "Générer / Calculer" pour générer les bulletins de la session.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Footer -->
+        {% if bulletins.has_other_pages %}
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+            <span class="text-xs text-gray-500">
+                Page <strong>{{ bulletins.number }}</strong> sur <strong>{{ bulletins.paginator.num_pages }}</strong>
+            </span>
+            <div class="flex gap-1">
+                {% if bulletins.has_previous %}
+                <a href="?page={{ bulletins.previous_page_number }}&q={{ search_query }}&filiere={{ filiere_filter }}&niveau={{ niveau_filter }}&semestre={{ semestre_filter }}&decision={{ decision_filter }}&statut={{ statut_filter }}" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                    Précédent
+                </a>
+                {% endif %}
+                {% if bulletins.has_next %}
+                <a href="?page={{ bulletins.next_page_number }}&q={{ search_query }}&filiere={{ filiere_filter }}&niveau={{ niveau_filter }}&semestre={{ semestre_filter }}&decision={{ decision_filter }}&statut={{ statut_filter }}" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                    Suivant
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

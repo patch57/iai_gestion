@@ -415,7 +415,12 @@ class Bulletin(models.Model):
         unique_together = ['etudiant', 'annee_academique', 'semestre']
         ordering = ['-annee_academique', 'semestre', '-moyenne_semestre']
     
+    @property
+    def filiere(self):
+        return self.etudiant.filiere if self.etudiant else None
+
     def __str__(self):
+
         return f"Bulletin {self.etudiant.get_nom_complet()} - S{self.semestre} {self.annee_academique}"
     
     def calculer_moyenne(self):
@@ -1077,6 +1082,42 @@ class ProcesVerbalNotes(models.Model):
                     val = ligne.note if ligne.note is not None else ligne.moyenne_cc
                     if val is not None:
                         notes_par_etudiant[eid]['RATT'] = float(val)
+
+        # 2.b Agrégation complémentaire à partir des Notes saisies directement par les enseignants
+        try:
+            from .models import Note
+            notes_directes = Note.objects.filter(
+                Q(evaluation__cours__matiere=self.matiere) | Q(evaluation__cours__matiere__code=self.matiere.code),
+                etudiant__in=etudiants_qs
+            ).select_related('evaluation', 'evaluation__type_evaluation')
+
+            for n in notes_directes:
+                if n.valeur is None:
+                    continue
+                eid = n.etudiant_id
+                if eid not in notes_par_etudiant:
+                    notes_par_etudiant[eid] = {}
+                
+                code_t = (n.evaluation.type_evaluation.code if n.evaluation and n.evaluation.type_evaluation else '').upper()
+                titre_e = (n.evaluation.titre if n.evaluation else '').upper()
+
+                is_ratt = 'RATT' in code_t or 'RATTRAPAGE' in code_t or 'RATT' in titre_e
+                is_exam = ('EXAM' in code_t or 'EXAMEN' in code_t or 'EXAM' in titre_e) and not is_ratt
+                is_cc = not is_exam and not is_ratt
+
+                if is_ratt:
+                    if 'RATT' not in notes_par_etudiant[eid]:
+                        notes_par_etudiant[eid]['RATT'] = float(n.valeur)
+                elif is_exam:
+                    if 'EXAM' not in notes_par_etudiant[eid]:
+                        notes_par_etudiant[eid]['EXAM'] = float(n.valeur)
+                elif is_cc:
+                    if 'CC' not in notes_par_etudiant[eid]:
+                        notes_par_etudiant[eid]['CC'] = float(n.valeur)
+                    if 'note_1' not in notes_par_etudiant[eid]:
+                        notes_par_etudiant[eid]['note_1'] = float(n.valeur)
+        except Exception as err_notes:
+            pass
 
         cc_transmis = 'CC' in types_transmis or (self.est_transmis and any('CC' in n for n in notes_par_etudiant.values()))
         exam_transmis = 'EXAM' in types_transmis or (self.est_transmis and any('EXAM' in n for n in notes_par_etudiant.values()))

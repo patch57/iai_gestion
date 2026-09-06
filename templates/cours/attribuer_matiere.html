@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} - IAI-Cameroun{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeInUp">
+    <!-- Breadcrumb & Back button -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="{% url 'cours:liste_matieres' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-emerald-700 transition">
+            <i class="fas fa-arrow-left mr-2"></i> Retour aux Matières
+        </a>
+        <span class="text-xs font-semibold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
+            Espace Direction & Gestion Pédagogique
+        </span>
+    </div>
+
+    <!-- Main Card -->
+    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header Stripe -->
+        <div class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-6 sm:p-8 text-white relative">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-2xl border border-white/20 shadow-inner">
+                    <i class="fas fa-chalkboard-teacher text-emerald-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black tracking-tight">{{ titre }}</h1>
+                    <p class="text-emerald-100 text-sm mt-1">
+                        Affectez une matière à un enseignant inscrit sur la plate-forme pour une filière et une année académique données.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Body -->
+        <form method="post" class="p-6 sm:p-8 space-y-6">
+            {% csrf_token %}
+            {% if professeur_obj %}
+                <input type="hidden" name="from_prof" value="1">
+            {% endif %}
+
+            {% if form.non_field_errors %}
+            <div class="p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex items-center gap-2">
+                <i class="fas fa-exclamation-circle"></i>
+                <div>{{ form.non_field_errors }}</div>
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Matière -->
+                <div class="space-y-2 md:col-span-2">
+                    <label for="{{ form.matiere.id_for_label }}" class="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-book text-emerald-600"></i>
+                        {{ form.matiere.label }}
+                    </label>
+                    {{ form.matiere }}
+                    {% if form.matiere.errors %}
+                        <p class="text-xs text-red-600 mt-1">{{ form.matiere.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Professeur -->
+                <div class="space-y-2">
+                    <label for="{{ form.professeur.id_for_label }}" class="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-user-tie text-emerald-600"></i>
+                        {{ form.professeur.label }}
+                    </label>
+                    {{ form.professeur }}
+                    {% if form.professeur.errors %}
+                        <p class="text-xs text-red-600 mt-1">{{ form.professeur.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Filière -->
+                <div class="space-y-2">
+                    <label for="{{ form.filiere.id_for_label }}" class="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-graduation-cap text-emerald-600"></i>
+                        {{ form.filiere.label }}
+                    </label>
+                    {{ form.filiere }}
+                    {% if form.filiere.errors %}
+                        <p class="text-xs text-red-600 mt-1">{{ form.filiere.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Niveau d'études -->
+                <div class="space-y-2">
+                    <label for="{{ form.niveau.id_for_label }}" class="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-level-up-alt text-emerald-600"></i>
+                        {{ form.niveau.label }}
+                    </label>
+                    {{ form.niveau }}
+                    {% if form.niveau.errors %}
+                        <p class="text-xs text-red-600 mt-1">{{ form.niveau.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Type de cours -->
+                <div class="space-y-2">
+                    <label for="{{ form.type_cours.id_for_label }}" class="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-layer-group text-emerald-600"></i>
+                        {{ form.type_cours.label }}
+                    </label>
+                    {{ form.type_cours }}
+                    {% if form.type_cours.errors %}
+                        <p class="text-xs text-red-600 mt-1">{{ form.type_cours.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Année Académique -->
+                <div class="space-y-2">
+                    <label for="{{ form.annee_academique.id_for_label }}" class="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-calendar-alt text-emerald-600"></i>
+                        {{ form.annee_academique.label }}
+                    </label>
+                    {{ form.annee_academique }}
+                    {% if form.annee_academique.errors %}
+                        <p class="text-xs text-red-600 mt-1">{{ form.annee_academique.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Information Box -->
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3 text-sm text-blue-800">
+                <i class="fas fa-info-circle text-blue-600 text-lg mt-0.5"></i>
+                <div class="space-y-1">
+                    <p class="font-bold">Effet de l'attribution :</p>
+                    <p class="text-xs text-blue-700 leading-relaxed">
+                        L'attribution associe officiellement l'enseignant à cette matière. Cela mettra à jour automatiquement son tableau de bord d'enseignement, sa fiche de charge horaire et la liste d'émargement pédagogique.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                <a href="{% url 'cours:liste_matieres' %}" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold rounded-xl transition">
+                    Annuler
+                </a>
+                <button type="submit" class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition cursor-pointer">
+                    <i class="fas fa-check-circle mr-2"></i> Confirmer l'Attribution
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

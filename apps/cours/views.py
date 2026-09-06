@@ -12,7 +12,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 
 from .models import Salle, Matiere, Cours, SeanceCours, Presence, RessourceCours, EmploiDuTemps
-from .forms import SalleForm, MatiereForm, CoursForm, SeanceCoursForm, RessourceCoursForm
+from .forms import SalleForm, MatiereForm, CoursForm, SeanceCoursForm, RessourceCoursForm, AttributionMatiereForm
 from apps.etudiants.models import Filiere
 
 
@@ -242,13 +242,16 @@ def supprimer_cours(request, pk):
     return render(request, 'cours/confirmer_suppression.html', context)
 
 
-@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'CHEF_ETUDES')
 def liste_matieres(request):
-    """Liste et gestion complète des matières"""
+    """Liste et gestion complète des matières avec leurs enseignants attribués"""
     search_query = request.GET.get('q', '').strip()
     semestre_filter = request.GET.get('semestre', '').strip()
     
-    matieres = Matiere.objects.all().annotate(
+    matieres = Matiere.objects.all().prefetch_related(
+        'cours__professeur', 
+        'cours__filiere'
+    ).annotate(
         nombre_cours=Count('cours')
     )
     
@@ -267,6 +270,154 @@ def liste_matieres(request):
         'titre': 'Gestion des Matières & Unités d\'Enseignement'
     }
     return render(request, 'cours/matieres.html', context)
+
+
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'CHEF_ETUDES')
+def attribuer_matiere(request, matiere_id=None):
+    """Permet d'attribuer une matière à un enseignant avec gestion automatique des filières, niveaux et charges horaires"""
+    from apps.professeurs.models import Professeur, ChargeHoraire
+    from apps.etudiants.models import Filiere, Niveau
+    import datetime
+
+    matiere_obj = None
+    if matiere_id:
+        matiere_obj = get_object_or_404(Matiere, pk=matiere_id)
+
+    professeur_id = request.GET.get('professeur')
+    professeur_obj = None
+    if professeur_id:
+        professeur_obj = Professeur.objects.filter(pk=professeur_id, est_actif=True).first()
+
+    if request.method == 'POST':
+        form = AttributionMatiereForm(request.POST)
+        if form.is_valid():
+            matiere = form.cleaned_data['matiere']
+            professeur = form.cleaned_data['professeur']
+            filiere_choice = form.cleaned_data['filiere']
+            niveau_choice = form.cleaned_data['niveau']
+            type_cours = form.cleaned_data['type_cours']
+            annee_academique = form.cleaned_data['annee_academique']
+
+            # Détermination des filières cibles
+            if filiere_choice == 'ALL':
+                filieres_cibles = list(Filiere.objects.all())
+                filiere_label = "Toutes les filières"
+            else:
+                filiere_obj = get_object_or_404(Filiere, pk=filiere_choice)
+                filieres_cibles = [filiere_obj]
+                filiere_label = filiere_obj.nom
+
+            cours_attribues = 0
+            for fil in filieres_cibles:
+                # Code du cours généré intelligemment
+                cours_code = f"{matiere.code}-{fil.code}-{type_cours}"
+                cours, created = Cours.objects.get_or_create(
+                    matiere=matiere,
+                    filiere=fil,
+                    type_cours=type_cours,
+                    annee_academique=annee_academique,
+                    defaults={
+                        'code': cours_code,
+                        'professeur': professeur,
+                        'jour': 'Lundi',
+                        'heure_debut': datetime.time(8, 0),
+                        'heure_fin': datetime.time(10, 0),
+                        'date_debut': datetime.date.today(),
+                        'date_fin': datetime.date.today() + datetime.timedelta(days=120),
+                        'est_actif': True
+                    }
+                )
+
+                if not created:
+                    cours.professeur = professeur
+                    cours.est_actif = True
+                    cours.save()
+                cours_attribues += 1
+
+                # Synchronisation avec le module des notes & bulletins
+                try:
+                    import apps.notes.models as notes_models
+                    notes_mat, _ = notes_models.Matiere.objects.get_or_create(
+                        code=matiere.code,
+                        defaults={
+                            'nom': matiere.nom,
+                            'description': matiere.description,
+                            'credit': matiere.credits,
+                            'semestre': matiere.semestre,
+                            'volume_horaire': matiere.get_heures_totales(),
+                            'est_actif': True
+                        }
+                    )
+                    
+                    niveaux_qs = Niveau.objects.filter(filiere=fil)
+                    if niveau_choice != 'ALL':
+                        niveaux_qs = niveaux_qs.filter(numero=int(niveau_choice))
+                    
+                    for niv in niveaux_qs:
+                        notes_c, _ = notes_models.Cours.objects.get_or_create(
+                            matiere=notes_mat,
+                            filiere=fil,
+                            niveau=niv,
+                            annee_academique=annee_academique,
+                            defaults={
+                                'semestre': matiere.semestre,
+                                'volume_horaire': matiere.get_heures_totales(),
+                                'est_actif': True
+                            }
+                        )
+                        if professeur.utilisateur:
+                            notes_c.professeur = professeur.utilisateur
+                            notes_c.save()
+                except Exception:
+                    pass
+
+            # Mise à jour ou création de la charge horaire
+            charge, _ = ChargeHoraire.objects.get_or_create(
+                professeur=professeur,
+                annee_academique=annee_academique,
+                defaults={'heures_assignees': matiere.get_heures_totales() * cours_attribues}
+            )
+
+            niveau_label = f"Niveau {niveau_choice}"
+            messages.success(
+                request,
+                f'La matière "{matiere.nom}" ({matiere.code}) a été attribuée avec succès à M./Mme {professeur.get_nom_complet()} pour {filiere_label} ({niveau_label}) - Année {annee_academique}.'
+            )
+
+            if professeur_id or 'from_prof' in request.POST:
+                return redirect('liste_professeurs')
+            return redirect('cours:liste_matieres')
+        else:
+            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+    else:
+        initial_data = {}
+        if matiere_obj:
+            initial_data['matiere'] = matiere_obj
+        if professeur_obj:
+            initial_data['professeur'] = professeur_obj
+        form = AttributionMatiereForm(initial=initial_data)
+
+    context = {
+        'form': form,
+        'matiere_obj': matiere_obj,
+        'professeur_obj': professeur_obj,
+        'titre': f'Attribuer la matière "{matiere_obj.nom}"' if matiere_obj else 'Attribution d\'une Matière'
+    }
+    return render(request, 'cours/attribuer_matiere.html', context)
+
+
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'CHEF_ETUDES')
+def desattribuer_matiere(request, cours_id):
+    """Retire l'attribution d'un enseignant sur un cours/matière"""
+    cours = get_object_or_404(Cours, pk=cours_id)
+    nom_prof = cours.professeur.get_nom_complet()
+    nom_mat = cours.matiere.nom
+    filiere_nom = cours.filiere.nom
+    
+    cours.delete()
+
+    messages.success(request, f'L\'attribution de la matière "{nom_mat}" à M./Mme {nom_prof} pour {filiere_nom} a été retirée.')
+    return redirect(request.META.get('HTTP_REFERER', 'cours:liste_matieres'))
 
 
 @role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')

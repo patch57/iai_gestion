@@ -90,6 +90,77 @@ class MatiereForm(forms.ModelForm):
         )
 
 
+def get_annee_academique_courante():
+    """Détermine l'année académique courante/active"""
+    try:
+        from apps.inscriptions.models import AnneeAcademique
+        annee = AnneeAcademique.objects.filter(est_actuelle=True).first()
+        if annee:
+            return annee.code
+    except Exception:
+        pass
+    import datetime
+    today = datetime.date.today()
+    y = today.year
+    if today.month >= 8:
+        return f"{y}-{y+1}"
+    return f"{y-1}-{y}"
+
+
+class AttributionMatiereForm(forms.Form):
+    """Formulaire pour attribuer une matière à un enseignant"""
+    NIVEAU_CHOICES = [
+        ('1', 'Niveau 1'),
+        ('2', 'Niveau 2'),
+    ]
+
+    matiere = forms.ModelChoiceField(
+        queryset=Matiere.objects.all(),
+        label="Matière",
+        widget=forms.Select(attrs={'class': 'w-full rounded-xl border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 px-3'})
+    )
+    professeur = forms.ModelChoiceField(
+        queryset=None,
+        label="Enseignant / Professeur titulaire",
+        widget=forms.Select(attrs={'class': 'w-full rounded-xl border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 px-3'})
+    )
+    filiere = forms.ChoiceField(
+        choices=[],
+        label="Filière concernée",
+        widget=forms.Select(attrs={'class': 'w-full rounded-xl border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 px-3'})
+    )
+    niveau = forms.ChoiceField(
+        choices=NIVEAU_CHOICES,
+        initial='1',
+        label="Niveau d'études",
+        widget=forms.Select(attrs={'class': 'w-full rounded-xl border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 px-3'})
+    )
+    type_cours = forms.ChoiceField(
+        choices=Cours.TYPE_COURS_CHOICES,
+        initial='COURS',
+        label="Type d'enseignement",
+        widget=forms.Select(attrs={'class': 'w-full rounded-xl border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 px-3'})
+    )
+    annee_academique = forms.CharField(
+        max_length=9,
+        label="Année Académique",
+        widget=forms.TextInput(attrs={'class': 'w-full rounded-xl border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 px-3', 'placeholder': 'Ex: 2026-2027'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.professeurs.models import Professeur
+        from apps.etudiants.models import Filiere
+        self.fields['professeur'].queryset = Professeur.objects.filter(est_actif=True).select_related('departement')
+        self.fields['annee_academique'].initial = get_annee_academique_courante()
+        
+        filiere_choices = [('ALL', 'Toutes les filières (GL, SR)')]
+        for f in Filiere.objects.all():
+            filiere_choices.append((str(f.id), f"{f.code} - {f.nom}"))
+        self.fields['filiere'].choices = filiere_choices
+
+
+
 class CoursForm(forms.ModelForm):
     """Formulaire pour créer/modifier un cours"""
     

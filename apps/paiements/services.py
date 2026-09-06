@@ -24,10 +24,10 @@ def calculer_penalites_etudiant(etudiant):
     
     for tranche in tranches:
         # Vérifier si le reçu de la tranche a été soumis et son statut
-        # 1. Chercher d'abord un reçu VALIDE associé
+        # 1. Chercher d'abord un reçu VALIDE associé (par tranche exacte ou numéro de tranche)
         recu_associe = RecuPaiement.objects.filter(
             etudiant=etudiant,
-            tranche=tranche,
+            tranche__numero=tranche.numero,
             statut='VALIDE'
         ).order_by('-date_televersement').first()
 
@@ -35,7 +35,7 @@ def calculer_penalites_etudiant(etudiant):
         if not recu_associe:
             recu_associe = RecuPaiement.objects.filter(
                 etudiant=etudiant,
-                tranche=tranche
+                tranche__numero=tranche.numero
             ).order_by('-date_televersement').first()
 
         # 3. Fallback pré-inscription (Tranche 1) sans relation FK explicite sur tranche
@@ -67,11 +67,24 @@ def calculer_penalites_etudiant(etudiant):
             est_valide = True
 
         # Déterminer la date de référence pour le calcul de pénalité de CETTE tranche spécifique.
-        # Si le reçu de paiement de cette tranche est validé, le calcul de ses pénalités est définitivement
-        # gelé à la date de paiement/téléversement de son reçu.
+        # Le calcul des pénalités s'arrête définitivement dès le jour de la validation du reçu (date_verification)
+        # ou à la date de paiement/téléversement du reçu s'il est validé.
         if est_valide:
             if recu_associe:
-                date_reference = recu_associe.date_paiement or recu_associe.date_televersement.date()
+                if recu_associe.date_verification:
+                    date_reference = recu_associe.date_verification.date()
+                elif recu_associe.date_paiement:
+                    date_reference = recu_associe.date_paiement
+                elif recu_associe.date_televersement:
+                    date_reference = recu_associe.date_televersement.date()
+                else:
+                    date_reference = date_aujourdhui
+            elif inscription_obj and getattr(inscription_obj, 'date_validation', None):
+                date_reference = inscription_obj.date_validation.date()
+            elif inscription_obj and getattr(inscription_obj, 'date_inscription', None):
+                date_reference = inscription_obj.date_inscription.date() if hasattr(inscription_obj.date_inscription, 'date') else inscription_obj.date_inscription
+            elif hasattr(etudiant, 'date_creation') and etudiant.date_creation:
+                date_reference = etudiant.date_creation.date() if hasattr(etudiant.date_creation, 'date') else etudiant.date_creation
             else:
                 date_reference = date_aujourdhui
         else:

@@ -12,8 +12,8 @@
             <i class="fa-solid fa-graduation-cap text-emerald-600"></i> Bulletin Officiel - {% if bulletin.semestre == 3 %}Annuel (S1 + S2){% else %}Semestre {{ bulletin.semestre }}{% endif %}
         </h1>
         <div class="flex items-center gap-3">
-            <a href="{% url 'tableau_bord:tableau_bord' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs">
-                <i class="fa-solid fa-arrow-left mr-1"></i> Mon Espace
+            <a href="{% if user.type_utilisateur in 'CHEF_ETUDES DIRECTEUR ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}{% url 'notes:liste_bulletins' %}{% else %}{% url 'notes:mes_notes' %}{% endif %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Retour
             </a>
             {% if user.is_superuser or user.type_utilisateur not in 'ETUDIANT,APPRENANT' and not user.est_etudiant %}
             <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl text-xs shadow transition flex items-center gap-2">

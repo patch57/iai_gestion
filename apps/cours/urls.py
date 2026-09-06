@@ -18,9 +18,12 @@ urlpatterns = [
     path('ressources/<int:pk>/echeance/modifier/', views.modifier_echeance_ressource, name='modifier_echeance_ressource'),
     path('ressources/<int:pk>/echeance/supprimer/', views.supprimer_echeance_ressource, name='supprimer_echeance_ressource'),
     
-    # Matières
+    # Matières & Attributions
     path('matieres/', views.liste_matieres, name='liste_matieres'),
     path('matieres/ajouter/', views.ajouter_matiere, name='ajouter_matiere'),
+    path('matieres/attribuer/', views.attribuer_matiere, name='attribuer_matiere_globale'),
+    path('matieres/<int:matiere_id>/attribuer/', views.attribuer_matiere, name='attribuer_matiere'),
+    path('matieres/desattribuer/<int:cours_id>/', views.desattribuer_matiere, name='desattribuer_matiere'),
     path('matieres/<int:pk>/modifier/', views.modifier_matiere, name='modifier_matiere'),
     path('matieres/<int:pk>/supprimer/', views.supprimer_matiere, name='supprimer_matiere'),
     
