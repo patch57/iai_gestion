@@ -21,8 +21,8 @@
             <a href="{% url 'notes:exporter_releve' bulletin.id %}" class="bg-green-700 hover:bg-green-800 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition">
                 <i class="fas fa-file-export mr-2"></i> Exporter en CSV
             </a>
-            <a href="{% if user.type_utilisateur in 'CHEF_ETUDES DIRECTEUR ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}{% url 'notes:liste_bulletins' %}{% else %}{% url 'notes:mes_notes' %}{% endif %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition">
-                Retour
+            <a href="{% if request.META.HTTP_REFERER and 'deliberation' in request.META.HTTP_REFERER %}{{ request.META.HTTP_REFERER }}{% elif user.type_utilisateur in 'CHEF_ETUDES DIRECTEUR ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}{% url 'notes:deliberation' %}{% if bulletin.filiere %}?filiere={{ bulletin.filiere.id }}&semestre={{ bulletin.semestre }}{% elif bulletin.etudiant.filiere %}?filiere={{ bulletin.etudiant.filiere.id }}&semestre={{ bulletin.semestre }}{% endif %}{% else %}{% url 'notes:mes_notes' %}{% endif %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm transition inline-flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i>Retour
             </a>
         </div>
     </div>
@@ -101,29 +101,53 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for detail in details %}
-                    <tr class="hover:bg-gray-50/50 transition detail-row" data-detail-id="{{ detail.id }}" data-credits="{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}0{% endif %}">
+                    <tr class="hover:bg-gray-50/50 transition detail-row {% if not detail.est_transmis_chef_etudes %}bg-gray-50/30{% endif %}" data-detail-id="{{ detail.id }}" data-credits="{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}0{% endif %}">
                         <td class="p-5 font-bold text-gray-800">
-                            {{ detail.matiere.nom }}
+                            <div class="flex flex-col gap-1">
+                                <span>{{ detail.matiere.nom }}</span>
+                                <div>
+                                    {% if detail.cc_transmis and detail.exam_transmis %}
+                                        <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm" title="Notes de CC et Examen transmises par l'enseignant.">
+                                            <i class="fas fa-check-circle mr-1 text-emerald-500"></i>Transmise & Modifiable
+                                        </span>
+                                    {% elif detail.cc_transmis %}
+                                        <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shadow-sm" title="Le CC est transmis, mais l'Examen et le Rattrapage n'ont pas encore été transmis par l'enseignant.">
+                                            <i class="fas fa-clock mr-1 text-amber-500"></i>CC Transmis (Examen non transmis)
+                                        </span>
+                                    {% elif detail.exam_transmis %}
+                                        <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shadow-sm" title="L'Examen est transmis, mais le CC n'a pas encore été transmis par l'enseignant.">
+                                            <i class="fas fa-clock mr-1 text-amber-500"></i>Examen Transmis (CC non transmis)
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shadow-sm" title="🔒 Ni l'examen, ni le rattrapage n'ont encore été transmis par l'enseignant.">
+                                            <i class="fas fa-lock mr-1 text-red-500"></i>Non transmise (Verrouillée)
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </td>
                         <td class="p-5">
                             <input type="number" min="0" max="20" step="0.01" 
                                    value="{% if detail.note_cc is not None %}{{ detail.note_cc|unlocalize }}{% endif %}" 
                                    placeholder="--" 
-                                   class="note-input note-cc w-24 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-gray-50/50 hover:bg-white focus:bg-white" 
+                                   {% if not detail.peut_modifier_cc %}disabled title="🔒 Notes de CC non encore transmises par l'enseignant"{% endif %}
+                                   class="note-input note-cc w-24 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition {% if not detail.peut_modifier_cc %}bg-gray-100 text-gray-400 cursor-not-allowed opacity-60{% else %}bg-gray-50/50 hover:bg-white focus:bg-white{% endif %}" 
                                    data-field="note_cc">
                         </td>
                         <td class="p-5">
                             <input type="number" min="0" max="20" step="0.01" 
                                    value="{% if detail.note_examen is not None %}{{ detail.note_examen|unlocalize }}{% endif %}" 
                                    placeholder="--" 
-                                   class="note-input note-examen w-24 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-gray-50/50 hover:bg-white focus:bg-white" 
+                                   {% if not detail.peut_modifier_exam %}disabled title="🔒 Notes d'examen non encore transmises par l'enseignant"{% endif %}
+                                   class="note-input note-examen w-24 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition {% if not detail.peut_modifier_exam %}bg-gray-100 text-gray-400 cursor-not-allowed opacity-60{% else %}bg-gray-50/50 hover:bg-white focus:bg-white{% endif %}" 
                                    data-field="note_examen">
                         </td>
                         <td class="p-5">
                             <input type="number" min="0" max="20" step="0.01" 
                                    value="{% if detail.note_rattrapage is not None %}{{ detail.note_rattrapage|unlocalize }}{% endif %}" 
                                    placeholder="--" 
-                                   class="note-input note-rattrapage w-24 px-3 py-1.5 border border-purple-200 rounded-xl text-sm font-bold text-purple-900 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition bg-purple-50/30 hover:bg-white focus:bg-white" 
+                                   {% if not detail.peut_modifier_ratt %}disabled title="🔒 Notes de rattrapage non encore transmises par l'enseignant"{% endif %}
+                                   class="note-input note-rattrapage w-24 px-3 py-1.5 border border-purple-200 rounded-xl text-sm font-bold text-purple-900 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition {% if not detail.peut_modifier_ratt %}bg-gray-100 text-gray-400 cursor-not-allowed opacity-60{% else %}bg-purple-50/30 hover:bg-white focus:bg-white{% endif %}" 
                                    data-field="note_rattrapage">
                         </td>
                         <td class="p-5">
@@ -199,29 +223,35 @@ document.addEventListener('DOMContentLoaded', function() {
             const maxCredits = parseFloat(row.dataset.credits) || 0;
             const weight = maxCredits > 0 ? maxCredits : 1;
 
-            let moyMatiere = 0;
-            let notes = [];
-            let coeffs = [];
-
-            if (cc !== null) { notes.push(cc); coeffs.push(0.4); }
-            if (exam !== null) { notes.push(exam); coeffs.push(0.6); }
-
-            if (notes.length > 0) {
-                let baseMoy = notes.reduce((sum, n, i) => sum + n * coeffs[i], 0) / coeffs.reduce((a, b) => a + b, 0);
-                if (rat !== null) {
-                    let ratMoy = (cc !== null ? cc * 0.4 : 0) + rat * 0.6;
-                    moyMatiere = Math.max(baseMoy, ratMoy);
-                } else {
-                    moyMatiere = baseMoy;
-                }
+            let examEffective = null;
+            if (exam !== null && rat !== null) {
+                examEffective = Math.max(exam, rat);
+            } else if (exam !== null) {
+                examEffective = exam;
             } else if (rat !== null) {
-                moyMatiere = rat;
+                examEffective = rat;
+            }
+
+            let moyMatiere = 0;
+            let isValide = false;
+
+            if (cc !== null && examEffective !== null) {
+                moyMatiere = cc * 0.4 + examEffective * 0.6;
+                isValide = moyMatiere >= 10;
+            } else if (examEffective !== null) {
+                moyMatiere = examEffective * 0.6;
+                isValide = false;
+            } else if (cc !== null) {
+                moyMatiere = cc * 0.4;
+                isValide = false;
             } else {
                 moyMatiere = 0;
+                isValide = false;
             }
 
             moyMatiere = Math.round(moyMatiere * 100) / 100;
-            const isValide = moyMatiere >= 10;
+            const isValideRow = isValide;
+
             const rowCreditsObtenus = isValide ? maxCredits : 0;
 
             // Mise à jour de la ligne

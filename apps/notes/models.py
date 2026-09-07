@@ -8,6 +8,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import Avg, Sum
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 import secrets
 import string
 
@@ -500,26 +501,35 @@ class DetailBulletin(models.Model):
         return f"{self.matiere} - {self.bulletin}"
     
     def calculer_moyenne(self):
-        """Calcule la moyenne de la matière (CC 40% et Examen 60%)"""
-        notes = []
-        coeffs = []
-        
-        if self.note_cc is not None:
-            notes.append(float(self.note_cc))
-            coeffs.append(0.4)
-        if self.note_examen is not None:
-            notes.append(float(self.note_examen))
-            coeffs.append(0.6)
-        
-        if notes and coeffs:
-            total_pondere = sum(n * c for n, c in zip(notes, coeffs))
-            total_coeffs = sum(coeffs)
-            if total_coeffs > 0:
-                self.moyenne_matiere = total_pondere / total_coeffs
-                self.est_validee = self.moyenne_matiere >= 10
-                if self.est_validee:
-                    self.credits_obtenus = self.credits
+        """Calcule la moyenne de la matière (CC 40% et Examen 60%). Une matière ne peut être validée sans l'Examen/Rattrapage."""
+        cc_val = float(self.note_cc) if self.note_cc is not None else None
+        exam_val = float(self.note_examen) if self.note_examen is not None else None
+        rat_val = float(self.note_rattrapage) if self.note_rattrapage is not None else None
+
+        note_exam_effective = None
+        if exam_val is not None and rat_val is not None:
+            note_exam_effective = max(exam_val, rat_val)
+        elif exam_val is not None:
+            note_exam_effective = exam_val
+        elif rat_val is not None:
+            note_exam_effective = rat_val
+
+        if cc_val is not None and note_exam_effective is not None:
+            self.moyenne_matiere = Decimal(str(round(cc_val * 0.4 + note_exam_effective * 0.6, 2)))
+            self.est_validee = self.moyenne_matiere >= 10
+        elif note_exam_effective is not None:
+            self.moyenne_matiere = Decimal(str(round(note_exam_effective * 0.6, 2)))
+            self.est_validee = False
+        elif cc_val is not None:
+            self.moyenne_matiere = Decimal(str(round(cc_val * 0.4, 2)))
+            self.est_validee = False
+        else:
+            self.moyenne_matiere = Decimal("0.00")
+            self.est_validee = False
+
+        self.credits_obtenus = self.credits if self.est_validee else 0
         return self.moyenne_matiere
+
     
     def get_appreciation(self):
         """Appréciation par matière"""

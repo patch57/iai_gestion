@@ -510,3 +510,96 @@ def remplir_bordereau_depuis_pv(salle, semestre=1, user=None):
 
     return resultats
 
+
+def verifier_transmission_par_type(matiere, type_code='ALL', etudiant=None, salle=None, filiere=None, niveau=None, user=None, detail=None):
+    """
+    Vérifie si les notes d'une matière pour un type d'évaluation spécifique (CC, EXAM, RATT ou ALL)
+    ont été formellement transmises au Chef des Études par l'enseignant.
+    """
+    from .models import FicheNotesAnonymat, ProcesVerbalNotes, Note
+    from apps.cours.models import Salle
+    from django.db.models import Q
+
+    mat_code = getattr(matiere, 'code', str(matiere))
+
+    if etudiant:
+        if not filiere and hasattr(etudiant, 'filiere'):
+            filiere = etudiant.filiere
+        if not niveau and hasattr(etudiant, 'niveau'):
+            niveau = etudiant.niveau
+
+    salle_obj = salle if isinstance(salle, Salle) else None
+
+
+    # 1. Recherche par Procès-Verbal transmis
+    pvs = ProcesVerbalNotes.objects.filter(
+        Q(est_transmis=True) | Q(est_valide_par_chef_etudes=True)
+    )
+    if hasattr(matiere, 'id'):
+        pvs = pvs.filter(Q(matiere_id=matiere.id) | Q(matiere__code=mat_code))
+    else:
+        pvs = pvs.filter(matiere__code=mat_code)
+    
+    if salle_obj:
+        pvs = pvs.filter(Q(salle=salle_obj) | Q(salle__isnull=True))
+    if filiere:
+        pvs = pvs.filter(Q(filiere=filiere) | Q(filiere__isnull=True))
+    if niveau:
+        pvs = pvs.filter(Q(niveau=niveau) | Q(niveau__isnull=True))
+
+    if pvs.exists():
+        if type_code == 'ALL':
+            return True
+        if type_code == 'RATT':
+            # Pour le rattrapage, vérifier spécifiquement si une fiche ou ligne de rattrapage transmise existe
+            fiches_ratt = FicheNotesAnonymat.objects.filter(
+                statut__in=['TRANSMIS_CHEF_ETUDES', 'VALIDE', 'PV_GENERE'],
+                type_evaluation__code__icontains='RATT'
+            )
+            if hasattr(matiere, 'id'):
+                fiches_ratt = fiches_ratt.filter(Q(matiere_id=matiere.id) | Q(matiere__code=mat_code))
+            else:
+                fiches_ratt = fiches_ratt.filter(matiere__code=mat_code)
+            return fiches_ratt.exists()
+        return True
+
+    # 2. Recherche par Fiche d'Anonymat transmise
+    fiches = FicheNotesAnonymat.objects.filter(
+        statut__in=['TRANSMIS_CHEF_ETUDES', 'VALIDE', 'PV_GENERE']
+    )
+    if type_code != 'ALL':
+        if type_code == 'CC':
+            fiches = fiches.filter(Q(type_evaluation__code__icontains='CC') | Q(type_evaluation__code__icontains='TP') | Q(type_evaluation__code__icontains='TD'))
+        elif type_code == 'EXAM':
+            fiches = fiches.filter(type_evaluation__code__icontains='EXAM')
+        elif type_code == 'RATT':
+            fiches = fiches.filter(type_evaluation__code__icontains='RATT')
+
+    if hasattr(matiere, 'id'):
+        fiches = fiches.filter(Q(matiere_id=matiere.id) | Q(matiere__code=mat_code))
+    else:
+        fiches = fiches.filter(matiere__code=mat_code)
+
+    if salle_obj:
+        fiches = fiches.filter(Q(salle=salle_obj) | Q(salle__isnull=True))
+    if filiere:
+        fiches = fiches.filter(Q(filiere=filiere) | Q(filiere__isnull=True))
+    if niveau:
+        fiches = fiches.filter(Q(niveau=niveau) | Q(niveau__isnull=True))
+
+    if fiches.exists():
+        return True
+
+    # 3. Notes validées
+    if etudiant and type_code in ['ALL', 'CC', 'EXAM']:
+        if Note.objects.filter(etudiant=etudiant, evaluation__cours__matiere__code=mat_code, est_validee=True).exists():
+            return True
+
+    return False
+
+
+def verifier_transmission_chef_etudes(matiere, etudiant=None, salle=None, filiere=None, niveau=None, user=None):
+    return verifier_transmission_par_type(matiere, 'ALL', etudiant, salle, filiere, niveau, user)
+
+
+

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titre }} - IAI-Cameroun</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 6mm 8mm 6mm 8mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-size: 10px;
+            line-height: 1.2;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .no-print {
+            display: flex;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .card-document {
+                box-shadow: none !important;
+                border: 2px solid #064e3b !important;
+                margin: 0 auto !important;
+            }
+        }
+
+        .action-bar {
+            max-width: 1100px;
+            margin: 16px auto 12px auto;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            padding: 12px 20px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+            color: #ffffff;
+            padding: 9px 20px;
+            border-radius: 10px;
+            font-weight: 800;
+            font-size: 12px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 10px rgba(4, 120, 87, 0.25);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-back {
+            background: #f1f5f9;
+            color: #334155;
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 12px;
+            text-decoration: none;
+        }
+
+        .card-document {
+            background: #ffffff;
+            border: 2px solid #064e3b;
+            border-radius: 12px;
+            padding: 14px 18px;
+            max-width: 1100px;
+            margin: 0 auto 20px auto;
+            position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .watermark {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0.03;
+            font-size: 90px;
+            font-weight: 900;
+            letter-spacing: 14px;
+            color: #064e3b;
+            transform: rotate(-15deg);
+            user-select: none;
+        }
+
+        .doc-reference {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 9px;
+            font-weight: 800;
+            color: #047857;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-top: 6px;
+            margin-bottom: 8px;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .header-logo {
+            height: 48px;
+            width: auto;
+            margin: 0 auto 3px auto;
+            display: block;
+        }
+
+        .header-title-main {
+            font-size: 13px;
+            font-weight: 900;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .header-subtitle {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+        }
+
+        .header-bold-green {
+            font-size: 11px;
+            font-weight: 900;
+            color: #047857;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 1px;
+        }
+
+        .header-contacts {
+            font-size: 8px;
+            color: #64748b;
+            margin-top: 2px;
+            font-weight: 600;
+        }
+
+        .banner-title {
+            text-align: center;
+            background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin: 6px 0 10px 0;
+        }
+
+        .meta-box {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            font-size: 9px;
+        }
+
+        .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .meta-table td {
+            padding: 2px 4px;
+            vertical-align: top;
+        }
+
+        .lbl {
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 8.5px;
+        }
+
+        .val {
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+        }
+
+        .val-highlight {
+            color: #047857;
+            font-weight: 900;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+            margin-bottom: 10px;
+        }
+
+        .data-table th {
+            background-color: #064e3b;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 8.5px;
+            text-transform: uppercase;
+            padding: 6px 4px;
+            border: 1px solid #047857;
+            text-align: center;
+        }
+
+        .data-table td {
+            border: 1px solid #cbd5e1;
+            padding: 4.5px 5px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .cell-left {
+            text-align: left !important;
+            font-weight: 700;
+        }
+
+        .cell-mono {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 800;
+        }
+
+        .summary-block {
+            border: 1.5px solid #047857;
+            background: #f0fdf4;
+            border-radius: 8px;
+            padding: 6px 12px;
+            margin-top: 8px;
+            font-size: 9px;
+        }
+
+        .signatures-table {
+            width: 100%;
+            margin-top: 14px;
+            border-collapse: collapse;
+        }
+
+        .signatures-table td {
+            width: 50%;
+            vertical-align: top;
+            text-align: center;
+            font-size: 9.5px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .flag-bar {
+            width: 100%;
+            height: 6px;
+            margin-top: 12px;
+            background: linear-gradient(to right, 
+                #007a3d 0%, #007a3d 33%, 
+                #ce1126 33%, #ce1126 66%, 
+                #fcd116 66%, #fcd116 100%);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Web Navigation & Print Action Bar -->
+    <div class="action-bar no-print">
+        <div>
+            <strong style="color: #0f172a; font-size: 14px;">Fiche de Suivi Pédagogique Officielle</strong>
+            <span style="color: #64748b; font-size: 12px; margin-left: 8px;">{{ classe_nom }} ({{ total_effectif }} étudiants)</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <a href="{% url 'tableau_bord:liste_classes_partagee' %}" class="btn-back">⬅️ Retour aux Classes</a>
+            <button onclick="window.print()" class="btn-print">🖨️ Imprimer A4 / Exporter PDF</button>
+        </div>
+    </div>
+
+    <!-- Main Official Paper Document Card -->
+    <div class="card-document">
+        
+        <!-- Background Security Watermark -->
+        <div class="watermark">IAI-CAMEROUN</div>
+
+        <!-- Official Header -->
+        <table class="header-table">
+            <tr>
+                <td style="width: 100%; text-align: center;">
+                    <div style="text-align: center; margin-bottom: 3px;">
+                        <img src="/static/images/logo_iai.png" alt="Logo IAI" class="header-logo" onerror="this.src='/static/images/logo.png'">
+                    </div>
+                    <div class="header-title-main">INSTITUT AFRICAIN D'INFORMATIQUE</div>
+                    <div class="header-subtitle">Établissement Inter-États d'Enseignement Supérieur</div>
+                    <div class="header-bold-green">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</div>
+                    <div class="header-contacts">
+                        BP 13 719 Yaoundé / Douala (Cameroun) &nbsp;|&nbsp; Tél. (237) 242 72 99 57 / 242 72 99 58<br>
+                        Site web: www.iaicameroun.com &nbsp;|&nbsp; E-mail: contact@iaicameroun.com
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Document Reference Line -->
+        <div class="doc-reference">
+            <span>Ref: FSP &nbsp;/IAI/RRC/DAF/DAA/SDGL/{{ annee_academique }} &nbsp;|&nbsp; {{ classe_nom }}</span>
+            <span>Document de Contrôle Pédagogique Certifié</span>
+        </div>
+
+        <!-- Main Banner Title -->
+        <div class="banner-title">
+            FICHE OFFICIELLE DE SUIVI PÉDAGOGIQUE & CONTRÔLE ACADÉMIQUE DE CLASSE
+        </div>
+
+        <!-- Metadata Box -->
+        <div class="meta-box">
+            <table class="meta-table">
+                <tr>
+                    <td style="width: 50%;">
+                        <span class="lbl">Filière d'Études :</span> <span class="val val-highlight">{{ filiere_nom }} ({{ filiere_code }})</span><br>
+                        <span class="lbl">Niveau Académique :</span> <span class="val">Niveau {{ niveau_num }}</span><br>
+                        <span class="lbl">Classe / Salle :</span> <span class="val val-highlight">{{ classe_nom }}</span>
+                    </td>
+                    <td style="width: 50%;">
+                        <span class="lbl">Année Académique :</span> <span class="val">{{ annee_academique }}</span> &nbsp;&nbsp;|&nbsp;&nbsp;
+                        <span class="lbl">Campus :</span> <span class="val">Douala</span><br>
+                        <span class="lbl">Effectif Total Inscrit :</span> <span class="val val-highlight">{{ total_effectif }} Élèves</span><br>
+                        <span class="lbl">Date & Heure d'Édition :</span> <span class="val">{{ today|date:"d/m/Y H:i" }}</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Student Academic List Table -->
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 30px;">N°</th>
+                    <th style="width: 120px;">N° Matricule</th>
+                    <th style="text-align: left; padding-left: 8px;">Noms & Prénoms de l'Étudiant</th>
+                    <th style="width: 80px;">Né(e) le</th>
+                    <th style="width: 85px;">Lieu Naiss.</th>
+                    <th style="width: 65px;">Moy. Sem.</th>
+                    <th style="width: 45px;">Rang</th>
+                    <th style="width: 65px;">Absences</th>
+                    <th style="width: 90px;">Statut Jury</th>
+                    <th style="width: 140px;">Émargement / Visa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in etudiants %}
+                <tr>
+                    <td style="font-weight: 800;">{{ forloop.counter }}</td>
+                    <td class="cell-mono val-highlight">{{ item.matricule }}</td>
+                    <td class="cell-left">{{ item.nom_complet }}</td>
+                    <td>{{ item.date_naissance|date:"d/m/Y"|default:"--" }}</td>
+                    <td>{{ item.lieu_naissance|default:"Douala" }}</td>
+                    <td class="cell-mono" style="font-weight: 900; color: {% if item.moyenne and item.moyenne >= 10 %}#047857{% else %}#b91c1c{% endif %};">
+                        {% if item.moyenne is not None %}{{ item.moyenne|floatformat:2 }}{% else %}--{% endif %}
+                    </td>
+                    <td style="font-weight: 800;">{% if item.rang %}{{ item.rang }}e{% else %}—{% endif %}</td>
+                    <td style="font-weight: 800; color: {% if item.absences > 10 %}#b91c1c{% else %}#0f172a{% endif %};">
+                        {{ item.absences }} h
+                    </td>
+                    <td style="font-weight: 800;">
+                        {% if 'Admis' in item.decision or 'ADMIS' in item.decision %}
+                        <span style="color: #047857; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #a7f3d0;">ADMIS</span>
+                        {% elif 'Ajourné' in item.decision or 'AJOURNÉ' in item.decision %}
+                        <span style="color: #b91c1c; background: #fef2f2; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecaca;">AJOURNÉ</span>
+                        {% else %}
+                        <span style="color: #0369a1; background: #f0f9ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bae6fd;">{{ item.decision }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="height: 26px;"></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" style="padding: 16px; color: #94a3b8; font-weight: 700;">
+                        Aucun étudiant inscrit dans cette classe.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Performance Summary & Global KPI -->
+        <div class="summary-block">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="width: 33%; text-align: left;">
+                        <span class="lbl">Effectif Total Évalué :</span> <strong style="font-size: 11px; color: #0f172a;">{{ total_effectif }} Étudiants</strong>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <span class="lbl">Moyenne Générale Promotion :</span> <strong style="font-size: 11px; color: #047857;">{{ moyenne_generale_promo|floatformat:2 }} / 20</strong>
+                    </td>
+                    <td style="width: 34%; text-align: right;">
+                        <span class="lbl">Cumul Absences Observées :</span> <strong style="font-size: 11px; color: #b91c1c;">{{ total_absences_classe }} Heures</strong>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Official Signatures -->
+        <table class="signatures-table">
+            <tr>
+                <td>
+                    <span>Le Délégué de Classe</span><br>
+                    <span style="font-size: 8px; color: #64748b; font-weight: 600;">Représentant des Étudiants</span>
+                    <div style="height: 45px;"></div>
+                </td>
+                <td>
+                    <span>Le Chef du Service des Études</span><br>
+                    <span style="font-size: 8px; color: #047857; font-weight: 800;">Direction Académique IAI-Cameroun</span>
+                    <div style="height: 45px;"></div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="flag-bar"></div>
+    </div>
+
+</body>
+</html>

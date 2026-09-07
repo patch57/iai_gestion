@@ -95,8 +95,12 @@
             <h1 class="text-xl font-black text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-table-cells text-emerald-600"></i> Bordereau de Notes & Délibérations Officiel
             </h1>
-            <p class="text-xs text-slate-500 mt-0.5">
-                Classe : <span class="font-bold text-slate-800">{{ classe.nom }}</span> | {% if semestre == 'annuel' %}Annuel (Semestres 1 + 2){% else %}Semestre {{ semestre }}{% endif %} | Année Académique : {{ header.annee_academique }}
+            <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                <span>Classe : <span class="font-bold text-slate-800">{{ classe.nom }}</span> | {% if semestre == 'annuel' %}Annuel (Semestres 1 + 2){% else %}Semestre {{ semestre }}{% endif %} | Année Académique : {{ header.annee_academique }}</span>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-[11px] font-extrabold rounded-full border border-emerald-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Données & Absences Synchronisées en Temps Réel
+                </span>
             </p>
         </div>
 

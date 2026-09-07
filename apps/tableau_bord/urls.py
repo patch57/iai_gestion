@@ -70,6 +70,8 @@ urlpatterns = [
     path('geolocalisation/', views.geolocalisation, name='geolocalisation'),
     path('classes/', views.liste_classes_partagee, name='liste_classes_partagee'),
     path('classes/<int:salle_id>/export-pdf/', views.export_pdf_paiements_classe, name='export_pdf_paiements_classe'),
+    path('classes/<int:salle_id>/export-pdf-pedagogique/', views.export_pdf_fiche_pedagogique_classe, name='export_pdf_fiche_pedagogique_classe'),
+    path('classes/<int:salle_id>/export-pdf-anonymat/', views.export_pdf_anonymat_classe, name='export_pdf_anonymat_classe'),
     
     # API pour les graphiques (AJAX)
     path('api/donnees/', views.api_donnees_dashboard, name='api_donnees_dashboard'),

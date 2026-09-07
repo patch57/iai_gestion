@@ -747,9 +747,40 @@ def liste_bulletins(request):
 @login_required
 def detail_bulletin(request, pk):
     """Détail d'un bulletin"""
+    from .services import verifier_transmission_par_type, verifier_transmission_chef_etudes
     bulletin = get_object_or_404(Bulletin, pk=pk)
     details = bulletin.details.all().select_related('matiere')
     
+    etudiant = bulletin.etudiant
+    salle = getattr(etudiant, 'classe', None)
+    filiere = getattr(etudiant, 'filiere', None)
+    niveau = getattr(etudiant, 'niveau', None)
+
+    for detail in details:
+        detail.cc_transmis = verifier_transmission_par_type(detail.matiere, 'CC', etudiant, salle, filiere, niveau, request.user, detail=detail)
+        detail.exam_transmis = verifier_transmission_par_type(detail.matiere, 'EXAM', etudiant, salle, filiere, niveau, request.user, detail=detail)
+        detail.ratt_transmis = verifier_transmission_par_type(detail.matiere, 'RATT', etudiant, salle, filiere, niveau, request.user, detail=detail)
+
+        detail.est_transmis_chef_etudes = detail.cc_transmis or detail.exam_transmis or detail.ratt_transmis
+
+        # Détecter si la matière a été validée en 1ère session (CC 40% + Examen 60% >= 10.00)
+        session1_moy = None
+        if detail.note_cc is not None and detail.note_examen is not None:
+            session1_moy = float(detail.note_cc) * 0.4 + float(detail.note_examen) * 0.6
+
+        detail.valide_session1 = session1_moy is not None and session1_moy >= 10.0
+
+        is_admin = request.user.is_superuser
+        detail.peut_modifier_cc = detail.cc_transmis or is_admin
+        detail.peut_modifier_exam = detail.exam_transmis or is_admin
+        detail.peut_modifier_ratt = detail.ratt_transmis or is_admin
+
+        if not detail.ratt_transmis and not is_admin:
+            detail.ratt_raison = "🔒 Notes de rattrapage non encore transmises par l'enseignant"
+        else:
+            detail.ratt_raison = ""
+
+
     # Calculer la progression
     total_credits = sum(d.credits for d in details)
     credits_obtenus = bulletin.credits_obtenus
@@ -769,11 +800,34 @@ def api_update_detail_bulletin(request, detail_id):
     """Mettre à jour les notes d'un DetailBulletin via AJAX et recalculer le bulletin"""
     import json
     from decimal import Decimal, InvalidOperation
+    from .services import verifier_transmission_chef_etudes
 
     if request.method != 'POST':
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
 
     detail = get_object_or_404(DetailBulletin, pk=detail_id)
+
+    # Vérification de la transmission des notes au Chef des Études
+    bulletin = detail.bulletin
+    etudiant = bulletin.etudiant
+    salle = getattr(etudiant, 'classe', None)
+    filiere = getattr(etudiant, 'filiere', None)
+    niveau = getattr(etudiant, 'niveau', None)
+
+    if not verifier_transmission_chef_etudes(
+        matiere=detail.matiere,
+        etudiant=etudiant,
+        salle=salle,
+        filiere=filiere,
+        niveau=niveau,
+        user=request.user
+    ) and not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': "🔒 Modification refusée : Les notes de cette matière ne vous ont pas encore été transmises par l'enseignant ou le service d'anonymat."
+        }, status=403)
+
+
     
     try:
         data = json.loads(request.body.decode('utf-8'))
@@ -794,31 +848,34 @@ def api_update_detail_bulletin(request, detail_id):
     detail.note_rattrapage = parse_note(data.get('note_rattrapage'))
 
     # Calcul de la moyenne matière
-    notes = []
-    coeffs = []
-    if detail.note_cc is not None:
-        notes.append(float(detail.note_cc))
-        coeffs.append(0.4)
-    if detail.note_examen is not None:
-        notes.append(float(detail.note_examen))
-        coeffs.append(0.6)
+    cc_val = float(detail.note_cc) if detail.note_cc is not None else None
+    exam_val = float(detail.note_examen) if detail.note_examen is not None else None
+    rat_val = float(detail.note_rattrapage) if detail.note_rattrapage is not None else None
 
-    if notes and coeffs:
-        base_moy = sum(n * c for n, c in zip(notes, coeffs)) / sum(coeffs)
-        if detail.note_rattrapage is not None:
-            rat_val = float(detail.note_rattrapage)
-            rat_moy = (float(detail.note_cc or 0) * 0.4 + rat_val * 0.6) if detail.note_cc is not None else rat_val
-            detail.moyenne_matiere = Decimal(str(round(max(base_moy, rat_moy), 2)))
-        else:
-            detail.moyenne_matiere = Decimal(str(round(base_moy, 2)))
-    elif detail.note_rattrapage is not None:
-        detail.moyenne_matiere = Decimal(str(round(float(detail.note_rattrapage), 2)))
+    note_exam_effective = None
+    if exam_val is not None and rat_val is not None:
+        note_exam_effective = max(exam_val, rat_val)
+    elif exam_val is not None:
+        note_exam_effective = exam_val
+    elif rat_val is not None:
+        note_exam_effective = rat_val
+
+    if cc_val is not None and note_exam_effective is not None:
+        detail.moyenne_matiere = Decimal(str(round(cc_val * 0.4 + note_exam_effective * 0.6, 2)))
+        detail.est_validee = detail.moyenne_matiere >= 10
+    elif note_exam_effective is not None:
+        detail.moyenne_matiere = Decimal(str(round(note_exam_effective * 0.6, 2)))
+        detail.est_validee = False
+    elif cc_val is not None:
+        detail.moyenne_matiere = Decimal(str(round(cc_val * 0.4, 2)))
+        detail.est_validee = False
     else:
-        detail.moyenne_matiere = Decimal('0.00')
+        detail.moyenne_matiere = Decimal("0.00")
+        detail.est_validee = False
 
-    detail.est_validee = detail.moyenne_matiere >= 10
     detail.credits_obtenus = detail.credits if detail.est_validee else 0
     detail.save()
+
 
     # Synchronisation immédiate avec la ligne de Procès-Verbal de Notes si elle existe
     try:
@@ -3051,6 +3108,102 @@ def voir_bulletin_officiel(request, bulletin_id):
     context['bulletin'] = bulletin
 
     return render(request, 'notes/bulletin_officiel_pdf.html', context)
+
+
+@login_required
+def impression_masse_bulletins(request):
+    """
+    Impression en masse des bulletins officiels A4 / PDF pour le Chef des Études.
+    Permet l'impression multi-pages propre par sélection ou filtrage global.
+    """
+    user = request.user
+    role = getattr(user, 'type_utilisateur', None)
+    est_admin_ou_chef = role in ('CHEF_ETUDES', 'ADMIN_SYSTEME', 'CHEF_SCOLARITE', 'DIRECTEUR') or user.is_superuser
+    if not est_admin_ou_chef:
+        messages.error(request, "❌ Accès réservé au Chef des Études et à l'Administration.")
+        return redirect('notes:liste_bulletins')
+
+    from apps.etudiants.models import Classe, Filiere, Niveau
+    from apps.notes.utils_pdf import structurer_donnees_bulletin
+    from django.db.models import Q
+
+    bulletin_ids_str = request.POST.get('ids', request.GET.get('ids', '')).strip()
+    bulletins_qs = Bulletin.objects.none()
+
+    if bulletin_ids_str:
+        try:
+            ids_list = [int(i.strip()) for i in bulletin_ids_str.split(',') if i.strip().isdigit()]
+            bulletins_qs = Bulletin.objects.filter(id__in=ids_list).select_related('etudiant', 'etudiant__filiere', 'etudiant__niveau')
+        except Exception:
+            pass
+
+    if not bulletins_qs.exists():
+        bulletins_qs = Bulletin.objects.all().select_related('etudiant', 'etudiant__filiere', 'etudiant__niveau')
+        q = request.POST.get('q', request.GET.get('q', '')).strip()
+        filiere_id = request.POST.get('filiere', request.GET.get('filiere', '')).strip()
+        niveau_id = request.POST.get('niveau', request.GET.get('niveau', '')).strip()
+        semestre_id = request.POST.get('semestre', request.GET.get('semestre', '')).strip()
+        statut = request.POST.get('statut', request.GET.get('statut', '')).strip()
+
+        if q:
+            bulletins_qs = bulletins_qs.filter(
+                Q(etudiant__nom__icontains=q) |
+                Q(etudiant__prenom__icontains=q) |
+                Q(etudiant__matricule__icontains=q) |
+                Q(numero_bulletin__icontains=q)
+            )
+        if filiere_id:
+            bulletins_qs = bulletins_qs.filter(etudiant__filiere_id=filiere_id)
+        if niveau_id:
+            bulletins_qs = bulletins_qs.filter(etudiant__niveau_id=niveau_id)
+        if semestre_id:
+            bulletins_qs = bulletins_qs.filter(semestre=semestre_id)
+        if statut == 'valide':
+            bulletins_qs = bulletins_qs.filter(Q(est_valide=True) | Q(est_publie=True))
+        elif statut == 'brouillon':
+            bulletins_qs = bulletins_qs.filter(est_valide=False, est_publie=False)
+
+    bulletins = list(bulletins_qs.order_by('etudiant__filiere__code', 'etudiant__niveau__numero', 'rang', 'etudiant__nom'))
+
+    if not bulletins:
+        messages.warning(request, "⚠️ Aucun bulletin sélectionné pour l'impression en masse.")
+        return redirect('notes:liste_bulletins')
+
+    bulletins_data = []
+    classes_cache = {}
+
+    for b in bulletins:
+        etud = b.etudiant
+        filiere = getattr(etud, 'filiere', None)
+        niveau = getattr(etud, 'niveau', None)
+
+        cache_key = (filiere.id if filiere else None, niveau.id if niveau else None)
+        if cache_key not in classes_cache:
+            classe_obj = None
+            if filiere and niveau:
+                classe_obj = Classe.objects.filter(filiere=filiere, niveau=niveau).first()
+            if not classe_obj and filiere and niveau:
+                classe_obj = Classe(nom=f"{filiere.code} - L{niveau.numero}", filiere=filiere, niveau=niveau)
+            classes_cache[cache_key] = classe_obj
+
+        classe_effective = classes_cache[cache_key]
+        if classe_effective:
+            b_ctx = structurer_donnees_bulletin(etud, classe_effective)
+        else:
+            b_ctx = {}
+
+        b_ctx['bulletin'] = b
+        bulletins_data.append(b_ctx)
+
+    context = {
+        'bulletins_data': bulletins_data,
+        'total_count': len(bulletins_data),
+        'auto_print': request.GET.get('auto_print', '0') == '1',
+        'titre': f"Impression en Masse des Bulletins ({len(bulletins_data)})"
+    }
+
+    return render(request, 'notes/impression_masse_bulletins.html', context)
+
 
 
 # ==============================================================================

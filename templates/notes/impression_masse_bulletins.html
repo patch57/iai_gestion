@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titre }} - IAI-Cameroun</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 5mm 7mm 5mm 7mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-size: 10px;
+            line-height: 1.25;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .no-print {
+            display: flex;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .bulletin-page {
+                page-break-after: always !important;
+                break-after: page !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .bulletin-page:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+            .bulletin-card {
+                box-shadow: none !important;
+                border: 2px solid #000000 !important;
+                margin: 0 auto !important;
+            }
+        }
+
+        .action-bar {
+            max-width: 900px;
+            margin: 16px auto 12px auto;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            padding: 14px 24px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+            color: #ffffff;
+            padding: 10px 22px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 13px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 12px rgba(4, 120, 87, 0.3);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-print:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(4, 120, 87, 0.4);
+        }
+
+        .btn-back {
+            background: #f1f5f9;
+            color: #334155;
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 12px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-back:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .bulletin-card {
+            background: #ffffff;
+            border: 2px solid #064e3b;
+            border-radius: 12px;
+            padding: 14px 18px;
+            max-width: 860px;
+            margin: 0 auto 20px auto;
+            position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .watermark {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0.035;
+            font-size: 80px;
+            font-weight: 900;
+            letter-spacing: 12px;
+            color: #064e3b;
+            transform: rotate(-25deg);
+            user-select: none;
+        }
+
+        .doc-reference {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 9px;
+            font-weight: 800;
+            color: #047857;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .header-logo {
+            height: 52px;
+            width: auto;
+            margin-bottom: 3px;
+        }
+
+        .header-title-main {
+            font-size: 12px;
+            font-weight: 900;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .header-subtitle {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+        }
+
+        .header-bold-green {
+            font-size: 11px;
+            font-weight: 900;
+            color: #047857;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 1px;
+        }
+
+        .header-contacts {
+            font-size: 8px;
+            color: #64748b;
+            margin-top: 2px;
+            font-weight: 600;
+        }
+
+        .bulletin-banner {
+            text-align: center;
+            background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin: 6px 0 10px 0;
+        }
+
+        .student-info-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            margin-bottom: 10px;
+        }
+
+        .student-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .student-table td {
+            padding: 2px 4px;
+            vertical-align: middle;
+        }
+
+        .label-cell {
+            font-weight: 700;
+            color: #475569;
+            font-size: 9.5px;
+            width: 15%;
+        }
+
+        .val-cell {
+            font-weight: 800;
+            color: #0f172a;
+            font-size: 10px;
+            width: 35%;
+        }
+
+        .grades-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .grades-table th {
+            background-color: #047857;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 5px 4px;
+            border: 1px solid #064e3b;
+            text-align: center;
+        }
+
+        .grades-table td {
+            border: 1px solid #cbd5e1;
+            padding: 4px;
+            font-size: 9px;
+            vertical-align: middle;
+        }
+
+        .ue-header-row {
+            background-color: #e2e8f0 !important;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .summary-box {
+            border: 2px solid #047857;
+            border-radius: 8px;
+            padding: 8px 12px;
+            background: #f0fdf4;
+            margin-bottom: 10px;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .summary-table td {
+            padding: 3px 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .signatures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .signature-box {
+            border: 1px border-gray-300;
+            height: 75px;
+            padding: 6px;
+            position: relative;
+            text-align: center;
+        }
+
+        .signature-title {
+            font-size: 9px;
+            font-weight: 800;
+            color: #0f172a;
+            text-decoration: underline;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sticky Action Bar in Browser -->
+    <div class="action-bar no-print">
+        <div class="flex items-center gap-3">
+            <span class="w-9 h-9 bg-emerald-100 text-emerald-800 rounded-xl flex items-center justify-center font-black text-sm">
+                <i class="fas fa-print"></i>
+            </span>
+            <div>
+                <h2 class="text-sm font-black text-slate-800">Impression en Masse des Bulletins Officiels</h2>
+                <p class="text-xs font-bold text-slate-500">{{ total_count }} bulletin(s) prêt(s) pour l'impression A4</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'notes:liste_bulletins' %}" class="btn-back">
+                <i class="fas fa-arrow-left mr-1"></i> Retour au Registre
+            </a>
+            <button onclick="window.print()" class="btn-print">
+                <i class="fas fa-print"></i> Lancer l'Impression A4 (Ctrl + P)
+            </button>
+        </div>
+    </div>
+    <!-- Bulletins Loop -->
+    {% for item in bulletins_data %}
+    <div class="bulletin-page">
+        <div class="bulletin-card">
+            <!-- Background Security Watermark -->
+            <div class="watermark">IAI-CAMEROUN</div>
+
+            <!-- Official Header -->
+            <table class="header-table">
+                <tr>
+                    <td style="width: 100%; text-align: center;">
+                        <div style="text-align: center; margin-bottom: 4px;">
+                            <img src="/static/images/logo_iai.png" alt="Logo IAI" class="header-logo" style="display: block; margin: 0 auto 4px auto;" onerror="this.src='/static/images/logo.png'">
+                        </div>
+                        <div class="header-title-main">INSTITUT AFRICAIN D'INFORMATIQUE</div>
+                        <div class="header-subtitle">Établissement Inter-États d'Enseignement Supérieur</div>
+                        <div class="header-bold-green">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</div>
+                        <div class="header-contacts">
+                            BP 13 719 Yaoundé / Douala (Cameroun) &nbsp;|&nbsp; Tél. (237) 242 72 99 57 / 242 72 99 58<br>
+                            Site web: www.iaicameroun.com &nbsp;|&nbsp; E-mail: contact@iaicameroun.com
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Document Reference Header (Just after institute header) -->
+            <div class="doc-reference" style="margin-top: 6px; margin-bottom: 8px;">
+                <span>BN° &nbsp; {{ item.bulletin.numero_bulletin|default:item.bulletin.id|stringformat:"03d" }} &nbsp; /IAI/RRC/DAF/DAA/SDGL/{{ item.annee_academique|default:item.bulletin.annee_academique }}</span>
+                <span>Document Officiel Certifié</span>
+            </div>
+
+            <!-- Main Banner Title -->
+            <div class="bulletin-banner">
+                {% if item.bulletin.semestre == 3 %}
+                    BULLETIN DE NOTES DE FIN D'ANNÉE (S1 + S2)
+                {% else %}
+                    BULLETIN DE NOTES DU SEMESTRE {{ item.bulletin.semestre|default:1 }}
+                {% endif %}
+            </div>
+
+            <!-- Student Identification Metadata Card -->
+            <div class="student-info-box" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;">
+                <table class="student-table" style="width: 100%; border-collapse: collapse; font-size: 9px;">
+                    <tr>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Domaine :</span> <span class="val-cell" style="font-weight: 800; color: #0f172a; text-transform: uppercase;">{{ item.domaine|default:"Informatique" }}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Spécialité :</span> <span class="val-cell" style="font-weight: 900; color: #047857; text-transform: uppercase;">{% if item.filiere %}{{ item.filiere.nom }}{% elif item.bulletin.etudiant.filiere %}{{ item.bulletin.etudiant.filiere.nom }}{% else %}Génie Logiciel{% endif %}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Nom (s) :</span> <span class="val-cell" style="font-weight: 800; color: #0f172a; text-transform: uppercase;">{{ item.bulletin.etudiant.nom }}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Prénom (s) :</span> <span class="val-cell" style="font-weight: 800; color: #0f172a; text-transform: uppercase;">{{ item.bulletin.etudiant.prenom }}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Pays d'origine :</span> <span class="val-cell" style="font-weight: 800; color: #0f172a; text-transform: uppercase;">{{ item.bulletin.etudiant.nationalite|default:"CMR" }}</span>
+                        </td>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Grade :</span> <span class="val-cell" style="font-weight: 800;">Licence</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Campus :</span> <span class="val-cell" style="font-weight: 800;">{{ item.bulletin.etudiant.campus|default:"Douala" }}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Niveau :</span> <span class="val-cell" style="font-weight: 900; color: #047857;">{% if item.niveau %}{{ item.niveau.numero }}{% elif item.bulletin.etudiant.niveau %}{{ item.bulletin.etudiant.niveau.numero }}{% else %}1{% endif %}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">N° Matricule :</span> <span class="val-cell" style="font-family: monospace; font-weight: 900; color: #047857;">{{ item.bulletin.etudiant.matricule }}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Date de Naissance :</span> <span class="val-cell" style="font-weight: 800;">{{ item.bulletin.etudiant.date_naissance|date:"d/m/Y"|default:"--" }}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Lieu de Naissance :</span> <span class="val-cell" style="font-weight: 800;">{{ item.bulletin.etudiant.lieu_naissance|default:"Douala" }}</span><br>
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Année Académique :</span> <span class="val-cell" style="font-weight: 800;">{{ item.annee_academique|default:item.bulletin.annee_academique }}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                            <span class="label-cell" style="font-weight: 700; color: #475569; text-transform: uppercase;">Classe :</span> <span class="val-cell" style="font-weight: 800;">{% if item.classe %}{{ item.classe.nom }}{% else %}{{ item.bulletin.etudiant.filiere.code }} 1A{% endif %}</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Course Grades Table -->
+            <table class="grades-table" style="width: 100%; border-collapse: collapse; font-size: 8.5px; margin-bottom: 8px;">
+                <thead>
+                    <tr style="background-color: #064e3b; color: #ffffff;">
+                        <th style="width: 65px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Code UE</th>
+                        <th style="border: 1px solid #047857; padding: 5px 3px; text-align: left;">Matières</th>
+                        <th style="width: 42px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Notes</th>
+                        <th style="width: 32px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Coef</th>
+                        <th style="width: 48px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Total</th>
+                        <th style="width: 48px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Moy. UE</th>
+                        <th style="width: 32px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Rang</th>
+                        <th style="width: 65px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Mention</th>
+                        <th style="width: 60px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Session</th>
+                        <th style="width: 38px; border: 1px solid #047857; padding: 5px 3px; text-align: center;">Crédits</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- SEMESTRE 1 -->
+                    {% if item.s1_data.ues %}
+                        {% for ue_item in item.s1_data.ues %}
+                            {% for mat in ue_item.matieres %}
+                            <tr>
+                                {% if forloop.first %}
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ ue_item.ue.code }}</td>
+                                {% endif %}
+
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; font-weight: 700;">{{ mat.nom }}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ mat.note_format }}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ mat.coef }}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace;">{{ mat.total_format }}</td>
+
+                                {% if forloop.first %}
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ ue_item.moyenne_ue_format }}</td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ ue_item.rang_ue|default:"—" }}</td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-weight: 800;">
+                                        {% if ue_item.moyenne_ue >= 10 %}
+                                        <span style="color: #047857;">VALIDEE</span>
+                                        {% else %}
+                                        <span style="color: #b91c1c;">NON VALIDEE</span>
+                                        {% endif %}
+                                    </td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-size: 7.5px;">{{ mat.session|default:"Normale" }}</td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-weight: 800;">{{ ue_item.credits_ue }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                        <tr style="background-color: #e2e8f0; font-weight: 800;">
+                            <td colspan="3" style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; text-transform: uppercase;">RÉSULTATS SEMESTRE 1</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ item.s1_data.total_coef }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace;">{{ item.s1_data.total_points_format }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-size: 9.5px; color: #047857;">{{ item.s1_data.moyenne_s1_format }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ item.s1_data.rang_s1 }}</td>
+                            <td colspan="2" style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Total Crédits Semestre 1</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-size: 9.5px; font-weight: 900; color: #047857;">{{ item.s1_data.credits_s1 }}</td>
+                        </tr>
+                    {% endif %}
+
+                    <!-- SEMESTRE 2 -->
+                    {% if item.s2_data.ues %}
+                        {% for ue_item in item.s2_data.ues %}
+                            {% for mat in ue_item.matieres %}
+                            <tr>
+                                {% if forloop.first %}
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ ue_item.ue.code }}</td>
+                                {% endif %}
+
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; font-weight: 700;">{{ mat.nom }}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ mat.note_format }}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ mat.coef }}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace;">{{ mat.total_format }}</td>
+
+                                {% if forloop.first %}
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ ue_item.moyenne_ue_format }}</td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ ue_item.rang_ue|default:"—" }}</td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-weight: 800;">
+                                        {% if ue_item.moyenne_ue >= 10 %}
+                                        <span style="color: #047857;">VALIDEE</span>
+                                        {% else %}
+                                        <span style="color: #b91c1c;">NON VALIDEE</span>
+                                        {% endif %}
+                                    </td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-size: 7.5px;">{{ mat.session|default:"Normale" }}</td>
+                                    <td rowspan="{{ ue_item.matieres|length }}" style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-weight: 800;">{{ ue_item.credits_ue }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                        <tr style="background-color: #e2e8f0; font-weight: 800;">
+                            <td colspan="3" style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; text-transform: uppercase;">RÉSULTATS SEMESTRE 2</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ item.s2_data.total_coef }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace;">{{ item.s2_data.total_points_format }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-size: 9.5px; color: #047857;">{{ item.s2_data.moyenne_s2_format }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ item.s2_data.rang_s2 }}</td>
+                            <td colspan="2" style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Total Crédits Semestre 2</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-size: 9.5px; font-weight: 900; color: #047857;">{{ item.s2_data.credits_s2 }}</td>
+                        </tr>
+                    {% endif %}
+
+                    <!-- Fallback si details bulletin direct -->
+                    {% if not item.s1_data.ues and not item.s2_data.ues %}
+                        {% for detail in item.bulletin.details.all %}
+                        <tr>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{% if detail.matiere.ue %}{{ detail.matiere.ue.code }}{% else %}{{ detail.matiere.code }}{% endif %}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; font-weight: 700;">{{ detail.matiere.nom }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ detail.moyenne_matiere|floatformat:2 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}3{% endif %}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace;">{{ detail.moyenne_matiere|floatformat:2 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-weight: 800;">{{ detail.moyenne_matiere|floatformat:2 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">—</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-weight: 800;">
+                                {% if detail.est_validee %}
+                                <span style="color: #047857;">VALIDEE</span>
+                                {% else %}
+                                <span style="color: #b91c1c;">NON VALIDEE</span>
+                                {% endif %}
+                            </td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-size: 7.5px;">{% if detail.note_rattrapage is not None %}Rattrapage{% else %}Normale{% endif %}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-weight: 900;">{% if detail.est_validee %}{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}3{% endif %}{% else %}0{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" style="border: 1px solid #cbd5e1; text-align: center; padding: 12px; color: #94a3b8;">Aucun détail de note disponible.</td>
+                        </tr>
+                        {% endfor %}
+                        <tr style="background-color: #e2e8f0; font-weight: 800;">
+                            <td colspan="3" style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; text-transform: uppercase;">RÉSULTATS SEMESTRE {{ item.bulletin.semestre|default:1 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ item.bulletin.details.all|length|default:3 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace;">{{ item.bulletin.moyenne_semestre|floatformat:2 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace; font-size: 9.5px; color: #047857;">{{ item.bulletin.moyenne_semestre|floatformat:2 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ item.bulletin.rang|default:1 }}</td>
+                            <td colspan="2" style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Total Crédits Semestre {{ item.bulletin.semestre|default:1 }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-size: 9.5px; font-weight: 900; color: #047857;">{{ item.bulletin.credits_obtenus|default:0 }}</td>
+                        </tr>
+                    {% endif %}
+
+                    <!-- RECAPITULATIF GLOBAL (S1 & S2) -->
+                    <tr style="background-color: #dbeafe; font-weight: 900; color: #1e40af;">
+                        <td colspan="3" style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; text-transform: uppercase;">RÉCAPITULATIF (S1 & S2)</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center;">{{ item.recap_data.total_coef|default:"6" }}</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-family: monospace;">{{ item.recap_data.total_points_format|default:"0,00" }}</td>
+                        <td colspan="3" style="border: 1px solid #cbd5e1; padding: 4px;"></td>
+                        <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: left; font-size: 8.5px;">Crédits annuels obtenus</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 4px; text-align: center; font-size: 10px; font-weight: 900; color: #047857;">{% if item.recap_data.total_credits_annuels is not None %}{{ item.recap_data.total_credits_annuels }}{% else %}{{ item.bulletin.credits_obtenus }}{% endif %}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Summary & Decision Block -->
+            <div class="summary-box" style="border: 1.5px solid #047857; background: #f0fdf4; border-radius: 8px; padding: 6px 10px; margin-top: 6px;">
+                <table class="summary-table" style="width: 100%; border-collapse: collapse; font-size: 8.5px;">
+                    <tr>
+                        <td style="width: 48%; padding: 2px 4px; text-align: left;">
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Moyenne annuelle/semestrielle de l'étudiant (e) :</span> <strong style="font-size: 11px; color: #047857;">{{ item.bulletin.moyenne_semestre|floatformat:2 }} / 20</strong><br>
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Moyenne Générale de la Classe :</span> <strong>{% if item.bulletin.moyenne_classe_generale %}{{ item.bulletin.moyenne_classe_generale }}{% else %}{{ item.moyenne_classe_generale_format|default:"0,00" }}{% endif %} / 20</strong><br>
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Rang de l'étudiant (e) :</span> <strong>{% if item.bulletin.rang %}{{ item.bulletin.rang }}{% else %}{{ item.rang_annuel|default:"1" }}{% endif %} Sur {% if item.bulletin.effectif %}{{ item.bulletin.effectif }}{% else %}{{ item.total_effectif|default:"4" }}{% endif %}</strong>
+                        </td>
+                        <td style="width: 32%; padding: 2px 4px; text-align: left;">
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Maximum :</span> <strong>{% if item.bulletin.moyenne_classe_max %}{{ item.bulletin.moyenne_classe_max }}{% else %}{{ item.moyenne_classe_max_format|default:"0,00" }}{% endif %}</strong><br>
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Minimum :</span> <strong>{% if item.bulletin.moyenne_classe_min %}{{ item.bulletin.moyenne_classe_min }}{% else %}{{ item.moyenne_classe_min_format|default:"0,00" }}{% endif %}</strong><br>
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Discipline :</span> <strong>{{ item.discipline|default:"-" }}</strong>
+                        </td>
+                        <td style="width: 20%; padding: 2px 4px; text-align: left;">
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Retards :</span> <strong>{{ item.retards|default:"0" }}</strong><br>
+                            <span class="lbl" style="font-weight: 700; color: #475569; text-transform: uppercase; font-size: 8.5px;">Absences :</span> <strong>{{ item.absences|default:"0" }}</strong><br>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" style="border-top: 1px solid #bbf7d0; padding-top: 5px; margin-top: 3px; text-align: left;">
+                            <div style="font-size: 10px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                <span>Décision du Conseil des Professeurs :</span> 
+                                <span class="decision-badge {% if item.bulletin.decision == 'ADMIS' or item.decision_finale and 'ADMIS' in item.decision_finale|upper %}decision-admis{% else %}decision-ajourne{% endif %}" style="display: inline-block; font-size: 10px; font-weight: 900; text-transform: uppercase; padding: 3px 10px; border-radius: 6px; letter-spacing: 0.5px;">
+                                    {% if item.bulletin.decision %}{{ item.bulletin.get_decision_display }}{% else %}{{ item.decision_finale|default:"Ajourné (e)" }}{% endif %}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Official Signatures and Seal Stamp -->
+            <div class="signature-grid" style="width: 100%; margin-top: 10px; display: table;">
+                <div class="sig-left" style="display: table-cell; width: 45%; vertical-align: bottom; font-size: 8.5px; color: #475569; font-weight: 600;">
+                </div>
+                <div class="sig-right" style="display: table-cell; width: 55%; text-align: center; vertical-align: top; font-size: 9px; font-weight: 800; color: #0f172a;">
+                    <span>Le Représentant Résident</span><br>
+                    <span style="font-size: 8.5px; color: #475569;">Chef d'Établissement</span>
+                    <div style="height: 50px;"></div>
+                </div>
+            </div>
+
+            <!-- Pan-African Flag Bar Footer -->
+            <div class="flag-bar"></div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if auto_print %}
+    <script>
+        window.addEventListener('load', function() {
+            window.print();
+        });
+    </script>
+    {% endif %}
+
+</body>
+</html>

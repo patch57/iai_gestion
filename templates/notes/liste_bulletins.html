@@ -30,6 +30,9 @@
             
             <div class="flex flex-wrap gap-2.5">
                 {% if user.type_utilisateur in 'CHEF_ETUDES ADMIN_PEDAGOGIQUE ADMIN_SYSTEME' or user.is_superuser %}
+                <a href="{% url 'notes:impression_masse_bulletins' %}?{{ request.GET.urlencode }}" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center gap-2" title="Imprimer en masse tous les bulletins filtrés en A4">
+                    <i class="fas fa-print"></i> Impression en Masse ({{ total_bulletins }})
+                </a>
                 <a href="{% url 'notes:generer_bulletins' %}" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center gap-2">
                     <i class="fas fa-plus-circle text-yellow-300"></i> Générer / Calculer
                 </a>
@@ -176,6 +179,9 @@
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
                     <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <th class="px-4 py-4 text-center">
+                            <input type="checkbox" id="select-all-bulletins" class="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer" title="Tout sélectionner / Tout désélectionner">
+                        </th>
                         <th class="px-6 py-4">N° Référence</th>
                         <th class="px-6 py-4">Étudiant & Matricule</th>
                         <th class="px-6 py-4 text-center">Filière & Niveau</th>
@@ -189,6 +195,9 @@
                 <tbody class="divide-y divide-gray-100 text-gray-700">
                     {% for b in bulletins %}
                     <tr class="hover:bg-emerald-50/40 transition duration-150">
+                        <td class="px-4 py-4 text-center">
+                            <input type="checkbox" class="bulletin-checkbox w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer" value="{{ b.id }}">
+                        </td>
                         <!-- N° Référence -->
                         <td class="px-6 py-4 font-mono text-xs font-bold text-emerald-800">
                             {{ b.numero_bulletin|default:b.id|stringformat:"04d" }}
@@ -320,4 +329,117 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Floating Bulk Action Bar for Mass Printing -->
+<div id="bulk-actions-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 backdrop-blur-md text-white px-6 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-5 transition-all duration-300 animate-fadeInUp">
+    <div class="flex items-center gap-2.5 text-sm font-bold">
+        <span id="selected-count-badge" class="w-7 h-7 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shadow">0</span>
+        <span>bulletin(s) coché(s)</span>
+    </div>
+    <div class="h-6 w-px bg-slate-700"></div>
+    <div class="flex items-center gap-2">
+        <button id="btn-print-selected" type="button" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center gap-2">
+            <i class="fas fa-print text-sm"></i> Imprimer la sélection (A4)
+        </button>
+        <button id="btn-print-all-filtered" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3.5 py-2 rounded-xl text-xs border border-slate-600 transition flex items-center gap-1.5" title="Imprimer tous les {{ total_bulletins }} bulletins selon les filtres actifs">
+            <i class="fas fa-layer-group"></i> Imprimer TOUS les bulletins ({{ total_bulletins }})
+        </button>
+    </div>
+    <button id="btn-deselect-all" type="button" class="text-xs font-semibold text-slate-400 hover:text-white transition ml-2">
+        <i class="fas fa-times mr-1"></i> Annuler
+    </button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllHeader = document.getElementById('select-all-bulletins');
+    const rowCheckboxes = document.querySelectorAll('.bulletin-checkbox');
+    const bulkBar = document.getElementById('bulk-actions-bar');
+    const countBadge = document.getElementById('selected-count-badge');
+    const btnPrintSelected = document.getElementById('btn-print-selected');
+    const btnPrintAllFiltered = document.getElementById('btn-print-all-filtered');
+    const btnDeselectAll = document.getElementById('btn-deselect-all');
+    const csrfToken = '{{ csrf_token }}';
+
+    function updateBulkBar() {
+        const checked = document.querySelectorAll('.bulletin-checkbox:checked');
+        const count = checked.length;
+        if (countBadge) countBadge.textContent = count;
+        if (count > 0) {
+            bulkBar.classList.remove('hidden');
+        } else {
+            bulkBar.classList.add('hidden');
+        }
+        if (selectAllHeader) {
+            selectAllHeader.checked = (rowCheckboxes.length > 0 && count === rowCheckboxes.length);
+        }
+    }
+
+    if (selectAllHeader) {
+        selectAllHeader.addEventListener('change', function() {
+            rowCheckboxes.forEach(cb => cb.checked = selectAllHeader.checked);
+            updateBulkBar();
+        });
+    }
+
+    rowCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateBulkBar);
+    });
+
+    if (btnDeselectAll) {
+        btnDeselectAll.addEventListener('click', function() {
+            rowCheckboxes.forEach(cb => cb.checked = false);
+            if (selectAllHeader) selectAllHeader.checked = false;
+            updateBulkBar();
+        });
+    }
+
+    if (btnPrintSelected) {
+        btnPrintSelected.addEventListener('click', function() {
+            const checked = document.querySelectorAll('.bulletin-checkbox:checked');
+            const ids = Array.from(checked).map(cb => cb.value).join(',');
+            if (!ids) return;
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'notes:impression_masse_bulletins' %}";
+
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = 'csrfmiddlewaretoken';
+            csrf.value = csrfToken;
+            form.appendChild(csrf);
+
+            const idsInput = document.createElement('input');
+            idsInput.type = 'hidden';
+            idsInput.name = 'ids';
+            idsInput.value = ids;
+            form.appendChild(idsInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
+
+    if (btnPrintAllFiltered) {
+        btnPrintAllFiltered.addEventListener('click', function() {
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = "{% url 'notes:impression_masse_bulletins' %}";
+
+            const params = new URLSearchParams(window.location.search);
+            params.forEach((val, key) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = val;
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
+});
+</script>
 {% endblock %}

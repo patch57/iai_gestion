@@ -2566,14 +2566,21 @@ def liste_classes_partagee(request):
                 total_du = base_scolarite + penalites_info['total']
                 reste_payer = max(0, total_du - montant_paye)
                 
+            # Pour le Chef des Études / Direction Pédagogique
+            if user_type in ['CHEF_ETUDES', 'DIRECTEUR', 'ADMIN_SYSTEME'] or request.user.is_superuser:
+                from apps.cours.presence_service import calculer_total_absences_cumulees
+                from apps.notes.models import Bulletin
+                annee_code_curr = annee_active.code if annee_active else "2026-2027"
+                b = Bulletin.objects.filter(etudiant=etudiant, annee_academique=annee_code_curr).first()
+                abs_h = calculer_total_absences_cumulees(etudiant)
                 etud_info.update({
-                    'total_du': total_du,
-                    'montant_paye': montant_paye,
-                    'reste_payer': reste_payer,
-                    'solvable': reste_payer == 0,
-                    'penalite': penalites_info['total']
+                    'moyenne': b.moyenne_semestre if b else None,
+                    'rang': b.rang if b else None,
+                    'decision': b.get_decision_display() if b else 'Actif',
+                    'absences': abs_h,
+                    'bulletin_id': b.id if b else None,
                 })
-                
+
             etudiants_data.append(etud_info)
             
         effectif_actuel = len(etudiants_list)
@@ -2990,6 +2997,174 @@ def export_pdf_paiements_classe(request, salle_id):
 
     doc.build(elements)
     return response
+
+
+@login_required
+def export_pdf_fiche_pedagogique_classe(request, salle_id):
+    """
+    Génère un PDF officiel de Suivi Pédagogique et d'Émargement de la classe adapté au Chef des Études.
+    """
+    user_type = getattr(request.user, 'type_utilisateur', '')
+    est_admin_ou_chef = user_type in ('CHEF_ETUDES', 'ADMIN_SYSTEME', 'CHEF_SCOLARITE', 'DIRECTEUR') or request.user.is_superuser
+    if not est_admin_ou_chef:
+        messages.error(request, "Accès réservé au Chef des Études et à la Direction Pédagogique.")
+        return redirect('tableau_bord:liste_classes_partagee')
+
+    from apps.etudiants.models import Classe, Etudiant, AnneeAcademique
+    from apps.cours.models import Salle
+    from apps.notes.models import Bulletin
+    from apps.cours.presence_service import calculer_total_absences_cumulees
+    from apps.cours.views import find_matching_salle
+    from django.utils import timezone
+
+    annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+    annee_code = annee_active.code if annee_active else "2026-2027"
+
+    salle = Salle.objects.filter(pk=salle_id).first()
+    classes_active = list(Classe.objects.filter(annee_academique=annee_active).select_related('filiere', 'niveau'))
+    matching_classes = []
+    if salle:
+        for c in classes_active:
+            if find_matching_salle(c) == salle:
+                matching_classes.append(c)
+
+    if matching_classes:
+        etudiants_qs = Etudiant.objects.filter(classe__in=matching_classes).order_by('nom', 'prenom')
+        c0 = matching_classes[0]
+        filiere_nom = c0.filiere.nom if c0.filiere else "Informatique"
+        filiere_code = c0.filiere.code if c0.filiere else "GL"
+        niveau_num = c0.niveau.numero if c0.niveau else 1
+        nom_classe = c0.nom
+    elif salle:
+        etudiants_qs = Etudiant.objects.filter(statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom')
+        filiere_nom = salle.nom
+        filiere_code = salle.code or "GL"
+        niveau_num = 1
+        nom_classe = salle.nom
+    else:
+        messages.error(request, "Classe introuvable.")
+        return redirect('tableau_bord:liste_classes_partagee')
+
+    etudiants_list = []
+    moyennes_valides = []
+    total_absences_classe = 0
+
+    for et in etudiants_qs:
+        b = Bulletin.objects.filter(etudiant=et, annee_academique=annee_code).first()
+        abs_h = calculer_total_absences_cumulees(et)
+        total_absences_classe += abs_h
+        
+        moy = float(b.moyenne_semestre) if (b and b.moyenne_semestre is not None) else None
+        if moy is not None:
+            moyennes_valides.append(moy)
+
+        etudiants_list.append({
+            'etudiant': et,
+            'matricule': et.matricule,
+            'nom_complet': et.get_nom_complet(),
+            'date_naissance': et.date_naissance,
+            'lieu_naissance': getattr(et, 'lieu_naissance', 'Douala'),
+            'nationalite': getattr(et, 'nationalite', 'CMR'),
+            'moyenne': moy,
+            'rang': b.rang if b else None,
+            'credits': b.credits_obtenus if b else 0,
+            'decision': b.get_decision_display() if b else 'Inscrit',
+            'absences': abs_h,
+        })
+
+    moy_generale_promo = round(sum(moyennes_valides) / len(moyennes_valides), 2) if moyennes_valides else 0.0
+
+    context = {
+        'classe_nom': nom_classe,
+        'filiere_nom': filiere_nom,
+        'filiere_code': filiere_code,
+        'niveau_num': niveau_num,
+        'annee_academique': annee_code,
+        'today': timezone.now(),
+        'etudiants': etudiants_list,
+        'total_effectif': len(etudiants_list),
+        'moyenne_generale_promo': moy_generale_promo,
+        'total_absences_classe': total_absences_classe,
+        'titre': f"Fiche de Suivi Pédagogique - {nom_classe}"
+    }
+
+    return render(request, 'tableau_bord/fiche_pedagogique_pdf.html', context)
+
+
+@login_required
+def export_pdf_anonymat_classe(request, salle_id):
+    """
+    Génère un PDF officiel d'Anonymat et de Codage des Évaluations adapté au Chef de l'Anonymat.
+    """
+    user_type = getattr(request.user, 'type_utilisateur', '')
+    est_autorise = user_type in ('CHEF_ANONYMAT', 'ADMIN_SYSTEME', 'CHEF_ETUDES', 'DIRECTEUR') or request.user.is_superuser
+    if not est_autorise:
+        messages.error(request, "Accès réservé au Chef de l'Anonymat et à la Direction.")
+        return redirect('tableau_bord:liste_classes_partagee')
+
+    from apps.etudiants.models import Classe, Etudiant, AnneeAcademique
+    from apps.cours.models import Salle
+    from apps.notes.models import LigneFicheNotesAnonymat
+    from apps.cours.views import find_matching_salle
+    from django.utils import timezone
+
+    annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+    annee_code = annee_active.code if annee_active else "2026-2027"
+
+    salle = Salle.objects.filter(pk=salle_id).first()
+    classes_active = list(Classe.objects.filter(annee_academique=annee_active).select_related('filiere', 'niveau'))
+    matching_classes = []
+    if salle:
+        for c in classes_active:
+            if find_matching_salle(c) == salle:
+                matching_classes.append(c)
+
+    if matching_classes:
+        etudiants_qs = Etudiant.objects.filter(classe__in=matching_classes).order_by('nom', 'prenom')
+        c0 = matching_classes[0]
+        filiere_nom = c0.filiere.nom if c0.filiere else "Informatique"
+        filiere_code = c0.filiere.code if c0.filiere else "GL"
+        niveau_num = c0.niveau.numero if c0.niveau else 1
+        nom_classe = c0.nom
+    elif salle:
+        etudiants_qs = Etudiant.objects.filter(statut__in=['INSCRIT', 'ACTIF']).order_by('nom', 'prenom')
+        filiere_nom = salle.nom
+        filiere_code = salle.code or "GL"
+        niveau_num = 1
+        nom_classe = salle.nom
+    else:
+        messages.error(request, "Classe introuvable.")
+        return redirect('tableau_bord:liste_classes_partagee')
+
+    etudiants_list = []
+    for idx, et in enumerate(etudiants_qs, start=1):
+        ligne_ano = LigneFicheNotesAnonymat.objects.filter(etudiant=et).first()
+        code_ano = getattr(ligne_ano, 'numero_anonymat', None) or getattr(ligne_ano, 'code_anonymat', None) or f"ANO-{filiere_code}{niveau_num}-{idx:03d}"
+
+        etudiants_list.append({
+            'etudiant': et,
+            'matricule': et.matricule,
+            'nom_complet': et.get_nom_complet(),
+            'date_naissance': et.date_naissance,
+            'code_anonymat': code_ano,
+            'statut_anonymat': 'Codé & Certifié',
+        })
+
+    context = {
+        'classe_nom': nom_classe,
+        'filiere_nom': filiere_nom,
+        'filiere_code': filiere_code,
+        'niveau_num': niveau_num,
+        'annee_academique': annee_code,
+        'today': timezone.now(),
+        'etudiants': etudiants_list,
+        'total_effectif': len(etudiants_list),
+        'titre': f"Fiche d'Anonymat et de Codage - {nom_classe}"
+    }
+
+    return render(request, 'tableau_bord/fiche_anonymat_pdf.html', context)
+
+
 
 
 @login_required

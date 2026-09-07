@@ -435,21 +435,16 @@
 
     <!-- Official Bulletin Document Paper Card -->
     <div class="bulletin-card">
-        
         <!-- Background Security Watermark -->
         <div class="watermark">IAI-CAMEROUN</div>
-
-        <!-- Document Reference Header -->
-        <div class="doc-reference">
-            <span>BN° &nbsp; {{ bulletin.numero_bulletin|default:"008" }} &nbsp; /IAI/RRC/DAF/DAA/SDGL/{{ annee_academique|default:"2026-2027" }}</span>
-            <span>Document Officiel Certifié</span>
-        </div>
-
+        
         <!-- Official Header -->
         <table class="header-table">
             <tr>
                 <td style="width: 100%; text-align: center;">
-                    <img src="/static/images/logo_iai.png" alt="Logo IAI" class="header-logo" onerror="this.src='/static/images/logo.png'">
+                    <div style="text-align: center; margin-bottom: 4px;">
+                        <img src="/static/images/logo_iai.png" alt="Logo IAI" class="header-logo" style="display: block; margin: 0 auto 4px auto;" onerror="this.src='/static/images/logo.png'">
+                    </div>
                     <div class="header-title-main">INSTITUT AFRICAIN D'INFORMATIQUE</div>
                     <div class="header-subtitle">Établissement Inter-États d'Enseignement Supérieur</div>
                     <div class="header-bold-green">CENTRE D'EXCELLENCE TECHNOLOGIQUE PAUL BIYA</div>
@@ -460,6 +455,12 @@
                 </td>
             </tr>
         </table>
+
+        <!-- Document Reference Header (Just after institute header) -->
+        <div class="doc-reference" style="margin-top: 6px; margin-bottom: 8px;">
+            <span>BN° &nbsp; {{ bulletin.numero_bulletin|default:bulletin.id|stringformat:"03d" }} &nbsp; /IAI/RRC/DAF/DAA/SDGL/{{ annee_academique|default:"2026-2027" }}</span>
+            <span>Document Officiel Certifié</span>
+        </div>
 
         <!-- Main Banner Title -->
         <div class="bulletin-banner">
@@ -477,15 +478,15 @@
                     <td style="width: 50%;">
                         <span class="lbl">Domaine :</span> <span class="val">{{ domaine|default:"Informatique" }}</span><br>
                         <span class="lbl">Spécialité :</span> <span class="val val-highlight">{{ filiere.nom|default:"Génie Logiciel" }}</span><br>
-                        <span class="lbl">Nom (s) :</span> <span class="val">{{ etudiant.nom|default:"TCHATCHOU NYAMSI" }}</span><br>
-                        <span class="lbl">Prénom (s) :</span> <span class="val">{{ etudiant.prenom|default:"HERNANDEZ" }}</span><br>
+                        <span class="lbl">Nom (s) :</span> <span class="val">{{ etudiant.nom|default:"CHENDJOU" }}</span><br>
+                        <span class="lbl">Prénom (s) :</span> <span class="val">{{ etudiant.prenom|default:"FOKOU KAMGANG WILFRID ARTHUR" }}</span><br>
                         <span class="lbl">Pays d'origine :</span> <span class="val">{{ etudiant.nationalite|default:"CMR" }}</span>
                     </td>
                     <td style="width: 50%;">
                         <span class="lbl">Grade :</span> <span class="val">Licence</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
                         <span class="lbl">Campus :</span> <span class="val">{{ etudiant.campus|default:"Douala" }}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
                         <span class="lbl">Niveau :</span> <span class="val val-highlight">{{ niveau.numero|default:1 }}</span><br>
-                        <span class="lbl">N° Matricule :</span> <span class="val cell-mono val-highlight">{{ etudiant.matricule|default:"GL.CMR.D003.2627A" }}</span><br>
+                        <span class="lbl">N° Matricule :</span> <span class="val cell-mono val-highlight">{{ etudiant.matricule|default:"GL.CMR.D001.2627A" }}</span><br>
                         <span class="lbl">Date de Naissance :</span> <span class="val">{{ etudiant.date_naissance|date:"d/m/Y"|default:"01/01/2005" }}</span><br>
                         <span class="lbl">Lieu de Naissance :</span> <span class="val">{{ etudiant.lieu_naissance|default:"Douala" }}</span><br>
                         <span class="lbl">Année Académique :</span> <span class="val">{{ annee_academique|default:"2026-2027" }}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
@@ -499,16 +500,15 @@
         <table class="notes-table">
             <thead>
                 <tr>
-                    <th style="width: 15px;"></th>
-                    <th style="width: 70px;">Code UE</th>
+                    <th style="width: 65px;">Code UE</th>
                     <th>Matières</th>
-                    <th style="width: 40px;">Notes</th>
+                    <th style="width: 42px;">Notes</th>
                     <th style="width: 32px;">Coef</th>
-                    <th style="width: 45px;">Total</th>
-                    <th style="width: 45px;">Moy. UE</th>
+                    <th style="width: 48px;">Total</th>
+                    <th style="width: 48px;">Moy. UE</th>
                     <th style="width: 32px;">Rang</th>
-                    <th style="width: 55px;">Mention</th>
-                    <th style="width: 65px;">Session</th>
+                    <th style="width: 65px;">Mention</th>
+                    <th style="width: 60px;">Session</th>
                     <th style="width: 38px;">Crédits</th>
                 </tr>
             </thead>
@@ -518,10 +518,6 @@
                     {% for ue_item in s1_data.ues %}
                         {% for mat in ue_item.matieres %}
                         <tr>
-                            {% if forloop.parentloop.first and forloop.first %}
-                                <td rowspan="{{ s1_data.total_rows }}" class="sem-header">SEMESTRE 1</td>
-                            {% endif %}
-
                             {% if forloop.first %}
                                 <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono">{{ ue_item.ue.code }}</td>
                             {% endif %}
@@ -534,7 +530,13 @@
                             {% if forloop.first %}
                                 <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: 800;">{{ ue_item.moyenne_ue_format }}</td>
                                 <td rowspan="{{ ue_item.matieres|length }}">{{ ue_item.rang_ue|default:"—" }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.mention_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">
+                                    {% if ue_item.moyenne_ue >= 10 %}
+                                    <span style="color: #047857;">VALIDEE</span>
+                                    {% else %}
+                                    <span style="color: #b91c1c;">NON VALIDEE</span>
+                                    {% endif %}
+                                </td>
                                 <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale" }}</td>
                                 <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.credits_ue }}</td>
                             {% endif %}
@@ -543,7 +545,7 @@
                     {% endfor %}
                     <!-- Ligne Total Semestre 1 -->
                     <tr class="row-summary">
-                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 1</td>
+                        <td colspan="3" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 1</td>
                         <td>{{ s1_data.total_coef }}</td>
                         <td class="cell-mono">{{ s1_data.total_points_format }}</td>
                         <td class="cell-mono" style="font-size: 9.5px; color: #047857;">{{ s1_data.moyenne_s1_format }}</td>
@@ -558,10 +560,6 @@
                     {% for ue_item in s2_data.ues %}
                         {% for mat in ue_item.matieres %}
                         <tr>
-                            {% if forloop.parentloop.first and forloop.first %}
-                                <td rowspan="{{ s2_data.total_rows }}" class="sem-header">SEMESTRE 2</td>
-                            {% endif %}
-
                             {% if forloop.first %}
                                 <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono">{{ ue_item.ue.code }}</td>
                             {% endif %}
@@ -574,7 +572,13 @@
                             {% if forloop.first %}
                                 <td rowspan="{{ ue_item.matieres|length }}" class="cell-mono" style="font-weight: 800;">{{ ue_item.moyenne_ue_format }}</td>
                                 <td rowspan="{{ ue_item.matieres|length }}">{{ ue_item.rang_ue|default:"—" }}</td>
-                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.mention_ue }}</td>
+                                <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">
+                                    {% if ue_item.moyenne_ue >= 10 %}
+                                    <span style="color: #047857;">VALIDEE</span>
+                                    {% else %}
+                                    <span style="color: #b91c1c;">NON VALIDEE</span>
+                                    {% endif %}
+                                </td>
                                 <td rowspan="{{ ue_item.matieres|length }}" style="font-size: 7.5px;">{{ mat.session|default:"Normale" }}</td>
                                 <td rowspan="{{ ue_item.matieres|length }}" style="font-weight: 800;">{{ ue_item.credits_ue }}</td>
                             {% endif %}
@@ -583,7 +587,7 @@
                     {% endfor %}
                     <!-- Ligne Total Semestre 2 -->
                     <tr class="row-summary">
-                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 2</td>
+                        <td colspan="3" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 2</td>
                         <td>{{ s2_data.total_coef }}</td>
                         <td class="cell-mono">{{ s2_data.total_points_format }}</td>
                         <td class="cell-mono" style="font-size: 9.5px; color: #047857;">{{ s2_data.moyenne_s2_format }}</td>
@@ -593,78 +597,57 @@
                     </tr>
                 {% endif %}
 
-                <!-- Fallback si details simple est fourni -->
+                <!-- Fallback si details bulletin direct est utilisé -->
                 {% if not s1_data.ues and not s2_data.ues %}
-                    {% for detail in details %}
+                    {% for detail in bulletin.details.all %}
                     <tr>
-                        <td>-</td>
-                        <td class="cell-mono">{{ detail.matiere.code }}</td>
+                        <td class="cell-mono">{% if detail.matiere.ue %}{{ detail.matiere.ue.code }}{% else %}{{ detail.matiere.code }}{% endif %}</td>
                         <td class="cell-left">{{ detail.matiere.nom }}</td>
                         <td class="cell-mono">{{ detail.moyenne_matiere|floatformat:2 }}</td>
-                        <td>1</td>
-                        <td class="cell-mono">{{ detail.moyenne_matiere|floatformat:2 }}</td>
-                        <td class="cell-mono">{{ detail.moyenne_matiere|floatformat:2 }}</td>
-                        <td>-</td>
-                        <td>{{ detail.get_appreciation|default:"—" }}</td>
-                        <td>Normale</td>
-                        <td style="font-weight: 900;">{{ detail.credits_obtenus }}</td>
+                        <td>{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}3{% endif %}</td>
+                        <td class="cell-mono">
+                            {% if detail.credits %}
+                                {{ detail.moyenne_matiere|floatformat:2 }}
+                            {% else %}
+                                {{ detail.moyenne_matiere|floatformat:2 }}
+                            {% endif %}
+                        </td>
+                        <td class="cell-mono" style="font-weight: 800;">{{ detail.moyenne_matiere|floatformat:2 }}</td>
+                        <td>—</td>
+                        <td style="font-weight: 800;">
+                            {% if detail.est_validee %}
+                            <span style="color: #047857;">VALIDEE</span>
+                            {% else %}
+                            <span style="color: #b91c1c;">NON VALIDEE</span>
+                            {% endif %}
+                        </td>
+                        <td>{% if detail.note_rattrapage is not None %}Rattrapage{% else %}Normale{% endif %}</td>
+                        <td style="font-weight: 900;">{% if detail.est_validee %}{% if detail.credits %}{{ detail.credits }}{% elif detail.matiere.credit %}{{ detail.matiere.credit }}{% else %}3{% endif %}{% else %}0{% endif %}</td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td class="sem-header" rowspan="2">S1</td>
-                        <td class="cell-mono">RSX</td>
-                        <td class="cell-left">CCNA Partie1</td>
-                        <td class="cell-mono">0,00</td>
-                        <td>3</td>
-                        <td class="cell-mono">0,00</td>
-                        <td class="cell-mono">0,00</td>
-                        <td>—</td>
-                        <td>NON VALIDÉE</td>
-                        <td>Normale</td>
-                        <td style="font-weight: 900;">0</td>
-                    </tr>
-                    <tr class="row-summary">
-                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 1</td>
-                        <td>3</td>
-                        <td class="cell-mono">0,00</td>
-                        <td class="cell-mono" style="color: #047857;">0,00</td>
-                        <td>4</td>
-                        <td colspan="2" class="cell-left">Total Crédits Semestre 1</td>
-                        <td style="font-weight: 900; color: #047857;">0</td>
-                    </tr>
-                    <tr>
-                        <td class="sem-header" rowspan="2">S2</td>
-                        <td class="cell-mono">RSX</td>
-                        <td class="cell-left">CCNA Partie2</td>
-                        <td class="cell-mono">0,00</td>
-                        <td>3</td>
-                        <td class="cell-mono">0,00</td>
-                        <td class="cell-mono">0,00</td>
-                        <td>—</td>
-                        <td>NON VALIDÉE</td>
-                        <td>Normale</td>
-                        <td style="font-weight: 900;">0</td>
-                    </tr>
-                    <tr class="row-summary">
-                        <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE 2</td>
-                        <td>3</td>
-                        <td class="cell-mono">0,00</td>
-                        <td class="cell-mono" style="color: #047857;">0,00</td>
-                        <td>4</td>
-                        <td colspan="2" class="cell-left">Total Crédits Semestre 2</td>
-                        <td style="font-weight: 900; color: #047857;">0</td>
+                        <td colspan="10" style="text-align: center; padding: 12px; color: #94a3b8;">Aucun détail de note disponible.</td>
                     </tr>
                     {% endfor %}
+                    <tr class="row-summary">
+                        <td colspan="3" class="cell-left" style="text-transform: uppercase;">RÉSULTATS SEMESTRE {{ bulletin.semestre|default:1 }}</td>
+                        <td>{{ bulletin.details.all|length|default:3 }}</td>
+                        <td class="cell-mono">{{ bulletin.moyenne_semestre|floatformat:2 }}</td>
+                        <td class="cell-mono" style="font-size: 9.5px; color: #047857;">{{ bulletin.moyenne_semestre|floatformat:2 }}</td>
+                        <td>{{ bulletin.rang|default:1 }}</td>
+                        <td colspan="2" class="cell-left">Total Crédits Semestre {{ bulletin.semestre|default:1 }}</td>
+                        <td style="font-size: 9.5px; font-weight: 900; color: #047857;">{{ bulletin.credits_obtenus|default:0 }}</td>
+                    </tr>
                 {% endif %}
 
                 <!-- RECAPITULATIF GLOBAL (S1 & S2) -->
                 <tr class="row-recap">
-                    <td colspan="4" class="cell-left" style="text-transform: uppercase;">RÉCAPITULATIF (S1 & S2)</td>
+                    <td colspan="3" class="cell-left" style="text-transform: uppercase;">RÉCAPITULATIF (S1 & S2)</td>
                     <td>{{ recap_data.total_coef|default:"6" }}</td>
                     <td class="cell-mono">{{ recap_data.total_points_format|default:"0,00" }}</td>
                     <td colspan="3"></td>
                     <td class="cell-left" style="font-size: 8.5px;">Crédits annuels obtenus</td>
-                    <td style="font-size: 10px; font-weight: 900; color: #047857;">{{ recap_data.total_credits_annuels|default:"0" }}</td>
+                    <td style="font-size: 10px; font-weight: 900; color: #047857;">{% if recap_data.total_credits_annuels is not None %}{{ recap_data.total_credits_annuels }}{% else %}{{ bulletin.credits_obtenus }}{% endif %}</td>
                 </tr>
             </tbody>
         </table>
@@ -673,14 +656,14 @@
         <div class="summary-block">
             <table class="summary-table">
                 <tr>
-                    <td style="width: 45%;">
-                        <span class="lbl">Moyenne annuelle de l'étudiant (e) :</span> <strong style="font-size: 11px; color: #047857;">{{ moyenne_annuelle_format|default:"0,00" }} / 20</strong><br>
-                        <span class="lbl">Moyenne Générale de la Classe :</span> <strong>{{ moyenne_classe_generale_format|default:"0,00" }} / 20</strong><br>
-                        <span class="lbl">Rang annuel de l'étudiant (e) :</span> <strong>{{ rang_annuel|default:"4" }} Sur {{ total_effectif|default:"4" }}</strong>
+                    <td style="width: 48%;">
+                        <span class="lbl">Moyenne annuelle/semestrielle de l'étudiant (e) :</span> <strong style="font-size: 11px; color: #047857;">{% if bulletin.moyenne_semestre %}{{ bulletin.moyenne_semestre|floatformat:2 }}{% else %}{{ moyenne_annuelle_format|default:"0,00" }}{% endif %} / 20</strong><br>
+                        <span class="lbl">Moyenne Générale de la Classe :</span> <strong>{% if bulletin.moyenne_classe_generale %}{{ bulletin.moyenne_classe_generale }}{% else %}{{ moyenne_classe_generale_format|default:"0,00" }}{% endif %} / 20</strong><br>
+                        <span class="lbl">Rang de l'étudiant (e) :</span> <strong>{% if bulletin.rang %}{{ bulletin.rang }}{% else %}{{ rang_annuel|default:"1" }}{% endif %} Sur {% if bulletin.effectif %}{{ bulletin.effectif }}{% else %}{{ total_effectif|default:"4" }}{% endif %}</strong>
                     </td>
-                    <td style="width: 35%;">
-                        <span class="lbl">Maximum :</span> <strong>{{ moyenne_classe_max_format|default:"0,00" }}</strong><br>
-                        <span class="lbl">Minimum :</span> <strong>{{ moyenne_classe_min_format|default:"0,00" }}</strong><br>
+                    <td style="width: 32%;">
+                        <span class="lbl">Maximum :</span> <strong>{% if bulletin.moyenne_classe_max %}{{ bulletin.moyenne_classe_max }}{% else %}{{ moyenne_classe_max_format|default:"0,00" }}{% endif %}</strong><br>
+                        <span class="lbl">Minimum :</span> <strong>{% if bulletin.moyenne_classe_min %}{{ bulletin.moyenne_classe_min }}{% else %}{{ moyenne_classe_min_format|default:"0,00" }}{% endif %}</strong><br>
                         <span class="lbl">Discipline :</span> <strong>{{ discipline|default:"-" }}</strong>
                     </td>
                     <td style="width: 20%;">
@@ -692,8 +675,8 @@
                     <td colspan="3" style="border-top: 1px solid #bbf7d0; padding-top: 5px; margin-top: 3px;">
                         <div style="font-size: 10px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
                             <span>Décision du Conseil des Professeurs :</span> 
-                            <span class="decision-badge {% if decision_finale and 'ADMIS' in decision_finale|upper %}decision-admis{% else %}decision-ajourne{% endif %}">
-                                {{ decision_finale|default:"Ajourné (e)" }}
+                            <span class="decision-badge {% if bulletin.decision == 'ADMIS' or decision_finale and 'ADMIS' in decision_finale|upper %}decision-admis{% else %}decision-ajourne{% endif %}">
+                                {% if bulletin.decision %}{{ bulletin.get_decision_display }}{% else %}{{ decision_finale|default:"Ajourné (e)" }}{% endif %}
                             </span>
                         </div>
                     </td>
@@ -708,7 +691,7 @@
             <div class="sig-right">
                 <span>Le Représentant Résident</span><br>
                 <span style="font-size: 8.5px; color: #475569;">Chef d'Établissement</span>
-                <div style="height: 60px;"></div>
+                <div style="height: 50px;"></div>
             </div>
         </div>
 
@@ -718,3 +701,4 @@
 
 </body>
 </html>
+

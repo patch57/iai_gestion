@@ -287,6 +287,9 @@ def calculer_bordereau_matrice(classe, semestre=1):
 
         decision = 'ADMIS' if moyenne_generale >= 10.0 else 'AJOURNÉ'
 
+        from apps.cours.presence_service import calculer_total_absences_cumulees
+        tot_absences = calculer_total_absences_cumulees(et)
+
         etudiants_rows.append({
             'etudiant': et,
             'ues_data': ues_data,
@@ -296,7 +299,7 @@ def calculer_bordereau_matrice(classe, semestre=1):
             'moyenne': moyenne_generale,
             'credits_possibles': total_credits_possibles,
             'credits_capitalises': total_credits_capitalises,
-            'absences': getattr(et, 'absences_heures', 0),
+            'absences': tot_absences,
             'retards': getattr(et, 'retards_nombre', 0),
             'discipline': getattr(et, 'conduite_statut', '—'),
             'decision': decision,

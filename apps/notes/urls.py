@@ -79,5 +79,6 @@ urlpatterns = [
     path('bordereaux/diffuser/<int:salle_id>/', views.diffuser_resultats, name='diffuser_resultats'),
     path('bordereaux/publier/<int:salle_id>/', views.publier_bulletins_salle, name='publier_bulletins_salle'),
     path('bulletins/officiel/<int:bulletin_id>/', views.voir_bulletin_officiel, name='voir_bulletin_officiel'),
+    path('bulletins/impression-masse/', views.impression_masse_bulletins, name='impression_masse_bulletins'),
     path('releve/consulter/<str:token>/', views.consulter_resultat_individuel, name='consulter_resultat_individuel'),
 ]
