@@ -953,13 +953,20 @@ def api_update_detail_bulletin(request, detail_id):
             f"(Moyenne Matière: {detail.moyenne_matiere}/20, Moyenne Bulletin: {bulletin.moyenne_semestre}/20)."
         )
 
-        # 1. Notifier le Directeur / Administration
+        # 1. Notifier le Directeur / Administration & le Chef de l'Anonymat
         NotificationService.notifier_directeur(
             titre=notif_titre,
             message=notif_msg,
             type_notif='WARNING',
             lien=bulletin_url
         )
+        NotificationService.notifier_chef_anonymat(
+            titre=notif_titre,
+            message=notif_msg,
+            type_notif='WARNING',
+            lien=bulletin_url
+        )
+
 
         # 2. Rechercher l'enseignant attribué à cette matière
         prof_users = []
@@ -4058,13 +4065,20 @@ def detail_pv(request, pk):
                     f"pour la classe {classe_nom}. {modified_count} ligne(s) d'étudiants ont été actualisée(s)."
                 )
 
-                # 1. Notifier le Directeur / Administration
+                # 1. Notifier le Directeur / Administration & le Chef de l'Anonymat
                 NotificationService.notifier_directeur(
                     titre=notif_titre,
                     message=notif_msg,
                     type_notif='WARNING',
                     lien=pv_url
                 )
+                NotificationService.notifier_chef_anonymat(
+                    titre=notif_titre,
+                    message=notif_msg,
+                    type_notif='WARNING',
+                    lien=pv_url
+                )
+
 
                 # 2. Notifier l'Enseignant attribué à cette matière
                 prof_users = []
@@ -4431,3 +4445,57 @@ def liste_proces_verbaux(request):
         })
 
     return render(request, 'notes/liste_proces_verbaux.html', context)
+
+
+@login_required
+def imprimer_fiche_anonymat_vierge(request):
+    """
+    Génère la Fiche Officielle d'Anonymat d'Évaluation Vierge (pour enseignant / correcteur),
+    conforme à l'en-tête officiel IAI-Cameroun.
+    NE CONTIENT NI NOMS NI MATRICULES ÉTUDIANTS.
+    """
+    from apps.etudiants.models import Filiere, Niveau, Classe, Etudiant
+    from apps.cours.models import Matiere
+    from django.utils import timezone
+
+    filiere_id = request.GET.get('filiere')
+    niveau_id = request.GET.get('niveau')
+    classe_id = request.GET.get('classe')
+    matiere_id = request.GET.get('matiere')
+    
+    try:
+        effectif_count = int(request.GET.get('count', 20))
+    except (ValueError, TypeError):
+        effectif_count = 20
+
+    filiere = Filiere.objects.filter(id=filiere_id).first() if (filiere_id and filiere_id.isdigit()) else None
+    niveau = Niveau.objects.filter(id=niveau_id).first() if (niveau_id and niveau_id.isdigit()) else None
+    classe = Classe.objects.filter(id=classe_id).first() if (classe_id and classe_id.isdigit()) else None
+    matiere = Matiere.objects.filter(id=matiere_id).first() if (matiere_id and matiere_id.isdigit()) else None
+
+    # Si une classe est sélectionnée, compter le nombre d'étudiants inscrits
+    if classe:
+        nombre_etudiants = Etudiant.objects.filter(classe=classe, statut_inscription='VALIDE').count()
+        if nombre_etudiants > 0:
+            effectif_count = nombre_etudiants
+
+    # Générer la liste des codes anonymat neutres (A1, A2, A3 ... A_N)
+    codes_anonymes = [f"A{i}" for i in range(1, max(effectif_count, 1) + 1)]
+
+    from apps.etudiants.models import AnneeAcademique
+    annee_active = AnneeAcademique.objects.filter(est_active=True).first()
+    annee_actuelle = timezone.now().year
+    annee_code = annee_active.code if annee_active else f"{annee_actuelle} / {annee_actuelle + 1}"
+
+    context = {
+        'filiere': filiere,
+        'niveau': niveau,
+        'classe': classe,
+        'matiere': matiere,
+        'codes_anonymes': codes_anonymes,
+        'effectif_count': len(codes_anonymes),
+        'date_generation': timezone.now(),
+        'annee_academique_code': annee_code,
+        'reference_document': f"ANO/IAI/RRC/DAF/DAA/SDGL/{annee_actuelle}-{annee_actuelle + 1}",
+    }
+    return render(request, 'notes/anonymat/fiche_anonymat_vierge.html', context)

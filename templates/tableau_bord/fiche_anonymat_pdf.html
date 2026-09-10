@@ -321,9 +321,11 @@
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
             <a href="{% url 'tableau_bord:liste_classes_partagee' %}" class="btn-back">⬅️ Retour aux Classes</a>
-            <button onclick="window.print()" class="btn-print">🖨️ Imprimer / Exporter PDF</button>
+            <a href="{% url 'notes:imprimer_fiche_anonymat_vierge' %}" target="_blank" class="btn-back" style="background: #3b82f6; color: #ffffff;">📄 Imprimer Fiche Vierge (Sans Noms)</a>
+            <button onclick="window.print()" class="btn-print">🖨️ Imprimer Registre Scellé</button>
         </div>
     </div>
+
 
     <!-- Main Official Paper Document Card -->
     <div class="card-document">

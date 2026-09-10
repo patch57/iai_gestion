@@ -1,0 +1,220 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" translate="no" class="notranslate">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <title>FICHE DE NOTES D'ANONYMAT</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+
+        .font-cinzel {
+            font-family: 'Cinzel', serif;
+        }
+
+        /* FORMAT A4 IMPRESSION STRICTEMENT SUR 1 PAGE UNIQUE AVEC ÉLARGISSEMENT MAX DU TABLEAU */
+        @page {
+            size: A4 portrait;
+            margin: 0mm;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            html, body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                height: 100vh !important;
+                overflow: hidden !important;
+            }
+            .page-container {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 4mm 8mm !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                height: 100vh !important;
+                max-height: 295mm !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            .table-container {
+                flex-grow: 1 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            table {
+                height: 100% !important;
+                page-break-inside: avoid !important;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+            .print-border {
+                border: 2px solid #000000 !important;
+            }
+            .print-bg-header {
+                background-color: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="py-2 px-2">
+
+    <!-- BARRE D'ACTIONS FLOOTTANTE (NON IMPRIMABLE) -->
+    <div class="max-w-4xl mx-auto mb-3 flex justify-between items-center bg-white p-3 rounded-xl shadow-md border border-slate-200 no-print">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'notes:dashboard_chef_anonymat' %}" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition flex items-center gap-2 text-xs">
+                <i class="fa-solid fa-arrow-left"></i> Dashboard Chef Anonymat
+            </a>
+            <span class="text-xs font-bold text-slate-800">Fiche Officielle (Pointillés & Tableau Élargi au Max)</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="window.print()" class="px-6 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition flex items-center gap-2 text-xs">
+                <i class="fa-solid fa-print"></i> Imprimer la Fiche
+            </button>
+        </div>
+    </div>
+
+    <!-- FEUILLE IMPRIMABLE A4 TENANT SUR 1 PAGE UNIQUE AVEC TABLEAU ÉLARGIS VERS LE BAS -->
+    <div class="page-container max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-xl border border-slate-300 print-border flex flex-col justify-between min-h-[920px]">
+
+        <div class="flex-grow flex flex-col justify-between">
+            <!-- EN-TÊTE OFFICIEL AVEC LOGO IAI CENTRÉ -->
+            <div class="text-center border-b-2 border-slate-900 pb-2 mb-2">
+                <!-- LOGO IAI OFFICIEL CENTRÉ -->
+                <div class="flex justify-center mb-1">
+                    <img src="/static/images/logo_iai.png" alt="Logo Officiel IAI" class="h-16 w-auto object-contain mx-auto">
+                </div>
+
+                <h1 class="font-cinzel text-[11px] font-extrabold text-slate-800 uppercase tracking-widest leading-tight">
+                    Centre d'Excellence Technologique PAUL BIYA
+                </h1>
+                <h2 class="font-cinzel text-sm font-black text-blue-950 uppercase tracking-wide">
+                    INSTITUT AFRICAIN D'INFORMATIQUE (I.A.I)
+                </h2>
+                <p class="text-[9px] text-slate-600 font-medium leading-tight">
+                    BP 13719 Yaoundé (Cameroun) &nbsp;|&nbsp; Tél. (237) 22 72 99 57 / 22 72 99 58 &nbsp;|&nbsp; Site web: www.iaicameroun.com &nbsp;|&nbsp; E-mail: contact@iaicameroun.com
+                </p>
+
+                <!-- CADRE DU TITRE OFFICIEL -->
+                <div class="mt-1.5 inline-block border-2 border-slate-900 px-6 py-0.5 rounded-sm bg-slate-50 print-bg-header">
+                    <h3 class="font-cinzel text-sm font-black uppercase text-slate-950 tracking-wider">
+                        FICHE DE NOTES D'ANONYMAT
+                    </h3>
+                </div>
+            </div>
+
+            <!-- CARTOUCHE METADONNÉES DE L'ÉVALUATION AVEC POINTILLÉS DYNAMIQUES INCASSABLES -->
+            <div class="space-y-2 mb-3 text-xs">
+                <div class="flex justify-between items-center gap-4">
+                    <div class="w-1/2 flex items-center">
+                        <span class="font-bold text-slate-800 whitespace-nowrap mr-1">Classe :</span>
+                        <span class="font-semibold text-slate-900 border-b-2 border-dotted border-slate-900 flex-grow min-w-0 h-4 px-1">
+                            {% if classe %}{{ classe.nom }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="w-1/2 text-right flex items-center justify-end">
+                        <span class="font-bold text-slate-800 whitespace-nowrap mr-2">Année académique :</span>
+                        <span class="font-semibold text-slate-900 border-b-2 border-dotted border-slate-900 px-3">
+                            {{ annee_academique_code|default:annee_academique|default:"2025 / 2026" }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center gap-4">
+                    <div class="w-7/12 flex items-center">
+                        <span class="font-bold text-slate-800 whitespace-nowrap mr-1">Matière :</span>
+                        <span class="font-semibold text-slate-900 border-b-2 border-dotted border-slate-900 flex-grow min-w-0 h-4 px-1">
+                            {% if matiere %}{{ matiere.nom }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="w-5/12 flex items-center">
+                        <span class="font-bold text-slate-800 whitespace-nowrap mr-1">Nom de l'enseignant :</span>
+                        <span class="font-semibold text-slate-900 border-b-2 border-dotted border-slate-900 flex-grow min-w-0 h-4 px-1"></span>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center pt-0.5 gap-4">
+                    <div class="flex items-center gap-6">
+                        <span class="font-bold text-slate-800">Notes du :</span>
+                        <label class="flex items-center gap-1.5 font-semibold text-slate-800">
+                            <input type="checkbox" class="w-4 h-4 rounded border-slate-400"> CC
+                        </label>
+                        <label class="flex items-center gap-1.5 font-semibold text-slate-800">
+                            <input type="checkbox" class="w-4 h-4 rounded border-slate-400"> Examen
+                        </label>
+                        <label class="flex items-center gap-1.5 font-semibold text-slate-800">
+                            <input type="checkbox" class="w-4 h-4 rounded border-slate-400"> Rattrapage
+                        </label>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="font-bold text-slate-800 whitespace-nowrap mr-1">Coeff :</span>
+                        <span class="font-semibold text-slate-900 border-b-2 border-dotted border-slate-900 w-16 h-4 inline-block"></span>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- TABLEAU DE NOTES 3 COLONNES ÉLARGIS AU MAXIMUM VERS LE BAS -->
+            <div class="table-container overflow-x-auto mb-3 flex-grow">
+                <table class="w-full text-xs text-left border-collapse border-2 border-slate-900 h-full">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-900 font-bold uppercase text-[11px] print-bg-header border-b-2 border-slate-900">
+                            <th class="py-2 px-3 border border-slate-900 text-center w-36">N° d'anonymat</th>
+                            <th class="py-2 px-3 border border-slate-900 text-center w-28">Notes</th>
+                            <th class="py-2 px-4 border border-slate-900 text-left">NOMS et PRÉNOMS</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        {% for i in "123456789012345678901234"|make_list %}
+                        <tr class="h-7 sm:h-8">
+                            <!-- COLONNE 1 : CELLULE VIERGE -->
+                            <td class="py-1 px-3 border border-slate-800 text-center"></td>
+                            <!-- COLONNE 2 : CELLULE VIERGE -->
+                            <td class="py-1 px-3 border border-slate-800 text-center"></td>
+                            <!-- COLONNE 3 : CELLULE VIERGE -->
+                            <td class="py-1 px-4 border border-slate-800"></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PIED DE PAGE ET VALIDATIONS SANS MENTIONS PARASITES -->
+        <div class="border-t-2 border-slate-900 pt-2 text-xs shrink-0">
+            <div class="flex justify-between items-start">
+                <div class="w-1/2">
+                    <p class="font-bold text-slate-900 uppercase">Visa de l'Enseignant</p>
+                    <div class="mt-5 text-[10px] text-slate-400">...........................................................................</div>
+                </div>
+                <div class="w-1/2 text-right">
+                    <p class="font-bold text-slate-900 uppercase">Visa Chef de l'Anonymat</p>
+                    <div class="mt-5 text-[10px] text-slate-400">...........................................................................</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -2,6 +2,18 @@ from django.test import TestCase, Client
 from django.core.management import call_command
 from django.core import mail
 from datetime import date, timedelta
+from django.template.context import Context, RequestContext
+
+# Patch de compatibilité Python 3.14 pour le test runner Django (store_rendered_templates context copy)
+def _patched_copy(self):
+    req = getattr(self, 'request', None)
+    duplicate = self.__class__(req) if req is not None else Context()
+    duplicate.dicts = [d.copy() if hasattr(d, 'copy') else d for d in getattr(self, 'dicts', [])]
+    return duplicate
+
+Context.__copy__ = _patched_copy
+RequestContext.__copy__ = _patched_copy
+
 from apps.etudiants.models import Etudiant, Filiere, AnneeAcademique
 from apps.paiements.models import TranchePaiement
 from apps.paiements.services import calculer_penalites_etudiant

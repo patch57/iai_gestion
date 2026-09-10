@@ -59,6 +59,7 @@ urlpatterns = [
     path('api/filiere/<int:filiere_id>/moyennes/', views.api_moyennes_filiere, name='api_moyennes_filiere'),
 
     # ========== FICHES D'ANONYMAT & WORKFLOW CONFIDENTIEL ==========
+    path('anonymat/imprimer-fiche-vierge/', views.imprimer_fiche_anonymat_vierge, name='imprimer_fiche_anonymat_vierge'),
     path('anonymat/enseignant/', views.dashboard_anonymat_enseignant, name='dashboard_anonymat_enseignant'),
     path('anonymat/enseignant/saisie/<int:fiche_id>/', views.saisie_fiche_enseignant, name='saisie_fiche_enseignant'),
     path('anonymat/enseignant/supprimer/<int:fiche_id>/', views.supprimer_fiche_enseignant, name='supprimer_fiche_enseignant'),
@@ -66,6 +67,7 @@ urlpatterns = [
     path('anonymat/chef/matching/<int:fiche_id>/', views.matching_anonymat_chef, name='matching_anonymat_chef'),
     path('anonymat/chef/supprimer/<int:fiche_id>/', views.supprimer_fiche_chef_anonymat, name='supprimer_fiche_chef_anonymat'),
     path('fiches-anonymat/', views.dashboard_chef_anonymat, name='liste_fiches_anonymat'),
+
     
     # ========== PROCÈS-VERBAUX DE NOTES ==========
     path('proces-verbaux/', views.liste_proces_verbaux, name='liste_proces_verbaux'),

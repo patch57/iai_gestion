@@ -1,21 +1,85 @@
 version: '3.8'
 
 services:
+  # Base de données PostgreSQL dédiée
+  db:
+    image: postgres:15-alpine
+    container_name: iai_db
+    restart: always
+    environment:
+      - POSTGRES_DB=${DATABASE_NAME:-iai_gestion}
+      - POSTGRES_USER=${DATABASE_USER:-postgres}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-postgres_password_2026}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-iai_gestion}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  # Application Web Principal Django (Gunicorn / Runserver)
   web:
     build: .
+    container_name: iai_web
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_ENGINE=django.db.backends.postgresql
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=${DATABASE_NAME:-iai_gestion}
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres_password_2026}
+      - TESSERACT_CMD=/usr/bin/tesseract
+    ports:
+      - "8000:8000"
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-    ports:
-      - "8000:8000"
-    environment:
-      - SECRET_KEY=django-insecure-iai-cameroun-douala-2024-secure-key-for-development
-      - DEBUG=True
-      - ALLOWED_HOSTS=*
-      - DATABASE_ENGINE=django.db.backends.sqlite3
+      - logs_volume:/app/logs
+
+  # Planificateur automatisé des relances de paiement (WhatsApp / Email)
+  scheduler:
+    build: .
+    container_name: iai_scheduler
     restart: always
+    depends_on:
+      web:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      echo '⏰ Service de planificateur des rappels de paiement démarré...';
+      while true; do
+        echo '🔔 [CRON DOCKER] Lancement des relances de paiement à $$(date)...';
+        python manage.py envoyer_rappels_paiements || true;
+        echo '💤 Sommeil de 24 heures...';
+        sleep 86400;
+      done
+      "
+    env_file:
+      - .env
+    environment:
+      - DATABASE_ENGINE=django.db.backends.postgresql
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=${DATABASE_NAME:-iai_gestion}
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres_password_2026}
+    volumes:
+      - .:/app
+      - logs_volume:/app/logs
 
 volumes:
+  postgres_data:
   static_volume:
   media_volume:
+  logs_volume:
+
