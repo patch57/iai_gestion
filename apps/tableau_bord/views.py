@@ -161,6 +161,9 @@ def etudiant_dashboard(request):
         niveau = Niveau.objects.filter(numero=niveau_num).first() or Niveau.objects.first()
         annee_active = AnneeAcademique.objects.filter(est_active=True).first()
         
+        from apps.core.gender_detector import detecter_sexe_etudiant
+        sexe_auto = detecter_sexe_etudiant(request.user.last_name or '', request.user.first_name or '')
+
         etudiant = Etudiant.objects.create(
             utilisateur=request.user,
             nom=request.user.last_name or 'Etudiant',
@@ -169,7 +172,7 @@ def etudiant_dashboard(request):
             telephone=request.user.telephone or '699999999',
             date_naissance=timezone.now().date() - timedelta(days=7300),
             lieu_naissance='Douala',
-            sexe='M',
+            sexe=sexe_auto,
             filiere=filiere,
             niveau=niveau,
             annee_academique=annee_active,
@@ -1166,11 +1169,23 @@ def dashboard_admin(request):
         ).count(),
     }
     
-    # Pourcentage par sexe
+    # Pourcentage par sexe et valeurs SVG pré-calculées
     total_sexe = stats_sexe['masculin'] + stats_sexe['feminin']
+    stats_sexe['total'] = total_sexe
     if total_sexe > 0:
         stats_sexe['masculin_pct'] = round(stats_sexe['masculin'] / total_sexe * 100, 1)
         stats_sexe['feminin_pct'] = round(stats_sexe['feminin'] / total_sexe * 100, 1)
+        
+        c_svg = 251.327
+        len_m = round((stats_sexe['masculin'] / total_sexe) * c_svg, 2)
+        len_f = round((stats_sexe['feminin'] / total_sexe) * c_svg, 2)
+        stats_sexe['svg_masculin_dash'] = f"{len_m} {c_svg}"
+        stats_sexe['svg_feminin_dash'] = f"{len_f} {c_svg}"
+        stats_sexe['svg_feminin_offset'] = f"-{len_m}"
+    else:
+        stats_sexe['svg_masculin_dash'] = "0 251.327"
+        stats_sexe['svg_feminin_dash'] = "0 251.327"
+        stats_sexe['svg_feminin_offset'] = "0"
     
     # Effectifs par filière
     effectifs_filiere = []
@@ -1214,10 +1229,12 @@ def dashboard_admin(request):
         ).order_by('-date_creation')[:5]
     
     # Recettes du mois
+    from django.db.models import Q
     debut_mois = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     recettes_mois = RecuPaiement.objects.filter(
-        statut='VALIDE',
-        date_verification__gte=debut_mois
+        statut='VALIDE'
+    ).filter(
+        Q(date_verification__gte=debut_mois) | Q(date_paiement__gte=debut_mois.date()) | Q(date_creation__gte=debut_mois)
     ).aggregate(
         total=Coalesce(Sum('montant_mentionne', output_field=DecimalField()), Value(0, output_field=DecimalField()))
     )['total'] or 0
@@ -2401,8 +2418,9 @@ def api_statistiques_rapides(request):
     
     # Récupérer les recettes du mois
     recettes_mois = RecuPaiement.objects.filter(
-        statut='VALIDE',
-        date_verification__month=timezone.now().month
+        statut='VALIDE'
+    ).filter(
+        Q(date_verification__gte=debut_mois) | Q(date_paiement__gte=debut_mois.date()) | Q(date_creation__gte=debut_mois)
     ).aggregate(
         total=Coalesce(Sum('montant_mentionne', output_field=DecimalField()), Value(0, output_field=DecimalField()))
     )['total'] or 0

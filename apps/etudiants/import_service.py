@@ -130,9 +130,12 @@ class EtudiantImportService:
                 prenom = "Import-OCR"
 
             try:
+                from apps.core.gender_detector import detecter_sexe_etudiant
+                sexe_auto = detecter_sexe_etudiant(nom, prenom)
+
                 ajoute, mis_a_jour = cls._creer_ou_mettre_a_jour_etudiant(
                     nom=nom, prenom=prenom, email=email, telephone=telephone,
-                    filiere_code=filiere_code, sexe='M', annee_active=annee_active
+                    filiere_code=filiere_code, sexe=sexe_auto, annee_active=annee_active
                 )
 
                 if ajoute:

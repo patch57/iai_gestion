@@ -1611,10 +1611,17 @@ def marquer_preinscription_payee(request, pk):
 def assurer_compte_etudiant_concours(resultat, user_validateur=None):
     """
     Génère de manière sécurisée et intelligente le compte Utilisateur et la fiche Étudiant 
-    pour un lauréat de concours ayant réglé sa pré-inscription.
+    pour un lauréat de concours ayant réglé sa pré-inscription, avec détection autonome du sexe.
     """
+    from apps.core.gender_detector import detecter_sexe_etudiant
+
     if resultat.etudiant_cree:
-        return resultat.etudiant_cree
+        etud_exist = resultat.etudiant_cree
+        sexe_auto = detecter_sexe_etudiant(etud_exist.nom, etud_exist.prenom)
+        if etud_exist.sexe != sexe_auto:
+            etud_exist.sexe = sexe_auto
+            etud_exist.save(update_fields=['sexe'])
+        return etud_exist
 
     from apps.authentification.models import Utilisateur
     from apps.etudiants.models import Etudiant, Filiere, Niveau, AnneeAcademique
@@ -1663,6 +1670,8 @@ def assurer_compte_etudiant_concours(resultat, user_validateur=None):
         is_active=True
     )
 
+    sexe_auto = detecter_sexe_etudiant(nom_str, prenom_str)
+
     etud = Etudiant(
         utilisateur=u,
         nom=nom_str,
@@ -1675,7 +1684,7 @@ def assurer_compte_etudiant_concours(resultat, user_validateur=None):
         telephone=f"6900000{resultat.id:02d}",
         adresse="Douala, Cameroun",
         lieu_naissance="Douala",
-        sexe="M",
+        sexe=sexe_auto,
         date_naissance=datetime.date(2005, 1, 1),
         statut='INSCRIT',
         recu_preinscription_valide=True
@@ -1741,6 +1750,13 @@ def marquer_tranche_payee(request, pk, tranche_num=1):
     elif resultat.etudiant_cree:
         etudiant = resultat.etudiant_cree
 
+    if etudiant:
+        from apps.core.gender_detector import detecter_sexe_etudiant
+        sexe_det = detecter_sexe_etudiant(etudiant.nom, etudiant.prenom)
+        if etudiant.sexe != sexe_det:
+            etudiant.sexe = sexe_det
+            etudiant.save(update_fields=['sexe'])
+
     # 3. Synchronisation automatique avec la table des reçus de paiement (RecuPaiement)
     montants_map = {1: Decimal('84000.00'), 2: Decimal('175000.00'), 3: Decimal('115000.00'), 4: Decimal('100000.00')}
     noms_map = {1: 'Pré-inscription (84k)', 2: '1ère Tranche (175k)', 3: '2ème Tranche (115k)', 4: '3ème Tranche (100k)'}
@@ -1762,6 +1778,7 @@ def marquer_tranche_payee(request, pk, tranche_num=1):
                     'statut': 'VALIDE',
                     'reference_recu': ref_code,
                     'date_paiement': timezone.now().date(),
+                    'date_verification': timezone.now(),
                     'commentaires': f"Validé par la Scolarité/Comptabilité ({request.user.get_full_name() or request.user.username})"
                 }
             )

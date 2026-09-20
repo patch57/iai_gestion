@@ -137,17 +137,17 @@ def inscription(request):
                     valider_fichier_recu(document)
                 except ValidationError as ve:
                     errors.extend(ve.messages)
-        else:
-            # Pour l'apprenant, le mot de passe est obligatoire
-            if not password:
-                errors.append("Le mot de passe est obligatoire pour les apprenants.")
-            elif password != confirm_password:
-                errors.append("Les mots de passe ne correspondent pas.")
-            elif len(password) < 8:
-                errors.append("Le mot de passe doit contenir au moins 8 caractères.")
+
+        # Mot de passe obligatoire et validé pour TOUS les types d'utilisateurs (Étudiant, Personnel, Apprenant)
+        if not password:
+            errors.append("Le mot de passe est obligatoire.")
+        elif password != confirm_password:
+            errors.append("Les mots de passe ne correspondent pas.")
+        elif len(password) < 8:
+            errors.append("Le mot de passe doit contenir au moins 8 caractères.")
         
         if not accept_conditions:
-            errors.append("Vous devez accepter les conditions d'utilisation.")
+            errors.append("Vous devez obligatoirement cocher la case d'acceptation des conditions d'utilisation pour poursuivre le processus d'inscription.")
         
         # Vérification d'unicité de l'email
         existing_user = Utilisateur.objects.filter(email=email).first()
