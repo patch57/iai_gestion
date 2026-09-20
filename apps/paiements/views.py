@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import RecuPaiement, TranchePaiement, SessionConcours, EcheanceSessionNiveau1, ResultatConcours
 from apps.etudiants.models import Etudiant
+from apps.inscriptions.models import Inscription
 
 
 
@@ -258,6 +259,38 @@ def valider_recu(request, pk):
     recu.date_verification = timezone.now()
     recu.verifie_par = request.user
     recu.save()
+
+    # Imputation automatique des drapeaux sur l'inscription
+    try:
+        if recu.etudiant:
+            inscription = recu.etudiant.inscriptions.first()
+            if inscription:
+                if recu.tranche:
+                    if recu.tranche.numero == 1:
+                        inscription.recu_preinscription_valide = True
+                        recu.etudiant.recu_preinscription_valide = True
+                    elif recu.tranche.numero == 2:
+                        inscription.recu_tranche_1_valide = True
+                    elif recu.tranche.numero == 3:
+                        inscription.recu_tranche_2_valide = True
+                    elif recu.tranche.numero == 4:
+                        inscription.recu_tranche_3_valide = True
+                else:
+                    # Imputation basée sur le montant si pas de tranche associée
+                    montant_v = float(recu.montant_mentionne or 0)
+                    if montant_v >= 500000:
+                        inscription.recu_preinscription_valide = True
+                        inscription.recu_tranche_1_valide = True
+                        inscription.recu_tranche_2_valide = True
+                        inscription.recu_tranche_3_valide = True
+                        recu.etudiant.recu_preinscription_valide = True
+                    elif montant_v >= 84000:
+                        inscription.recu_preinscription_valide = True
+                        recu.etudiant.recu_preinscription_valide = True
+                inscription.save()
+                recu.etudiant.save()
+    except Exception:
+        pass
     
     # Audit log
     try:
@@ -688,6 +721,153 @@ def payer_penalites(request):
 
 
 @login_required
+def portail_paiement(request):
+    """
+    Portail autonome de paiement en ligne pour l'étudiant.
+    Affiche le solde global, les tranches de scolarité à régler, les pénalités et l'historique.
+    """
+    etudiant = Etudiant.objects.filter(utilisateur=request.user).first()
+    if not etudiant:
+        messages.error(request, "Seuls les étudiants enregistrés peuvent accéder au portail de paiement.")
+        return redirect('tableau_bord:tableau_bord')
+
+    inscription = Inscription.objects.filter(etudiant=etudiant, statut='VALIDEE').first() or Inscription.objects.filter(etudiant=etudiant).first()
+    
+    # Calcul des tranches et solde de scolarité
+    recus_valides = RecuPaiement.objects.filter(etudiant=etudiant, statut='VALIDE')
+    total_paye = sum(float(r.montant_mentionne or 0) for r in recus_valides)
+    
+    # Montant théorique scolarité
+    tarif_scolarite = float(getattr(etudiant.filiere, 'frais_scolarite', 500000) if etudiant and etudiant.filiere else 500000)
+    solde_scolarite = max(0.0, tarif_scolarite - float(total_paye))
+
+    # Pénalités
+    penalites_info = calculer_penalites_etudiant(etudiant)
+    
+    # Définition des tranches de scolarité
+    tranches_definition = [
+        {'numero': 1, 'libelle': 'Tranche 1 (Inscription / 50%)', 'montant': tarif_scolarite * 0.5, 'est_payee': total_paye >= (tarif_scolarite * 0.5)},
+        {'numero': 2, 'libelle': 'Tranche 2 (30%)', 'montant': tarif_scolarite * 0.3, 'est_payee': total_paye >= (tarif_scolarite * 0.8)},
+        {'numero': 3, 'libelle': 'Tranche 3 (Solde 20%)', 'montant': tarif_scolarite * 0.2, 'est_payee': total_paye >= tarif_scolarite},
+    ]
+
+    # Historique récent des transactions en ligne
+    transactions_recentes = TransactionPaiement.objects.filter(etudiant=etudiant).order_by('-date_creation')[:10]
+
+    context = {
+        'etudiant': etudiant,
+        'inscription': inscription,
+        'total_paye': total_paye,
+        'tarif_scolarite': tarif_scolarite,
+        'solde_scolarite': solde_scolarite,
+        'penalites_info': penalites_info,
+        'tranches_definition': tranches_definition,
+        'transactions_recentes': transactions_recentes,
+        'titre': 'Portail de Paiement en Ligne'
+    }
+    return render(request, 'paiements/recus/portail_paiement.html', context)
+
+
+@login_required
+def initier_paiement_en_ligne(request):
+    """
+    Endpoint AJAX unifié pour l'initialisation des paiements en ligne.
+    Prend en charge : SCOLARITE, PENALITE, CONCOURS, DOCUMENT via CinetPay / MoMo / Stripe.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'FAILED', 'message': 'Méthode HTTP non autorisée.'}, status=405)
+
+    data = {}
+    if request.body:
+        try:
+            data = json_module.loads(request.body)
+        except Exception:
+            pass
+    if not data:
+        data = request.POST
+
+    # Le paiement en ligne via Mobile Money concerne EXCLUSIVEMENT les pénalités de retard
+    type_paiement = 'PENALITE'
+    telephone = data.get('telephone', '')
+    operateur = data.get('operateur', '')
+    mode_canal = data.get('mode_canal', 'MOBILE_MONEY')  # 'MOBILE_MONEY' ou 'CARTE_BANCAIRE'
+
+    etudiant = get_object_or_404(Etudiant, utilisateur=request.user)
+
+    # Nettoyage et auto-détection du téléphone Cameroun
+    clean_tel = str(telephone).replace(' ', '').replace('-', '').replace('+237', '').strip()
+    if len(clean_tel) == 9 and clean_tel.isdigit():
+        p2 = clean_tel[:2]
+        p3_int = int(clean_tel[:3])
+        if p2 in ['67', '68'] or (650 <= p3_int <= 654):
+            operateur = 'MTN'
+        elif p2 == '69' or (655 <= p3_int <= 659):
+            operateur = 'ORANGE'
+    telephone = clean_tel
+
+    # Calcul du montant exact des pénalités éligibles
+    penalites_info = calculer_penalites_etudiant(etudiant)
+    amount = float(penalites_info['total_eligibles'])
+
+    if amount <= 0:
+        return JsonResponse({
+            'status': 'FAILED',
+            'message': "Aucune pénalité de retard éligible à payer en ligne. Les frais de scolarité doivent être réglés par virement/dépôt bancaire avec téléversement du reçu."
+        })
+
+    description = f"Pénalités de retard - {etudiant.get_nom_complet()} ({etudiant.matricule})"
+
+    transaction = TransactionPaiement(
+        etudiant=etudiant,
+        transaction_id=TransactionPaiement.generer_transaction_id(),
+        montant=amount,
+        type_paiement=type_paiement,
+        tranche_numero=tranche_numero if type_paiement == 'SCOLARITE' else None,
+        telephone=telephone,
+        operateur=operateur or ('VISA/MASTERCARD' if mode_canal == 'CARTE_BANCAIRE' else 'MOBILE_MONEY')
+    )
+    transaction.save()
+
+    from django.conf import settings as django_settings
+    base_url = getattr(django_settings, 'SITE_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
+    notify_url = base_url + reverse('paiements:webhook_cinetpay')
+    return_url = base_url + reverse('paiements:paiement_succes') + f'?transaction_id={transaction.transaction_id}'
+
+    # Si paiement Carte Bancaire (Stripe / Sandbox simulation)
+    if mode_canal == 'CARTE_BANCAIRE':
+        if getattr(settings, 'CINETPAY_MODE', 'PRODUCTION') == 'SANDBOX':
+            res = {
+                'status': 'PENDING',
+                'payment_url': return_url,
+                'payment_token': f"stripe_sandbox_card_{transaction.transaction_id}",
+                'transaction_id': transaction.transaction_id,
+                'message': "Redirection vers la passerelle sécurisée Carte Bancaire (Sandbox)..."
+            }
+            transaction.cinetpay_payment_token = res['payment_token']
+            transaction.payment_url = res['payment_url']
+            transaction.save(update_fields=['cinetpay_payment_token', 'payment_url'])
+            return JsonResponse(res)
+
+    res = CinetPayService.initier_paiement(
+        transaction_id=transaction.transaction_id,
+        amount=amount,
+        description=description,
+        notify_url=notify_url,
+        return_url=return_url,
+        customer_name=etudiant.get_nom_complet(),
+        customer_email=getattr(etudiant.utilisateur, 'email', ''),
+        customer_phone=telephone or etudiant.telephone or '699999999'
+    )
+
+    if res['status'] == 'PENDING':
+        transaction.cinetpay_payment_token = res.get('payment_token', '')
+        transaction.payment_url = res.get('payment_url', '')
+        transaction.save(update_fields=['cinetpay_payment_token', 'payment_url'])
+
+    return JsonResponse(res)
+
+
+@login_required
 def initier_paiement_momo(request):
     """Initialise le paiement Mobile Money sécurisé via CinetPay API."""
     if request.method != 'POST':
@@ -844,7 +1024,7 @@ def webhook_cinetpay(request):
                     cinetpay_data=tx_data,
                     amount_to_pay=float(transaction.montant)
                 )
-                logger_paiement.info(f"[Webhook] Paiement confirmé: {cpm_trans_id}")
+                logger_paiement.info(f"[Webhook] Paiement des pénalités confirmé: {cpm_trans_id}")
 
             elif res['status'] in ('FAILED', 'CANCELLED') and transaction.statut == 'PENDING':
                 transaction.marquer_echec(cinetpay_data=res.get('data', {}))
@@ -2146,56 +2326,32 @@ def simuler_webhook_ipn(request):
         'cpm_payment_method': 'MOCK_MONEY',
     }
 
-    # Effectuer un appel HTTP POST vers l'IPN local pour tester la route webhook_cinetpay réelle
+    # Effectuer un appel direct à webhook_cinetpay en interne Python (thread-safe, compatible avec les tests unitaires et la prod sans dépendance réseau port 8000)
+    from django.test import RequestFactory
+    factory = RequestFactory()
+    fake_request = factory.post(reverse('paiements:webhook_cinetpay'), data=payload)
+
     try:
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        response = requests.post(webhook_url, data=payload, headers=headers, timeout=5)
-        
-        # Si la transaction a réussi après l'appel
+        resp = webhook_cinetpay(fake_request)
         transaction.refresh_from_db()
         if transaction.statut == 'SUCCESS':
             return JsonResponse({
                 'status': 'success',
                 'message': f"Webhook simulé avec succès ! La transaction {transaction_id} a été VALIDÉE et marquée PAYÉE.",
-                'http_status': response.status_code,
-                'response_text': response.text
+                'http_status': resp.status_code,
+                'response_text': resp.content.decode('utf-8') if hasattr(resp, 'content') else str(resp)
             })
         else:
             return JsonResponse({
                 'status': 'warning',
-                'message': f"Le webhook a été appelé (HTTP {response.status_code}), mais le statut de la transaction est '{transaction.statut}'.",
-                'response_text': response.text
+                'message': f"Le webhook a été appelé (HTTP {resp.status_code}), mais le statut de la transaction est '{transaction.statut}'.",
+                'response_text': resp.content.decode('utf-8') if hasattr(resp, 'content') else str(resp)
             })
-    except requests.exceptions.RequestException as e:
-        # Fallback si le serveur local ne peut pas s'auto-appeler (ex: serveur mono-thread bloqué par la requête en cours)
-        # On exécute la logique de webhook directement en interne Python
-        from django.test import RequestFactory
-        factory = RequestFactory()
-        # Création d'une requête POST factice
-        fake_request = factory.post(reverse('paiements:webhook_cinetpay'), data=payload)
-        
-        # Appel direct de la vue webhook_cinetpay
-        try:
-            from .views import webhook_cinetpay
-            resp = webhook_cinetpay(fake_request)
-            transaction.refresh_from_db()
-            if transaction.statut == 'SUCCESS':
-                return JsonResponse({
-                    'status': 'success',
-                    'message': f"Simulation interne (fallback Python) réussie ! La transaction {transaction_id} a été VALIDÉE et marquée PAYÉE.",
-                    'response_text': resp.content.decode('utf-8')
-                })
-            else:
-                return JsonResponse({
-                    'status': 'warning',
-                    'message': f"Simulation interne effectuée, mais le statut de la transaction est '{transaction.statut}'.",
-                    'response_text': resp.content.decode('utf-8')
-                })
-        except Exception as ex:
-            return JsonResponse({
-                'status': 'error',
-                'message': f"Erreur de simulation interne : {str(ex)}"
-            }, status=500)
+    except Exception as ex:
+        return JsonResponse({
+            'status': 'error',
+            'message': f"Erreur lors de l'exécution du webhook simulé : {str(ex)}"
+        }, status=500)
 
 
 @login_required

@@ -67,5 +67,16 @@ class TableauBordConfig(AppConfig):
 
             post_save.connect(_on_config_changed, sender=Configuration)
             post_delete.connect(_on_config_changed, sender=Configuration)
+
+            # Importer les signaux WebSocket pour les notifications et la messagerie temps réel
+            import apps.tableau_bord.signals
+
+            # Patch de compatibilité Python 3.14 / Django 5.0 pour le clonage du Context lors des tests
+            from django.template.context import BaseContext
+            def _fixed_basecontext_copy(self):
+                obj = self.__class__.__new__(self.__class__)
+                obj.dicts = self.dicts[:]
+                return obj
+            BaseContext.__copy__ = _fixed_basecontext_copy
         except Exception:
             pass

@@ -385,6 +385,18 @@ def analyser_recu_bancaire(recu_instance):
             res['score'] = min(res['score'], 0.15)
             res['anomalies'].append(f"ALERTE FRAUDE : Numéro de reçu Nº {num_recu} déjà enregistré pour un autre étudiant (Paiement ID #{doublon.pk}).")
 
+    # Analyse Deep Learning DCGAN (AnoGAN) pour détection d'anomalies structurales / falsification visuelle
+    if recu_instance.recu_fichier and os.path.exists(recu_instance.recu_fichier.path):
+        try:
+            from apps.paiements.dcgan_service import analyser_fraude_dcgan
+            res_dcgan = analyser_fraude_dcgan(recu_instance.recu_fichier.path)
+            res['extraction']['dcgan_audit'] = res_dcgan
+            if res_dcgan.get('est_suspect'):
+                res['score'] = min(res['score'], 0.30)
+                res['anomalies'].append(f"ALERTE FRAUDE DCGAN : {res_dcgan.get('indice_fraude')} (Score: {res_dcgan.get('score_anomalie')}).")
+        except Exception as e_dcgan:
+            logger.debug(f"Audit DCGAN non exécuté: {e_dcgan}")
+
     # Double vérification hybride LLM Vision si le score docTR est incertain ou pour confirmation
     if 0.55 <= res['score'] < 0.95 and recu_instance.recu_fichier and os.path.exists(recu_instance.recu_fichier.path):
         res_llm = analyser_recu_avec_llm(recu_instance.recu_fichier.path, res, montant_attendu=montant_att, nom_etudiant=nom_etu)

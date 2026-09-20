@@ -21,7 +21,19 @@ def calculer_penalites_etudiant(etudiant):
     annee_code = etudiant.annee_academique.code if etudiant.annee_academique else "2024-2025"
     tranches = TranchePaiement.objects.filter(annee_academique=annee_code, est_actif=True)
     date_aujourdhui = date.today()
-    
+    recus_valides_etud = list(RecuPaiement.objects.filter(etudiant=etudiant, statut='VALIDE').order_by('date_televersement'))
+    total_valide_cumule = sum(float(r.montant_mentionne or 0) for r in recus_valides_etud)
+    premier_recu_valide = recus_valides_etud[0] if recus_valides_etud else None
+
+    # Seuils cumulés de scolarité
+    seuil_preins = 71000.0 if (etudiant.niveau and etudiant.niveau.numero == 2) else 84000.0
+    seuils_cumules = {
+        1: seuil_preins,
+        2: seuil_preins + 175000.0,
+        3: seuil_preins + 175000.0 + 115000.0,
+        4: seuil_preins + 175000.0 + 115000.0 + 100000.0
+    }
+
     for tranche in tranches:
         # Vérifier si le reçu de la tranche a été soumis et son statut
         # 1. Chercher d'abord un reçu VALIDE associé (par tranche exacte ou numéro de tranche)
@@ -50,12 +62,16 @@ def calculer_penalites_etudiant(etudiant):
                     etudiant=etudiant,
                     tranche__isnull=True
                 ).order_by('-date_televersement').first()
-        
+
+
         # Récupération de l'inscription éventuelle pour vérifier les drapeaux de validation directs
         inscription_obj = etudiant.inscriptions.first() if hasattr(etudiant, 'inscriptions') else None
 
+        seuil_requis = seuils_cumules.get(tranche.numero, 500000.0)
         est_valide = False
         if recu_associe and recu_associe.statut == 'VALIDE':
+            est_valide = True
+        elif total_valide_cumule >= seuil_requis and total_valide_cumule > 0:
             est_valide = True
         elif tranche.numero == 1 and (etudiant.recu_preinscription_valide or (inscription_obj and inscription_obj.recu_preinscription_valide)):
             est_valide = True
@@ -67,18 +83,21 @@ def calculer_penalites_etudiant(etudiant):
             est_valide = True
 
         # Déterminer la date de référence pour le calcul de pénalité de CETTE tranche spécifique.
-        # Le calcul des pénalités s'arrête définitivement dès le jour de la validation du reçu (date_verification)
-        # ou à la date de paiement/téléversement du reçu s'il est validé.
+        # Le calcul des pénalités s'arrête définitivement dès la date du reçu/validation
         if est_valide:
-            if recu_associe:
+            if recu_associe and recu_associe.statut == 'VALIDE':
                 if recu_associe.date_verification:
                     date_reference = recu_associe.date_verification.date()
                 elif recu_associe.date_paiement:
                     date_reference = recu_associe.date_paiement
                 elif recu_associe.date_televersement:
                     date_reference = recu_associe.date_televersement.date()
+                elif hasattr(recu_associe, 'date_creation') and recu_associe.date_creation:
+                    date_reference = recu_associe.date_creation.date()
                 else:
                     date_reference = date_aujourdhui
+            elif premier_recu_valide:
+                date_reference = premier_recu_valide.date_televersement.date() if premier_recu_valide.date_televersement else premier_recu_valide.date_creation.date()
             elif inscription_obj and getattr(inscription_obj, 'date_validation', None):
                 date_reference = inscription_obj.date_validation.date()
             elif inscription_obj and getattr(inscription_obj, 'date_inscription', None):

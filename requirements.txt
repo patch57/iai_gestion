@@ -17,3 +17,5 @@ gunicorn==21.2.0
 psycopg2-binary>=2.9.10
 requests>=2.31.0
 qrcode>=7.4.2
+daphne>=4.0.0
+channels>=4.0.0

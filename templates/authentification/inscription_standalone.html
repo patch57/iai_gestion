@@ -243,29 +243,42 @@
                         <div id="step1-content" class="step-content">
                             <div class="mb-6">
                                 <label class="block text-sm font-medium text-gray-700 mb-3">Je suis :</label>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                      <!-- Carte Étudiant -->
                                      <div class="type-card border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg text-center selected" data-type="ETUDIANT">
                                          <input type="radio" name="type_utilisateur" value="ETUDIANT" class="hidden" checked>
-                                        <div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <div class="w-14 h-14 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                             <i class="fas fa-user-graduate text-primary-600 text-2xl"></i>
                                         </div>
-                                        <h3 class="font-bold text-gray-800">Étudiant</h3>
-                                        <p class="text-xs text-gray-500 mt-1">Je souhaite poursuivre mes études</p>
-                                        <div class="mt-2 text-xs text-primary-600">
+                                        <h3 class="font-bold text-gray-800 text-sm">Étudiant</h3>
+                                        <p class="text-xs text-gray-500 mt-1">Formation initiale (Bac+)</p>
+                                        <div class="mt-2 text-[11px] text-primary-600 font-medium">
                                             <i class="fas fa-file-alt mr-1"></i>Reçu de pré-inscription
+                                        </div>
+                                    </div>
+
+                                    <!-- Carte Apprenant (Formation Continue & Certifications) -->
+                                    <div class="type-card border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg text-center" data-type="APPRENANT">
+                                        <input type="radio" name="type_utilisateur" value="APPRENANT" class="hidden">
+                                        <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <i class="fas fa-certificate text-emerald-600 text-2xl"></i>
+                                        </div>
+                                        <h3 class="font-bold text-gray-800 text-sm">Apprenant</h3>
+                                        <p class="text-xs text-gray-500 mt-1">Formation Continue / Certifiante</p>
+                                        <div class="mt-2 text-[11px] text-emerald-600 font-medium">
+                                            <i class="fas fa-key mr-1"></i>E-mail & Mot de passe (Sans matricule)
                                         </div>
                                     </div>
                                     
                                     <!-- Carte Personnel -->
                                     <div class="type-card border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg text-center" data-type="PERSONNEL">
                                         <input type="radio" name="type_utilisateur" value="PERSONNEL" class="hidden">
-                                        <div class="w-16 h-16 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <div class="w-14 h-14 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                             <i class="fas fa-user-tie text-secondary-600 text-2xl"></i>
                                         </div>
-                                        <h3 class="font-bold text-gray-800">Personnel</h3>
-                                        <p class="text-xs text-gray-500 mt-1">Je suis membre du personnel</p>
-                                        <div class="mt-2 text-xs text-secondary-600">
+                                        <h3 class="font-bold text-gray-800 text-sm">Personnel</h3>
+                                        <p class="text-xs text-gray-500 mt-1">Enseignant / Administratif</p>
+                                        <div class="mt-2 text-[11px] text-secondary-600 font-medium">
                                             <i class="fas fa-file-contract mr-1"></i>Contrat / Note de service
                                         </div>
                                     </div>
@@ -303,6 +316,21 @@
                                         <input type="email" name="confirm_email" required 
                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
                                                placeholder="Confirmez votre email">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Mot de passe <span id="pwd-required-star" class="text-emerald-600 font-bold hidden">*</span></label>
+                                        <input type="password" name="password" id="id_password"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
+                                               placeholder="Votre mot de passe">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe <span id="confirm-pwd-required-star" class="text-emerald-600 font-bold hidden">*</span></label>
+                                        <input type="password" name="confirm_password" id="id_confirm_password"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all input-focus"
+                                               placeholder="Confirmez votre mot de passe">
                                     </div>
                                 </div>
 
@@ -385,6 +413,47 @@
                                     </div>
                                 </div>
 
+                                <!-- Champs spécifiques Apprenant -->
+                                <div id="apprenant-fields" class="hidden space-y-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                    <h3 class="font-semibold text-emerald-800 flex items-center">
+                                        <i class="fas fa-certificate text-emerald-600 mr-2 text-lg"></i>
+                                        Choix de la Formation (Continue ou Certifiante)
+                                    </h3>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-emerald-800 uppercase tracking-wide mb-1">
+                                                Type de formation *
+                                            </label>
+                                            <select name="type_formation_apprenant" id="id_type_formation_apprenant" 
+                                                    class="w-full px-4 py-2 bg-white border border-emerald-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                                                <option value="CONTINUE">Formation Continue</option>
+                                                <option value="CERTIFIANTE">Formation Certifiante</option>
+                                            </select>
+                                        </div>
+
+                                        <div id="module-certifiant-container" class="hidden">
+                                            <label class="block text-xs font-bold text-emerald-800 uppercase tracking-wide mb-1">
+                                                Module de certification *
+                                            </label>
+                                            <select name="module_certifiant" id="id_module_certifiant" 
+                                                    class="w-full px-4 py-2 bg-white border border-emerald-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                                                <option value="SECRETARIAT">Secrétariat bureautique et comptable</option>
+                                                <option value="INFOGRAPHIE">Infographie</option>
+                                                <option value="MAINTENANCE">Maintenance informatique</option>
+                                                <option value="RESEAUX">Réseau informatique</option>
+                                                <option value="WEBMASTER">Webmaster</option>
+                                                <option value="MARKETING">Marketing digital</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <p class="text-xs text-emerald-700 leading-relaxed pt-1 border-t border-emerald-200/60">
+                                        <i class="fas fa-info-circle mr-1 text-emerald-600"></i>
+                                        Votre compte d'apprenant sera activé immédiatement dès la création. Vous vous connecterez exclusivement avec votre <strong>adresse e-mail</strong> et votre <strong>mot de passe</strong> (aucun matricule requis).
+                                    </p>
+                                </div>
+
                                 <!-- Champs spécifiques Personnel -->
                                 <div id="personnel-fields" class="hidden space-y-4 p-4 bg-secondary-50 rounded-lg">
                                     <h3 class="font-semibold text-secondary-800 flex items-center">
@@ -413,7 +482,7 @@
                         <div id="step3-content" class="step-content hidden">
                             <div class="space-y-4">
                                 <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-primary-500 transition-all cursor-pointer" id="dropzone">
-                                    <input type="file" name="document" id="document-input" accept=".pdf,.jpg,.jpeg,.png" class="hidden" required>
+                                    <input type="file" name="document" id="document-input" accept=".pdf,.jpg,.jpeg,.png" class="hidden">
                                     <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 mb-3"></i>
                                     <p class="text-gray-600">Glissez votre document ici ou <span class="text-primary-600 hover:underline">cliquez pour parcourir</span></p>
                                     <p class="text-xs text-gray-400 mt-2">Formats acceptés : PDF, JPG, PNG (Max 5 Mo)</p>
@@ -447,6 +516,14 @@
                                     </div>
                                 </div>
                                 
+                                <div id="apprenant-doc-info" class="hidden p-5 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
+                                    <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2 text-emerald-600 text-xl font-bold">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <h4 class="font-bold text-emerald-900 text-sm">Aucun justificatif requis</h4>
+                                    <p class="text-xs text-emerald-700 mt-1">Les apprenants de la formation continue et certifiante n'ont pas besoin de téléverser un justificatif. Votre compte sera prêt immédiatement après validation.</p>
+                                </div>
+
                                 <div id="personnel-doc-info" class="hidden p-3 bg-secondary-50 rounded-lg">
                                     <div class="flex items-start">
                                         <i class="fas fa-info-circle text-secondary-600 mr-2 mt-0.5"></i>
@@ -606,6 +683,23 @@
                 showAlert('Numéro de téléphone invalide. Format: 6XXXXXXXX ou 2XXXXXXXX');
                 return false;
             }
+
+            if (selectedUserType === 'APPRENANT') {
+                const pwd = document.querySelector('input[name="password"]').value;
+                const confirmPwd = document.querySelector('input[name="confirm_password"]').value;
+                if (!pwd) {
+                    showAlert('Veuillez créer votre mot de passe pour vous connecter');
+                    return false;
+                }
+                if (pwd !== confirmPwd) {
+                    showAlert('Les mots de passe ne correspondent pas');
+                    return false;
+                }
+                if (pwd.length < 8) {
+                    showAlert('Le mot de passe doit contenir au moins 8 caractères');
+                    return false;
+                }
+            }
             
             if (selectedUserType === 'ETUDIANT') {
                 const filiere = document.querySelector('select[name="filiere"]').value;
@@ -632,7 +726,7 @@
         }
         
         if (currentStep === 3) {
-            if (!selectedFile) {
+            if (selectedUserType !== 'APPRENANT' && !selectedFile) {
                 showAlert('Veuillez téléverser votre document justificatif');
                 return false;
             }
@@ -649,17 +743,24 @@
         const email = document.querySelector('input[name="email"]').value;
         const telephone = document.querySelector('input[name="telephone"]').value;
         
+        let typeLibelle = '🎓 Étudiant (Formation initiale)';
+        if (type === 'APPRENANT') typeLibelle = '🎒 Apprenant (Formation Continue & Certifications)';
+        else if (type === 'PERSONNEL') typeLibelle = '👔 Personnel';
+
+        let docLibelle = selectedFile ? selectedFile.name : '<span class="text-gray-400">Aucun fichier</span>';
+        if (type === 'APPRENANT') docLibelle = '<span class="text-emerald-600 font-bold">Aucun justificatif requis (Création immédiate)</span>';
+
         let recapHtml = `
             <div class="flex justify-between py-2 border-b border-gray-200">
                 <span class="text-gray-600">Type de compte :</span>
-                <span class="font-medium">${type === 'ETUDIANT' ? '🎓 Étudiant' : '👔 Personnel'}</span>
+                <span class="font-medium text-gray-800">${typeLibelle}</span>
             </div>
             <div class="flex justify-between py-2 border-b border-gray-200">
                 <span class="text-gray-600">Nom complet :</span>
                 <span class="font-medium">${prenom} ${nom}</span>
             </div>
             <div class="flex justify-between py-2 border-b border-gray-200">
-                <span class="text-gray-600">Email :</span>
+                <span class="text-gray-600">Email (Identifiant) :</span>
                 <span class="font-medium">${email}</span>
             </div>
             <div class="flex justify-between py-2 border-b border-gray-200">
@@ -667,8 +768,8 @@
                 <span class="font-medium">${telephone}</span>
             </div>
             <div class="flex justify-between py-2 border-b border-gray-200">
-                <span class="text-gray-600">Document :</span>
-                <span class="font-medium text-primary-600">${selectedFile ? selectedFile.name : 'Aucun fichier sélectionné'}</span>
+                <span class="text-gray-600">Justificatif :</span>
+                <span class="font-medium text-primary-600">${docLibelle}</span>
             </div>
         `;
         
@@ -680,10 +781,34 @@
                     <span class="font-medium">${filiere === 'GL' ? 'Génie Logiciel' : 'Systèmes et Réseaux'}</span>
                 </div>
             `;
+        } else if (type === 'APPRENANT') {
+            const typeFmt = document.getElementById('id_type_formation_apprenant')?.value;
+            const modCertif = document.getElementById('id_module_certifiant');
+            const modLabel = modCertif ? modCertif.options[modCertif.selectedIndex]?.text : '';
+            const formationTxt = typeFmt === 'CERTIFIANTE' ? `Formation Certifiante (${modLabel})` : 'Formation Continue';
+            recapHtml += `
+                <div class="flex justify-between py-2">
+                    <span class="text-gray-600">Parcours choisi :</span>
+                    <span class="font-bold text-emerald-700">${formationTxt}</span>
+                </div>
+            `;
         }
         
         const recapContent = document.getElementById('recap-content');
         if (recapContent) recapContent.innerHTML = recapHtml;
+    }
+
+    // Gestion de l'affichage dynamique du module certifiant
+    const typeFmtSelect = document.getElementById('id_type_formation_apprenant');
+    const moduleContainer = document.getElementById('module-certifiant-container');
+    if (typeFmtSelect && moduleContainer) {
+        typeFmtSelect.addEventListener('change', function() {
+            if (this.value === 'CERTIFIANTE') {
+                moduleContainer.classList.remove('hidden');
+            } else {
+                moduleContainer.classList.add('hidden');
+            }
+        });
     }
     
     nextBtn.addEventListener('click', () => {
@@ -703,31 +828,55 @@
         card.addEventListener('click', function() {
             const radio = this.querySelector('input[type="radio"]');
             radio.checked = true;
+            selectedUserType = radio.value;
             
             document.querySelectorAll('.type-card').forEach(c => {
                 c.classList.remove('selected', 'personnel-selected');
             });
             
+            const etudiantFields = document.getElementById('etudiant-fields');
+            const personnelFields = document.getElementById('personnel-fields');
+            const apprenantFields = document.getElementById('apprenant-fields');
+            const etudiantDocInfo = document.getElementById('etudiant-doc-info');
+            const personnelDocInfo = document.getElementById('personnel-doc-info');
+            const apprenantDocInfo = document.getElementById('apprenant-doc-info');
+            const dropzone = document.getElementById('dropzone');
+            const pwdStar = document.getElementById('pwd-required-star');
+            const confirmPwdStar = document.getElementById('confirm-pwd-required-star');
+
             if (radio.value === 'ETUDIANT') {
                 this.classList.add('selected');
-                const etudiantFields = document.getElementById('etudiant-fields');
-                const personnelFields = document.getElementById('personnel-fields');
-                const etudiantDocInfo = document.getElementById('etudiant-doc-info');
-                const personnelDocInfo = document.getElementById('personnel-doc-info');
                 if (etudiantFields) etudiantFields.classList.remove('hidden');
                 if (personnelFields) personnelFields.classList.add('hidden');
+                if (apprenantFields) apprenantFields.classList.add('hidden');
                 if (etudiantDocInfo) etudiantDocInfo.classList.remove('hidden');
                 if (personnelDocInfo) personnelDocInfo.classList.add('hidden');
+                if (apprenantDocInfo) apprenantDocInfo.classList.add('hidden');
+                if (dropzone) dropzone.classList.remove('hidden');
+                if (pwdStar) pwdStar.classList.add('hidden');
+                if (confirmPwdStar) confirmPwdStar.classList.add('hidden');
+            } else if (radio.value === 'APPRENANT') {
+                this.classList.add('selected');
+                if (etudiantFields) etudiantFields.classList.add('hidden');
+                if (personnelFields) personnelFields.classList.add('hidden');
+                if (apprenantFields) apprenantFields.classList.remove('hidden');
+                if (etudiantDocInfo) etudiantDocInfo.classList.add('hidden');
+                if (personnelDocInfo) personnelDocInfo.classList.add('hidden');
+                if (apprenantDocInfo) apprenantDocInfo.classList.remove('hidden');
+                if (dropzone) dropzone.classList.add('hidden');
+                if (pwdStar) pwdStar.classList.remove('hidden');
+                if (confirmPwdStar) confirmPwdStar.classList.remove('hidden');
             } else {
                 this.classList.add('personnel-selected');
-                const etudiantFields = document.getElementById('etudiant-fields');
-                const personnelFields = document.getElementById('personnel-fields');
-                const etudiantDocInfo = document.getElementById('etudiant-doc-info');
-                const personnelDocInfo = document.getElementById('personnel-doc-info');
                 if (etudiantFields) etudiantFields.classList.add('hidden');
                 if (personnelFields) personnelFields.classList.remove('hidden');
+                if (apprenantFields) apprenantFields.classList.add('hidden');
                 if (etudiantDocInfo) etudiantDocInfo.classList.add('hidden');
                 if (personnelDocInfo) personnelDocInfo.classList.remove('hidden');
+                if (apprenantDocInfo) apprenantDocInfo.classList.add('hidden');
+                if (dropzone) dropzone.classList.remove('hidden');
+                if (pwdStar) pwdStar.classList.add('hidden');
+                if (confirmPwdStar) confirmPwdStar.classList.add('hidden');
             }
         });
     });
@@ -749,7 +898,7 @@
     }
     
     window.clearFile = function() {
-        fileInput.value = '';
+        if (fileInput) fileInput.value = '';
         selectedFile = null;
         if (filePreview) filePreview.classList.add('hidden');
         if (fileName) fileName.classList.add('hidden');
@@ -848,7 +997,7 @@
     const form = document.getElementById('inscriptionForm');
     if (form) {
         form.addEventListener('submit', function(e) {
-            if (!selectedFile) {
+            if (selectedUserType !== 'APPRENANT' && !selectedFile) {
                 e.preventDefault();
                 showAlert('Veuillez téléverser votre document justificatif');
                 currentStep = 3;

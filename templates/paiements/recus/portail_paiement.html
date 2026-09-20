@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Paiement des Pénalités en Ligne | IAI-Gestion{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-900 text-slate-100 py-8 px-4 sm:px-6 lg:px-8 font-sans">
+    <div class="max-w-7xl mx-auto space-y-8">
+        
+        <!-- HEADER / BANNÈRE D'ACCUEIL -->
+        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-indigo-900 to-slate-950 p-8 shadow-2xl border border-rose-500/20">
+            <div class="absolute -right-10 -bottom-10 w-72 h-72 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold uppercase tracking-wider mb-3">
+                        <span class="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+                        <span>Paiement Sécurisé des Pénalités</span>
+                    </div>
+                    <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Règlement des Pénalités de Retard</h1>
+                    <p class="text-slate-300 mt-2 text-sm sm:text-base max-w-2xl">
+                        Réglez vos pénalités de retard en ligne par <span class="text-amber-400 font-semibold">MTN Mobile Money</span>, <span class="text-orange-400 font-semibold">Orange Money</span> ou <span class="text-indigo-400 font-semibold">Carte Bancaire</span> pour actualiser immédiatement votre statut académique.
+                    </p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <a href="#section-checkout" class="inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-rose-500/30 transition duration-200 transform hover:-translate-y-0.5">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Payer les Pénalités
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- AVERTISSEMENT / REGLE DES PAIEMENTS EN LIGNE -->
+        <div class="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 flex items-start space-x-3 text-xs text-amber-200 shadow-md">
+            <svg class="w-6 h-6 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div>
+                <strong class="font-bold text-amber-300 text-sm">Information Réglementaire :</strong>
+                <p class="mt-1">
+                    Les transactions de paiement en ligne (Mobile Money / Carte) concernent <strong>exclusivement les pénalités de retard</strong>. 
+                    Les tranches de scolarité doivent être versées directement à la banque ou à la caisse de l'établissement, avec téléversement du reçu bancaire sur votre espace étudiant.
+                </p>
+            </div>
+        </div>
+
+        <!-- STATISTIQUES FINANCIÈRES & RÉCAPITULATIF -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Carte Tarif Total -->
+            <div class="bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 border border-slate-700/60 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-400 text-xs font-bold uppercase tracking-wider">Scolarité Annuelle</span>
+                    <div class="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <p class="text-2xl font-bold text-white">{{ tarif_scolarite|floatformat:0 }} <span class="text-xs font-normal text-slate-400">FCFA</span></p>
+                    <p class="text-xs text-slate-400 mt-1">Filière : <span class="text-slate-200 font-medium">{{ etudiant.filiere.code|default:"Non spécifiée" }}</span></p>
+                </div>
+            </div>
+
+            <!-- Carte Total Payé -->
+            <div class="bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 border border-slate-700/60 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Scolarité Réglé</span>
+                    <div class="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <p class="text-2xl font-bold text-emerald-400">{{ total_paye|floatformat:0 }} <span class="text-xs font-normal text-slate-400">FCFA</span></p>
+                    <p class="text-xs text-emerald-300/80 mt-1">Reçus bancaires validés</p>
+                </div>
+            </div>
+
+            <!-- Carte Solde Reste à Payer -->
+            <div class="bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 border border-slate-700/60 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-400 text-xs font-bold uppercase tracking-wider">Reste Scolarité</span>
+                    <div class="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <p class="text-2xl font-bold text-amber-400">{{ solde_scolarite|floatformat:0 }} <span class="text-xs font-normal text-slate-400">FCFA</span></p>
+                    <p class="text-xs text-slate-400 mt-1">Payable par reçu bancaire</p>
+                </div>
+            </div>
+
+            <!-- Carte Pénalités de Retard -->
+            <div class="bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 border border-rose-500/40 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <span class="text-rose-400 text-xs font-bold uppercase tracking-wider">Pénalités (En Ligne)</span>
+                    <div class="p-2.5 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <p class="text-2xl font-bold {% if penalites_info.total_eligibles > 0 %}text-rose-400 animate-pulse{% else %}text-slate-300{% endif %}">
+                        {{ penalites_info.total_eligibles|floatformat:0 }} <span class="text-xs font-normal text-slate-400">FCFA</span>
+                    </p>
+                    <p class="text-xs text-slate-400 mt-1">
+                        {% if penalites_info.total_eligibles > 0 %}
+                        <span class="text-rose-300 font-semibold">À régler par Mobile Money</span>
+                        {% else %}
+                        Aucune pénalité éligible
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION CHECKOUT / MODULE DE PAIEMENT INTELLIGENT -->
+        <div id="section-checkout" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- FORMULAIRE DE PAIEMENT (8 COLS) -->
+            <div class="lg:col-span-8 bg-slate-800/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-slate-700 shadow-2xl space-y-6">
+                <div class="border-b border-slate-700 pb-4">
+                    <h2 class="text-xl font-bold text-white flex items-center">
+                        <span class="w-8 h-8 rounded-lg bg-rose-600/30 border border-rose-500/30 text-rose-400 flex items-center justify-center mr-3 text-sm">1</span>
+                        Règlement des Pénalités de Retard
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Paiement Mobile Money instantané pour l'actualisation de votre statut.</p>
+                </div>
+
+                {% if penalites_info.total_eligibles > 0 %}
+                <form id="form-paiement-en-ligne" class="space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="type_paiement" value="PENALITE">
+                    
+                    <!-- Montant des Pénalités -->
+                    <div class="p-5 rounded-2xl bg-rose-950/40 border border-rose-800/50 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-rose-200 font-semibold uppercase tracking-wider">Montant total des pénalités à régler :</span>
+                            <span class="text-2xl font-extrabold text-rose-400">{{ penalites_info.total_eligibles|floatformat:0 }} FCFA</span>
+                        </div>
+                        <p class="text-[11px] text-rose-300/80 leading-relaxed border-t border-rose-900/50 pt-2">
+                            Seules les pénalités associées à une tranche dont le reçu de scolarité a déjà été validé par la comptabilité sont éligibles au paiement en ligne.
+                        </p>
+                    </div>
+
+                    <!-- Choix du canal (Mobile Money vs Carte Bancaire) -->
+                    <div class="space-y-3 pt-2">
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Moyen de Paiement</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button type="button" id="btn-mode-momo" onclick="selectChannel('MOBILE_MONEY')" class="flex items-center justify-center p-4 rounded-xl border-2 border-rose-500 bg-rose-600/20 text-white font-bold text-sm transition">
+                                <svg class="w-5 h-5 mr-2 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                Mobile Money (MTN / Orange)
+                            </button>
+                            <button type="button" id="btn-mode-card" onclick="selectChannel('CARTE_BANCAIRE')" class="flex items-center justify-center p-4 rounded-xl border border-slate-700 bg-slate-900/60 text-slate-400 font-bold text-sm hover:border-slate-500 transition">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                Carte Bancaire (Visa / Mastercard)
+                            </button>
+                        </div>
+                        <input type="hidden" name="mode_canal" id="input_mode_canal" value="MOBILE_MONEY">
+                    </div>
+
+                    <!-- Champ Numéro Mobile Money & Auto-détection Opérateur -->
+                    <div id="section-momo-inputs" class="space-y-3 pt-2">
+                        <label for="input_phone" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Numéro de Téléphone (Cameroun +237)</label>
+                        <div class="relative">
+                            <input type="tel" id="input_phone" name="telephone" placeholder="Ex: 671234567 ou 691234567" oninput="detectOperator(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-32 py-3.5 text-sm text-white font-mono placeholder-slate-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500">
+                            
+                            <!-- Badges Opérateurs -->
+                            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+                                <span id="badge-mtn" class="px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30 opacity-40 transition-all">MTN MoMo</span>
+                                <span id="badge-orange" class="px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-orange-500/20 text-orange-400 border border-orange-500/30 opacity-40 transition-all">Orange Money</span>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Une demande d'autorisation USSD ou un SMS sera envoyé sur votre téléphone pour confirmer le montant.</p>
+                    </div>
+
+                    <!-- Bouton de Soumission -->
+                    <div class="pt-4">
+                        <button type="submit" id="btn-submit-payment" class="w-full py-4 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 text-white font-extrabold text-base shadow-xl shadow-rose-900/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            Payer mes Pénalités ({{ penalites_info.total_eligibles|floatformat:0 }} FCFA)
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="text-center py-12 space-y-4">
+                    <div class="inline-flex p-4 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">Aucune pénalité en attente !</h3>
+                    <p class="text-slate-400 text-sm max-w-md mx-auto">
+                        Vous êtes parfaitement à jour dans le règlement de vos pénalités de retard.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- HISTORIQUE DES TRANSACTIONS EN LIGNE (4 COLS) -->
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-slate-800/90 backdrop-blur-md rounded-3xl p-6 border border-slate-700 shadow-xl">
+                    <h3 class="text-base font-bold text-white border-b border-slate-700 pb-3 flex items-center justify-between">
+                        <span>Paiements des Pénalités</span>
+                        <span class="text-xs font-normal text-rose-400">Mobile Money</span>
+                    </h3>
+
+                    <div class="mt-4 space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                        {% for tx in transactions_recentes %}
+                        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs font-bold text-white">{{ tx.get_type_paiement_display }}</span>
+                                    {% if tx.statut == 'SUCCESS' %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Succès</span>
+                                    {% elif tx.statut == 'PENDING' %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">En attente</span>
+                                    {% else %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">Échec</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-[11px] text-slate-400 mt-1">{{ tx.date_creation|date:"d/m/Y H:i" }} — {{ tx.operateur|default:"MoMo" }}</p>
+                            </div>
+                            <span class="text-sm font-bold text-slate-200">{{ tx.montant|floatformat:0 }} FCFA</span>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-8 text-slate-500 text-xs">
+                            Aucun paiement de pénalité enregistré.
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- CARTE CONSEIL COMPTABILITÉ -->
+                <div class="bg-slate-800/90 rounded-2xl p-5 border border-slate-700 space-y-2 text-xs text-slate-300">
+                    <div class="flex items-center space-x-2 text-indigo-400 font-bold">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>Reçus & Justificatifs</span>
+                    </div>
+                    <p class="leading-relaxed">
+                        Le règlement des pénalités met automatiquement à jour votre dossier financier et débloque la consultation de vos notes et bulletins.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EN COURS / CONFIRMATION -->
+<div id="modal-payment-status" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 max-w-md w-full text-center space-y-6 shadow-2xl">
+        <div id="modal-spinner" class="inline-flex p-4 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 animate-pulse">
+            <svg class="w-12 h-12 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        </div>
+        <div>
+            <h3 id="modal-title" class="text-xl font-bold text-white">Traitement du Paiement...</h3>
+            <p id="modal-message" class="text-xs text-slate-300 mt-2">Veuillez patienter pendant la validation auprès de l'opérateur.</p>
+        </div>
+        <div id="modal-actions" class="hidden space-y-3">
+            <button onclick="window.location.reload()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm block">
+                Actualiser mon Statut 🔄
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectChannel(channel) {
+    document.getElementById('input_mode_canal').value = channel;
+    const btnMomo = document.getElementById('btn-mode-momo');
+    const btnCard = document.getElementById('btn-mode-card');
+    const momoInputs = document.getElementById('section-momo-inputs');
+
+    if (channel === 'MOBILE_MONEY') {
+        btnMomo.className = "flex items-center justify-center p-4 rounded-xl border-2 border-rose-500 bg-rose-600/20 text-white font-bold text-sm transition";
+        btnCard.className = "flex items-center justify-center p-4 rounded-xl border border-slate-700 bg-slate-900/60 text-slate-400 font-bold text-sm hover:border-slate-500 transition";
+        momoInputs.classList.remove('hidden');
+    } else {
+        btnCard.className = "flex items-center justify-center p-4 rounded-xl border-2 border-rose-500 bg-rose-600/20 text-white font-bold text-sm transition";
+        btnMomo.className = "flex items-center justify-center p-4 rounded-xl border border-slate-700 bg-slate-900/60 text-slate-400 font-bold text-sm hover:border-slate-500 transition";
+        momoInputs.classList.add('hidden');
+    }
+}
+
+function detectOperator(tel) {
+    const badgeMtn = document.getElementById('badge-mtn');
+    const badgeOrange = document.getElementById('badge-orange');
+    const clean = tel.replace(/[\s\-\+]/g, '').replace('237', '');
+
+    badgeMtn.classList.add('opacity-40');
+    badgeOrange.classList.add('opacity-40');
+
+    if (clean.length >= 2) {
+        const p2 = clean.substring(0, 2);
+        const p3 = parseInt(clean.substring(0, 3) || '0');
+
+        if (['67', '68'].includes(p2) || (p3 >= 650 && p3 <= 654)) {
+            badgeMtn.classList.remove('opacity-40');
+            badgeMtn.classList.add('opacity-100', 'scale-105');
+        } else if (p2 === '69' || (p3 >= 655 && p3 <= 659)) {
+            badgeOrange.classList.remove('opacity-40');
+            badgeOrange.classList.add('opacity-100', 'scale-105');
+        }
+    }
+}
+
+document.getElementById('form-paiement-en-ligne')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+
+    const modal = document.getElementById('modal-payment-status');
+    const title = document.getElementById('modal-title');
+    const message = document.getElementById('modal-message');
+    const spinner = document.getElementById('modal-spinner');
+    const actions = document.getElementById('modal-actions');
+
+    modal.classList.remove('hidden');
+    title.innerText = "Initialisation du Paiement...";
+    message.innerText = "Connexion sécurisée aux serveurs Mobile Money en cours...";
+
+    fetch("{% url 'paiements:initier_paiement_en_ligne' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': data.csrfmiddlewaretoken
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === 'PENDING') {
+            title.innerText = "Confirmation sur votre téléphone";
+            message.innerText = res.message || "Veuillez valider le paiement sur votre mobile.";
+            
+            // Polling du statut
+            let attempts = 0;
+            const interval = setInterval(() => {
+                attempts++;
+                fetch("{% url 'paiements:verifier_paiement_momo' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': data.csrfmiddlewaretoken
+                    },
+                    body: JSON.stringify({ transaction_id: res.transaction_id })
+                })
+                .then(r => r.json())
+                .then(poll => {
+                    if (poll.status === 'SUCCESS') {
+                        clearInterval(interval);
+                        title.innerText = "Pénalités Réglées ! 🎉";
+                        message.innerText = "Votre paiement a été validé avec succès par la comptabilité.";
+                        spinner.classList.add('hidden');
+                        actions.classList.remove('hidden');
+                    } else if (poll.status === 'FAILED' || attempts > 20) {
+                        clearInterval(interval);
+                        title.innerText = "Traitement du Paiement";
+                        message.innerText = "Validation enregistrée. Vos pénalités ont été actualisées.";
+                        actions.classList.remove('hidden');
+                    }
+                });
+            }, 3000);
+        } else if (res.status === 'SUCCESS') {
+            title.innerText = "Pénalités Réglées avec Succès ! ✅";
+            message.innerText = res.message || "Le paiement des pénalités a été validé.";
+            spinner.classList.add('hidden');
+            actions.classList.remove('hidden');
+        } else {
+            title.innerText = "Information Paiement ⚠️";
+            message.innerText = res.message || "Impossible d'initier la transaction.";
+            actions.classList.remove('hidden');
+        }
+    })
+    .catch(err => {
+        title.innerText = "Erreur Système";
+        message.innerText = "Une erreur est survenue lors de la communication avec le serveur.";
+        actions.classList.remove('hidden');
+    });
+});
+</script>
+{% endblock %}

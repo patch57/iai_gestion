@@ -65,9 +65,11 @@ urlpatterns = [
     path('gestion-penalites/exporter-excel/', views.exporter_penalites_excel, name='exporter_penalites_excel'),
     path('gestion-penalites/exporter-pdf/', views.exporter_penalites_pdf, name='exporter_penalites_pdf'),
 
+    path('portail/', views.portail_paiement, name='portail_paiement'),
     path('payer-penalites/', views.payer_penalites, name='payer_penalites'),
 
 
+    path('api/initier-en-ligne/', views.initier_paiement_en_ligne, name='initier_paiement_en_ligne'),
     path('api/momo/initier/', views.initier_paiement_momo, name='initier_paiement_momo'),
     path('api/momo/verifier/', views.verifier_paiement_momo, name='verifier_paiement_momo'),
     path('api/cinetpay/webhook/', views.webhook_cinetpay, name='webhook_cinetpay'),

@@ -369,3 +369,107 @@ class CinetPayService:
 
         return True
 
+    @staticmethod
+    def regler_scolarite_etudiant(etudiant, amount_to_pay, tranche_numero=None, cinetpay_data=None):
+        """
+        Enregistre automatiquement un paiement de scolarité reçu par CinetPay / Mobile Money.
+        Génère le reçu de paiement et met à jour le statut financier de l'étudiant.
+        """
+        from apps.paiements.models import RecuPaiement
+        from apps.inscriptions.models import Inscription
+        from django.core.mail import send_mail
+        from apps.paiements.whatsapp_service import WhatsAppService
+
+        cinetpay_data = cinetpay_data or {}
+        operator = cinetpay_data.get('payment_method', 'Mobile Money / En Ligne')
+        phone = cinetpay_data.get('phone_number') or etudiant.telephone or 'N/A'
+
+        # Retrouver l'inscription active
+        inscription = Inscription.objects.filter(etudiant=etudiant, statut='VALIDEE').first() or Inscription.objects.filter(etudiant=etudiant).first()
+
+        # Mapper le numéro de tranche vers le libellé
+        TRANCHE_NAMES = {
+            1: "Tranche 1",
+            2: "Tranche 2",
+            3: "Tranche 3",
+            4: "Tranche 4",
+        }
+        libelle_tranche = TRANCHE_NAMES.get(tranche_numero, f"Frais de scolarité (Tranche {tranche_numero or 'N/A'})")
+
+        # Créer le reçu de paiement validé automatiquement
+        recu = RecuPaiement.objects.create(
+            etudiant=etudiant,
+            inscription=inscription,
+            montant=amount_to_pay,
+            tranche=f"TRANCHE_{tranche_numero}" if tranche_numero else "PREINSCRIPTION",
+            statut='VALIDE',
+            mode_paiement='MOBILE_MONEY' if 'CARD' not in str(operator).upper() else 'CARTE_BANCAIRE',
+            valide_par=None,
+            date_validation=timezone.now(),
+            remarques=f"Paiement automatique en ligne via {operator}. Réf CinetPay: {cinetpay_data.get('cpm_trans_id', 'ONLINE')}"
+        )
+
+        # Journal d'activité
+        Activite.objects.create(
+            utilisateur=etudiant.utilisateur,
+            type_action='PAIEMENT',
+            description=f"Paiement autonome de scolarité ({libelle_tranche}) via {operator}. Montant: {amount_to_pay:,.0f} FCFA. Reçu N° {recu.numero_recu}",
+            module='PAIEMENTS'
+        )
+
+        # Notification en ligne
+        if etudiant.utilisateur:
+            Notification.objects.create(
+                utilisateur=etudiant.utilisateur,
+                titre=f"Paiement de Scolarité Confirmé ({libelle_tranche})",
+                message=f"✅ Votre règlement de {amount_to_pay:,.0f} FCFA pour {libelle_tranche} a été validé. Reçu N° {recu.numero_recu}.",
+                type='SUCCESS'
+            )
+
+        # Notification Email
+        dest_email = getattr(etudiant.utilisateur, 'email', etudiant.email)
+        if dest_email:
+            sujet_email = f"IAI-Gestion — Reçu Officiel de Paiement ({recu.numero_recu})"
+            corps_email = (
+                f"Bonjour {etudiant.get_nom_complet()},\n\n"
+                f"Nous accusons réception de votre paiement de scolarité effectué en ligne avec succès.\n\n"
+                f"--- DÉTAILS DE LA TRANSACTION ---\n"
+                f"• Reçu N° : {recu.numero_recu}\n"
+                f"• Étudiant : {etudiant.get_nom_complet()} ({etudiant.matricule})\n"
+                f"• Motif : {libelle_tranche}\n"
+                f"• Montant : {amount_to_pay:,.0f} FCFA\n"
+                f"• Mode de règlement : {operator}\n"
+                f"• Date : {timezone.now().strftime('%d/%m/%Y à %H:%M')}\n\n"
+                f"Vous pouvez télécharger votre reçu officiel au format PDF directement sur votre espace étudiant.\n\n"
+                f"Cordialement,\n"
+                f"La Service de la Comptabilité — IAI-Cameroun Centre de Douala"
+            )
+            try:
+                send_mail(
+                    subject=sujet_email,
+                    message=corps_email,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@iai-cameroun.com'),
+                    recipient_list=[dest_email],
+                    fail_silently=True
+                )
+            except Exception as e:
+                logger.error(f"[CinetPay] Erreur d'envoi d'email scolarité: {e}")
+
+        # Notification WhatsApp
+        if phone and phone != 'N/A':
+            msg_whatsapp = (
+                f"*IAI-CAMEROUN (Douala)* 🎓\n"
+                f"*Confirmation de Paiement de Scolarité*\n\n"
+                f"Bonjour *{etudiant.get_nom_complet()}*,\n\n"
+                f"Votre paiement de *{amount_to_pay:,.0f} FCFA* pour *{libelle_tranche}* via *{operator}* a été validé avec succès.\n"
+                f"N° de Reçu : *{recu.numero_recu}*\n\n"
+                f"Votre reçu est disponible au téléchargement dans votre espace élève."
+            )
+            try:
+                WhatsAppService.envoyer_message(phone, msg_whatsapp)
+            except Exception as e:
+                logger.error(f"[CinetPay] Erreur WhatsApp scolarité: {e}")
+
+        return True
+
+

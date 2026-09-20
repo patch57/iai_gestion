@@ -256,6 +256,10 @@ class RecuPaiement(models.Model):
             ('peut_analyser_ia', 'Peut utiliser l\'IA pour analyser les reçus'),
         ]
     
+    @property
+    def montant(self):
+        return self.montant_mentionne
+
     def __str__(self):
         return f"{self.etudiant.get_nom_complet()} - Tranche {self.tranche.numero} - {self.get_statut_display()}"
     
@@ -851,6 +855,8 @@ class TransactionPaiement(models.Model):
     TYPE_PAIEMENT_CHOICES = [
         ('PENALITE', 'Pénalités de retard'),
         ('SCOLARITE', 'Frais de scolarité'),
+        ('CONCOURS', 'Frais de concours'),
+        ('DOCUMENT', 'Frais de document administratif'),
     ]
 
     etudiant = models.ForeignKey(
@@ -858,6 +864,12 @@ class TransactionPaiement(models.Model):
         on_delete=models.CASCADE,
         related_name='transactions_paiement',
         verbose_name="Étudiant"
+    )
+    tranche_numero = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Numéro de tranche",
+        help_text="Numéro de la tranche visée (ex: 1, 2, 3)"
     )
     transaction_id = models.CharField(
         max_length=100,

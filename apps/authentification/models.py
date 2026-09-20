@@ -860,7 +860,8 @@ class DemandeInscription(models.Model):
         
         📝 Vos identifiants de connexion :
         • Matricule : {self.user.matricule}
-        • Mot de passe : {self.user.password} (celui que vous avez défini lors de l'inscription)
+        • Email : {self.user.email}
+        • Mot de passe : (celui que vous avez défini lors de l'inscription)
         
         🔗 Lien de connexion : {settings.SITE_URL}/login/
         
@@ -882,6 +883,27 @@ class DemandeInscription(models.Model):
             )
         except Exception as e:
             print(f"Erreur d'envoi d'email: {e}")
+
+        # Envoyer notification WhatsApp d'activation
+        try:
+            from apps.tableau_bord.whatsapp_service import WhatsAppService
+            tel = getattr(self.user, 'telephone', '') or ''
+            if tel:
+                msg_whatsapp = (
+                    f"✅ *ACTIVATION DE COMPTE - IAI-CAMEROUN*\n\n"
+                    f"Bonjour *{self.user.first_name} {self.user.last_name}*,\n\n"
+                    f"🎉 Félicitations ! Votre compte a été activé avec succès.\n\n"
+                    f"📝 *Vos identifiants de connexion :*\n"
+                    f"• *Matricule :* `{self.user.matricule}`\n"
+                    f"• *Identifiant / E-mail :* `{self.user.email}`\n"
+                    f"• *Mot de passe :* (celui défini lors de l'inscription)\n\n"
+                    f"🔗 *Lien de connexion :* {settings.SITE_URL}/login/\n\n"
+                    f"💡 *Conseil :* Conservez précieusement votre matricule pour toutes vos démarches à l'IAI.\n\n"
+                    f"Bienvenue à l'IAI-Cameroun !"
+                )
+                WhatsAppService.envoyer_message(tel, msg_whatsapp)
+        except Exception as e:
+            print(f"Erreur d'envoi WhatsApp lors de l'activation: {e}")
     
     def rejeter_demande(self, motif):
         """Rejette la demande avec motif"""
@@ -918,3 +940,19 @@ class DemandeInscription(models.Model):
             )
         except Exception as e:
             print(f"Erreur d'envoi d'email: {e}")
+
+        # Notification WhatsApp de rejet
+        try:
+            from apps.tableau_bord.whatsapp_service import WhatsAppService
+            tel = getattr(self.user, 'telephone', '') or ''
+            if tel:
+                msg_whatsapp = (
+                    f"❌ *INSCRIPTION IAI-CAMEROUN*\n\n"
+                    f"Bonjour *{self.user.first_name} {self.user.last_name}*,\n\n"
+                    f"Votre demande d'inscription requiert des ajustements.\n\n"
+                    f"📌 *Motif du rejet :* {motif}\n\n"
+                    f"Veuillez vous connecter pour soumettre à nouveau vos pièces justificatives ou vous rapprocher de l'administration."
+                )
+                WhatsAppService.envoyer_message(tel, msg_whatsapp)
+        except Exception as e:
+            print(f"Erreur d'envoi WhatsApp lors du rejet: {e}")

@@ -211,7 +211,7 @@ def inscription(request):
         
         try:
             if type_utilisateur == 'APPRENANT':
-                # Créer l'apprenant directement actif
+                # Créer l'utilisateur apprenant directement actif
                 user = Utilisateur.objects.create_user(
                     username=email,
                     email=email,
@@ -224,12 +224,49 @@ def inscription(request):
                     statut_inscription='COMPTE_ACTIF'
                 )
                 
-                # Envoyer un e-mail de bienvenue simple
+                # Récupérer les choix de formation
+                type_fmt = request.POST.get('type_formation_apprenant', 'CONTINUE')
+                module_fmt = request.POST.get('module_certifiant')
+
+                # Créer le profil Apprenant correspondant
+                from apps.etudiants.models import Apprenant, Formation
+                profil_apprenant, _ = Apprenant.objects.get_or_create(
+                    utilisateur=user,
+                    defaults={
+                        'nom_complet': f"{prenom} {nom}",
+                        'email': email,
+                        'contact': telephone,
+                        'lieu_residence': 'Douala'
+                    }
+                )
+
+                lbl_formation = "Formation Continue"
+                if type_fmt == 'CERTIFIANTE' and module_fmt:
+                    formation = Formation.objects.filter(nom=module_fmt).first()
+                    if not formation:
+                        formation = Formation.objects.create(
+                            type_formation='CERTIFICATION',
+                            nom=module_fmt,
+                            description=f"Formation de certification en {module_fmt}"
+                        )
+                    profil_apprenant.formations.add(formation)
+                    lbl_formation = f"Formation Certifiante ({formation.get_nom_display()})"
+                else:
+                    formation_cont = Formation.objects.filter(type_formation='CONTINUE').first()
+                    if not formation_cont:
+                        formation_cont = Formation.objects.create(
+                            type_formation='CONTINUE',
+                            nom='MIJEF',
+                            description="Formation Continue"
+                        )
+                    profil_apprenant.formations.add(formation_cont)
+                
+                # Envoyer un e-mail de bienvenue
                 sujet = "🎓 Bienvenue sur la plateforme IAI-Gestion !"
                 message = f"""Bonjour {prenom} {nom},
                 
-Votre compte d'apprenant a été créé avec succès.
-Vous pouvez maintenant vous connecter avec votre adresse e-mail et votre mot de passe pour vous inscrire à des formations.
+Votre compte d'apprenant a été créé avec succès pour la {lbl_formation}.
+Vous pouvez maintenant vous connecter avec votre adresse e-mail ({email}) et votre mot de passe pour suivre vos cours.
                 
 🔗 Lien de connexion : {settings.SITE_URL}/login/
                 
@@ -246,8 +283,27 @@ L'équipe administrative IAI-Cameroun
                     )
                 except:
                     pass
+
+                # Alerte WhatsApp si téléphone disponible
+                try:
+                    from apps.tableau_bord.whatsapp_service import WhatsAppService
+                    if telephone:
+                        msg_wa = (
+                            f"✅ *COMPTE APPRENANT CRÉÉ - IAI-CAMEROUN*\n\n"
+                            f"Bonjour *{prenom} {nom}*,\n\n"
+                            f"🎉 Votre compte apprenant a été créé avec succès !\n"
+                            f"📚 *Parcours :* {lbl_formation}\n\n"
+                            f"📝 *Vos identifiants :*\n"
+                            f"• *E-mail :* `{email}`\n"
+                            f"• *Mot de passe :* (celui que vous avez choisi)\n\n"
+                            f"🔗 *Connexion :* {settings.SITE_URL}/login/\n\n"
+                            f"Bienvenue à l'IAI-Cameroun !"
+                        )
+                        WhatsAppService.envoyer_message(telephone, msg_wa)
+                except Exception as e:
+                    print(f"Erreur d'envoi WhatsApp apprenant: {e}")
                 
-                messages.success(request, '✅ Votre compte apprenant a été créé avec succès ! Vous pouvez maintenant vous connecter.')
+                messages.success(request, f'✅ Votre compte apprenant ({lbl_formation}) a été créé avec succès ! Connectez-vous avec votre e-mail.')
                 return redirect('login')
                 
             else:
@@ -370,6 +426,25 @@ def envoyer_email_confirmation(user, temp_password, demande_id):
     except Exception as e:
         print(f"Erreur d'envoi d'email: {e}")
 
+    # Envoi de la notification WhatsApp d'inscription reçue
+    try:
+        from apps.tableau_bord.whatsapp_service import WhatsAppService
+        tel = getattr(user, 'telephone', '') or ''
+        if tel:
+            msg_whatsapp = (
+                f"📥 *INSCRIPTION REÇUE - IAI-CAMEROUN*\n\n"
+                f"Bonjour *{user.first_name} {user.last_name}*,\n\n"
+                f"Nous avons bien reçu votre demande d'inscription (N° *{demande_id}*).\n\n"
+                f"🔑 *Identifiants temporaires :*\n"
+                f"• *Identifiant / E-mail :* `{user.email}`\n"
+                f"• *Mot de passe temporaire :* `{temp_password}`\n\n"
+                f"⏳ Votre compte est en cours de vérification par notre administration. "
+                f"Vous recevrez une alerte WhatsApp & E-mail avec votre matricule dès validation."
+            )
+            WhatsAppService.envoyer_message(tel, msg_whatsapp)
+    except Exception as e:
+        print(f"Erreur d'envoi WhatsApp lors de l'inscription: {e}")
+
 
 def inscription_confirmation(request):
     """Page de confirmation d'inscription avec affichage instantané du matricule et mot de passe"""
@@ -387,8 +462,8 @@ def login_view(request):
         return redirect('tableau_bord:tableau_bord')
     
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
         remember = request.POST.get('remember')
         
         # Authentification avec matricule, email ou username
@@ -409,7 +484,21 @@ def login_view(request):
             next_url = request.GET.get('next', 'tableau_bord:tableau_bord')
             return redirect(next_url)
         else:
-            messages.error(request, "Matricule, email ou mot de passe incorrect.")
+            # Vérifier si l'utilisateur existe mais n'est pas encore actif
+            from django.contrib.auth import get_user_model
+            from django.db.models import Q
+            User = get_user_model()
+            user_inactive = User.objects.filter(
+                Q(email__iexact=username) | Q(matricule__iexact=username) | Q(username__iexact=username)
+            ).first()
+
+            if user_inactive and not user_inactive.is_active:
+                messages.warning(
+                    request, 
+                    "⏳ Votre compte d'inscription a été soumis mais est encore en cours de vérification/validation par l'administration. Vous recevrez une alerte dès son activation."
+                )
+            else:
+                messages.error(request, "Identifiant (matricule ou email) ou mot de passe incorrect.")
     
     return render(request, 'base/login.html', {'titre': 'Connexion'})
 

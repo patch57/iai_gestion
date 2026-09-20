@@ -37,6 +37,8 @@ else:
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -108,6 +110,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'iai_gestion.wsgi.application'
+ASGI_APPLICATION = 'iai_gestion.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 # Database
 DATABASE_URL = config('DATABASE_URL', default=None)
