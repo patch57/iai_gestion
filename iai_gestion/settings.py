@@ -72,7 +72,6 @@ AUTH_USER_MODEL = 'authentification.Utilisateur'
 # Permet la connexion avec matricule, email ou nom d'utilisateur
 AUTHENTICATION_BACKENDS = [
     'apps.authentification.backends.MatriculeAuthBackend',
-    'django.contrib.auth.backends.ModelBackend',  # Garder le backend par défaut
 ]
 
 MIDDLEWARE = [

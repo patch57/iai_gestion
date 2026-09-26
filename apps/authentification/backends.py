@@ -20,13 +20,11 @@ class MatriculeAuthBackend(ModelBackend):
     """
     
     def authenticate(self, request, username=None, password=None, **kwargs):
-        if username is None or password is None:
+        if not username or not password:
             return None
         
-        # Nettoyer l'identifiant
         username = username.strip()
         
-        # Rechercher l'utilisateur
         try:
             user = User.objects.filter(
                 Q(matricule__iexact=username) |
@@ -34,13 +32,10 @@ class MatriculeAuthBackend(ModelBackend):
                 Q(username__iexact=username) |
                 Q(profil_professeur__matricule__iexact=username)
             ).first()
-            if not user:
-                return super().authenticate(request, username, password, **kwargs)
         except Exception:
-            return super().authenticate(request, username, password, **kwargs)
+            return None
         
-        # Vérifier le mot de passe et l'état du compte
-        if user.check_password(password) and self.user_can_authenticate(user):
+        if user and user.check_password(password) and self.user_can_authenticate(user):
             return user
         return None
     
