@@ -6,7 +6,7 @@ Conforme aux règles de gestion du centre
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils import timezone
 import os
 import re
@@ -601,8 +601,11 @@ class Etudiant(models.Model):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._original_statut = self.statut
-        self._original_classe = self.classe
+        self._original_statut = getattr(self, 'statut', None)
+        try:
+            self._original_classe = self.classe
+        except ObjectDoesNotExist:
+            self._original_classe = None
     
     def __str__(self):
         return f"{self.matricule} - {self.nom} {self.prenom}"

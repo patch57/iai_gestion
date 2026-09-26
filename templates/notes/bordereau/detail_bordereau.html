@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ titre }}{% endblock %}
 
@@ -84,7 +85,7 @@
         <!-- Logo et En-tête officiel IAI-Cameroun -->
         <div class="text-center space-y-1">
             <div class="flex justify-center mb-3">
-                <img src="/static/images/logo_iai.png" alt="Logo Officiel IAI-Cameroun" class="h-20 object-contain mx-auto" onerror="this.src='https://www.iaicameroun.com/images/logo.png';">
+                <img src="{% static 'images/logo_iai.png' %}" alt="Logo Officiel IAI-Cameroun" class="h-20 object-contain mx-auto">
             </div>
             <h3 class="text-xs uppercase tracking-wide font-extrabold">Etablissement Inter – Etats d’Enseignement Supérieur</h3>
             <h4 class="text-xs uppercase tracking-wide font-medium">Représentation du Cameroun</h4>

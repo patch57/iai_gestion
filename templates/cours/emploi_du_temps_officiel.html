@@ -137,6 +137,27 @@
             </div>
         </div>
 
+        {% if emploi.fichier_pdf %}
+        <div class="mb-6 rounded-2xl overflow-hidden border border-emerald-200 bg-emerald-50/50 p-4 no-print flex flex-col md:flex-row items-center justify-between gap-3 shadow-xs">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-lg">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+                <div>
+                    <h4 class="text-xs font-extrabold text-gray-900">Document Fichier PDF déposé par le Chef des Études</h4>
+                    <p class="text-[11px] text-gray-500">Document officiel rattaché à cet emploi du temps hebdomadaire.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{{ emploi.fichier_pdf.url }}" target="_blank" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
+                    <i class="fas fa-external-link-alt text-xs"></i>
+                    <span>Ouvrir / Voir le PDF</span>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if grid or not emploi.fichier_pdf %}
         <!-- Table Emploi du Temps -->
         <div class="overflow-x-auto">
             <table class="w-full text-center border-collapse border border-gray-800 text-xs font-semibold">
@@ -206,6 +227,15 @@
                 </tbody>
             </table>
         </div>
+        {% else %}
+        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center text-blue-900 text-xs font-semibold no-print">
+            <i class="fas fa-info-circle text-blue-600 text-base mb-1"></i>
+            <p>Les cours de cet emploi du temps sont directement consultables dans le document PDF ci-dessus.</p>
+            {% if role == 'CHEF_ETUDES' or role == 'ADMIN_SYSTEME' %}
+            <p class="text-[11px] text-blue-700 mt-1">Vous pouvez également saisir la grille heure par heure en cliquant sur <strong>« Éditer la Grille »</strong>.</p>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Pied de Page Officiel - 4 Signatures -->
         <div class="mt-12 pt-6 border-t border-gray-300">

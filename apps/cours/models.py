@@ -369,6 +369,7 @@ class EmploiDuTempsHebdomadaire(models.Model):
         ('EN_ATTENTE_VALIDATION', 'Soumis pour approbation au Directeur'),
         ('VALIDE', 'Approuvé & Publié (Directeur)'),
         ('REJETE', 'Rejeté / À réviser'),
+        ('ARCHIVE', 'Archivé (Période expirée / Remplacé)'),
     ]
     
     filiere = models.ForeignKey('etudiants.Filiere', on_delete=models.CASCADE, related_name='emplois_du_temps_hebdo')
@@ -378,6 +379,7 @@ class EmploiDuTempsHebdomadaire(models.Model):
     date_debut_semaine = models.DateField()
     date_fin_semaine = models.DateField()
     annee_academique = models.CharField(max_length=9, default='2024-2025')
+    fichier_pdf = models.FileField(upload_to='emplois_du_temps/', blank=True, null=True)
     statut = models.CharField(max_length=25, choices=STATUT_CHOICES, default='BROUILLON')
     
     soumis_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='emplois_soumis')
@@ -394,6 +396,19 @@ class EmploiDuTempsHebdomadaire(models.Model):
 
     def __str__(self):
         return f"{self.titre_semaine} - {self.filiere.code} ({self.get_niveau_display()}) [{self.get_statut_display()}]"
+
+    @classmethod
+    def archiver_emplois_expires_et_remplacer(cls):
+        """
+        Archive automatiquement les emplois du temps hebdomadaires dont la période
+        de validité (date_fin_semaine) est expirée.
+        """
+        from django.utils import timezone
+        today = timezone.now().date()
+        cls.objects.filter(
+            statut='VALIDE',
+            date_fin_semaine__lt=today
+        ).update(statut='ARCHIVE')
 
 
 class CreneauEmploiDuTemps(models.Model):

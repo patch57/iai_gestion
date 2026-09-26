@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -205,16 +206,14 @@
     <!-- Sidebar -->
     <aside id="sidebar" class="fixed left-0 top-0 z-40 h-screen w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out shadow-xl lg:translate-x-0 sidebar-mobile">
         <!-- Logo avec gradient vert -->
-        <div class="flex items-center justify-center h-16 border-b border-gray-200 gradient-primary">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
-                    <i class="fas fa-graduation-cap text-green-600 text-xl"></i>
-                </div>
+        <div class="flex items-center justify-center h-16 border-b border-gray-200 gradient-primary px-3">
+            <a href="{% url 'tableau_bord:tableau_bord' %}" class="flex items-center space-x-2.5">
+                <img src="{% static 'images/logo_iai.png' %}?v=2" alt="IAI Logo" class="h-11 w-auto object-contain bg-white/95 rounded-xl p-1 shadow-md transform hover:scale-105 transition-transform">
                 <div>
-                    <h1 class="text-white font-bold text-lg tracking-tight">IAI-Cameroun</h1>
-                    <p class="text-green-100 text-xs">Centre de Douala</p>
+                    <span class="text-white font-black text-base tracking-tight block leading-none">Cameroun</span>
+                    <span class="text-green-100 text-[10px] block leading-tight mt-0.5">Centre de Douala</span>
                 </div>
-            </div>
+            </a>
         </div>
         
         <!-- Profil utilisateur dans sidebar -->
@@ -346,7 +345,14 @@
                         <span>{% if user.est_etudiant or user.type_utilisateur == 'ETUDIANT' or user.type_utilisateur == 'APPRENANT' %}Programme Hebdo & Cours{% else %}Programme Hebdomadaire{% endif %}</span>
                     </a>
                 </li>
-                {% if user.type_utilisateur in 'DIRECTEUR ADMIN_SYSTEME ADMIN_PEDAGOGIQUE' or user.is_superuser %}
+                {% if user.type_utilisateur in 'DIRECTEUR ADMIN_SYSTEME ADMIN_PEDAGOGIQUE CHEF_ETUDES' or user.is_superuser %}
+                <li>
+                    <a href="{% url 'cours:emploi_du_temps_officiel' %}" 
+                       class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-all group">
+                        <i class="fas fa-calendar-check w-5 h-5 mr-3 group-hover:text-emerald-600 text-gray-500"></i>
+                        <span>Validation & Emplois du Temps Officiels</span>
+                    </a>
+                </li>
                 <li>
                     <a href="{% url 'cours:liste_matieres' %}" 
                        class="sidebar-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-all group">
@@ -649,7 +655,7 @@
     <main class="lg:ml-64 min-h-screen">
         <!-- Top header avec glass morphism -->
         <header class="glass border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-            <div class="flex items-center justify-between px-6 py-4">
+            <div class="flex items-center justify-between px-6 py-3">
                 <div class="flex items-center space-x-4">
                     <!-- Mobile menu button -->
                     <button id="mobile-menu-btn" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
@@ -660,6 +666,12 @@
                         <p class="text-xs lg:text-sm text-gray-500 mt-0.5">{% block page_subtitle %}{% endblock %}</p>
                     </div>
                 </div>
+
+                <!-- Logo centré en haut de l'en-tête -->
+                <div class="flex items-center justify-center">
+                    <img src="{% static 'images/logo_iai.png' %}?v=2" alt="Logo IAI Cameroun" class="h-12 w-auto object-contain drop-shadow-sm">
+                </div>
+
                 <div class="flex items-center space-x-4">
                     <!-- Search bar -->
                     <div class="hidden md:block relative">

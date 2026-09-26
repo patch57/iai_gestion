@@ -61,7 +61,7 @@
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 text-center text-gray-500">
-                            {{ f.cree_par.get_full_name|default:f.cree_par.username|default:"Scolarité" }}
+                            {% if f.cree_par %}{{ f.cree_par.get_full_name|default:f.cree_par.username }}{% else %}Scolarité{% endif %}
                         </td>
                         <td class="px-6 py-4 text-right space-x-2">
                             <a href="{% url 'cours:exporter_liste_classe_presence_pdf' f.classe.id %}" target="_blank" class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-xl font-bold transition inline-flex items-center gap-1">

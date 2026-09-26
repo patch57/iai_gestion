@@ -140,14 +140,19 @@ class EmploiDuTempsOfficielTestCase(TestCase):
 
     def test_workflow_creation_soumission_approbation(self):
         """Vérifie le cycle de vie : Création Brouillon -> Soumission Directeur -> Approbation/Publication (Lundi au Samedi)"""
+        from django.utils import timezone
+        import datetime
+        today = timezone.now().date()
+        date_fin = today + datetime.timedelta(days=5)
+
         # 1. Création par le Chef des Études
         emploi = EmploiDuTempsHebdomadaire.objects.create(
             filiere=self.filiere,
             salle=self.salle,
             niveau='LEVEL_1',
-            titre_semaine='SEMAINE: 11 MAI - 16 MAI 2026',
-            date_debut_semaine='2026-05-11',
-            date_fin_semaine='2026-05-16',
+            titre_semaine='SEMAINE EN COURS',
+            date_debut_semaine=today,
+            date_fin_semaine=date_fin,
             soumis_par=self.chef_etudes,
             statut='BROUILLON'
         )
@@ -191,6 +196,51 @@ class EmploiDuTempsOfficielTestCase(TestCase):
         emploi.refresh_from_db()
         self.assertEqual(emploi.statut, 'VALIDE')
         self.assertEqual(emploi.approuve_par, self.directeur)
+        self.client.logout()
+
+    def test_auto_archivage_et_remplacement(self):
+        """Vérifie l'archivage automatique d'un emploi expiré et le remplacement lors de la validation d'un nouveau"""
+        from django.utils import timezone
+        import datetime
+        today = timezone.now().date()
+        date_passee_debut = today - datetime.timedelta(days=14)
+        date_passee_fin = today - datetime.timedelta(days=7)
+
+        # 1. Emploi du temps expiré
+        emploi_expire = EmploiDuTempsHebdomadaire.objects.create(
+            filiere=self.filiere,
+            salle=self.salle,
+            niveau='LEVEL_1',
+            titre_semaine='SEMAINE EXPIRÉE',
+            date_debut_semaine=date_passee_debut,
+            date_fin_semaine=date_passee_fin,
+            soumis_par=self.chef_etudes,
+            statut='VALIDE'
+        )
+
+        # 2. Exécution de l'auto-archivage
+        EmploiDuTempsHebdomadaire.archiver_emplois_expires_et_remplacer()
+        emploi_expire.refresh_from_db()
+        self.assertEqual(emploi_expire.statut, 'ARCHIVE')
+
+        # 3. Validation d'un nouveau planning pour remplacer le précédent
+        nouveau_emploi = EmploiDuTempsHebdomadaire.objects.create(
+            filiere=self.filiere,
+            salle=self.salle,
+            niveau='LEVEL_1',
+            titre_semaine='NOUVELLE SEMAINE',
+            date_debut_semaine=today,
+            date_fin_semaine=today + datetime.timedelta(days=5),
+            soumis_par=self.chef_etudes,
+            statut='EN_ATTENTE_VALIDATION'
+        )
+
+        self.client.login(username='directeur', password='password123')
+        response = self.client.post(reverse('cours:approuver_emploi_du_temps', args=[nouveau_emploi.pk]), {'action': 'approuver'})
+        self.assertEqual(response.status_code, 302)
+        
+        nouveau_emploi.refresh_from_db()
+        self.assertEqual(nouveau_emploi.statut, 'VALIDE')
         self.client.logout()
 
     def test_rejet_emploi_du_temps_avec_motif(self):

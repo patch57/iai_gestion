@@ -360,6 +360,9 @@ def etudiant_dashboard(request):
     jour_code_actuel = JOUR_MAP.get(weekday_num, None)
     nom_jour_actuel = JOUR_NOMS.get(weekday_num, 'Aujourd\'hui')
     
+    # Auto-archiver les plannings dont la période de validité est expirée
+    EmploiDuTempsHebdomadaire.archiver_emplois_expires_et_remplacer()
+    
     emploi_hebdo = None
     if etudiant.filiere:
         emploi_hebdo = EmploiDuTempsHebdomadaire.objects.filter(
@@ -860,7 +863,10 @@ def chef_etudes_dashboard(request):
             annee_academique = get_current_academic_year_code()
             semestre = 1
             
-            # Supprimer l'ancien emploi du temps s'il existe pour la même combinaison unique
+            from apps.cours.models import EmploiDuTempsHebdomadaire
+            emploi_file = request.FILES.get('emploi_fichier')
+
+            # Supprimer l'ancien emploi du temps s'il existe
             existing_emplois = EmploiDuTemps.objects.filter(
                 filiere=filiere,
                 niveau=niveau,
@@ -873,17 +879,35 @@ def chef_etudes_dashboard(request):
                     old_emp.fichier_pdf.delete(save=False)
                 old_emp.delete()
                 
-            EmploiDuTemps.objects.create(
+            emp_obj = EmploiDuTemps.objects.create(
                 filiere=filiere,
                 niveau=niveau,
                 salle=salle,
                 annee_academique=annee_academique,
                 semestre=semestre,
-                fichier_pdf=request.FILES.get('emploi_fichier'),
+                fichier_pdf=emploi_file,
                 date_debut=timezone.now().date(),
                 date_fin=timezone.now().date() + timedelta(days=120)
             )
-            messages.success(request, "Emploi du temps mis à jour avec succès.")
+
+            # Création automatique de la fiche d'approbation soumise au Directeur
+            niveau_code = f"LEVEL_{niveau.numero}" if (niveau and hasattr(niveau, 'numero') and niveau.numero) else "LEVEL_1"
+            nom_salle = salle.nom if salle else "Toutes les salles"
+            
+            EmploiDuTempsHebdomadaire.objects.create(
+                filiere=filiere,
+                salle=salle,
+                niveau=niveau_code,
+                titre_semaine=f"Emploi du temps {filiere.code} ({nom_salle})",
+                date_debut_semaine=timezone.now().date(),
+                date_fin_semaine=timezone.now().date() + timedelta(days=7),
+                annee_academique=annee_academique,
+                fichier_pdf=emp_obj.fichier_pdf,
+                statut='EN_ATTENTE_VALIDATION',
+                soumis_par=request.user
+            )
+
+            messages.success(request, f"L'emploi du temps pour {filiere.code} a été publié en attente de la validation du Directeur.")
             return redirect('tableau_bord:tableau_bord')
             
         elif request.POST.get('sujet') or request.FILES.get('note_fichier'):

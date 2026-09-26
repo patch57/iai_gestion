@@ -420,7 +420,7 @@ def desattribuer_matiere(request, cours_id):
     return redirect(request.META.get('HTTP_REFERER', 'cours:liste_matieres'))
 
 
-@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'CHEF_ETUDES')
 def ajouter_matiere(request):
     """Ajouter une matière"""
     if request.method == 'POST':
@@ -439,7 +439,7 @@ def ajouter_matiere(request):
     return render(request, 'cours/matiere_form.html', context)
 
 
-@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'CHEF_ETUDES')
 def modifier_matiere(request, pk):
     """Modifier une matière existante"""
     matiere = get_object_or_404(Matiere, pk=pk)
@@ -460,7 +460,7 @@ def modifier_matiere(request, pk):
     return render(request, 'cours/matiere_form.html', context)
 
 
-@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE')
+@role_required('DIRECTEUR', 'ADMIN_SYSTEME', 'ADMIN_PEDAGOGIQUE', 'CHEF_ETUDES')
 def supprimer_matiere(request, pk):
     """Supprimer une matière"""
     from django.db.models import ProtectedError
@@ -631,6 +631,9 @@ def emploi_du_temps_officiel(request):
     user = request.user
     role = getattr(user, 'type_utilisateur', 'ETUDIANT')
     
+    # Auto-archivage des emplois du temps dont la période de validité est expirée
+    EmploiDuTempsHebdomadaire.archiver_emplois_expires_et_remplacer()
+    
     queryset = EmploiDuTempsHebdomadaire.objects.select_related('filiere', 'salle', 'soumis_par', 'approuve_par')
     
     # Restreindre les non-admins/non-chefs aux seuls emplois du temps approuvés
@@ -661,7 +664,7 @@ def emploi_du_temps_officiel(request):
         
     emplois = queryset.order_by('-date_debut_semaine')
     filieres = Filiere.objects.filter(est_active=True)
-    
+
     context = {
         'emplois': emplois,
         'filieres': filieres,
@@ -808,10 +811,19 @@ def approuver_emploi_du_temps(request, pk):
         
     action = request.POST.get('action')
     if action == 'approuver':
+        # Archiver l'ancien emploi du temps valide pour la même filière / niveau
+        filters_archive = {'filiere': emploi.filiere, 'statut': 'VALIDE'}
+        if emploi.niveau:
+            filters_archive['niveau'] = emploi.niveau
+        EmploiDuTempsHebdomadaire.objects.filter(**filters_archive).exclude(pk=emploi.pk).update(statut='ARCHIVE')
+
         emploi.statut = 'VALIDE'
         emploi.approuve_par = request.user
         emploi.date_approbation = timezone.now()
         emploi.save()
+
+        # Effectuer le nettoyage des emplois du temps expirés
+        EmploiDuTempsHebdomadaire.archiver_emplois_expires_et_remplacer()
 
         # Synchroniser automatiquement la fiche hebdo présence enseignants
         try:

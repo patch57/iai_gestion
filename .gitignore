@@ -58,3 +58,5 @@ backup/
 # Fichiers temporaires
 tmp/
 temp/
+*.json
+

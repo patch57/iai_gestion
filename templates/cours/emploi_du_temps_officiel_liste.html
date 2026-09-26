@@ -117,7 +117,7 @@
 
             <div class="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
                 <span class="text-[11px] text-gray-400">
-                    Créé par : {{ e.soumis_par.get_full_name|default:e.soumis_par.username|default:"Chef des Études" }}
+                    Créé par : {% if e.soumis_par %}{{ e.soumis_par.get_full_name|default:e.soumis_par.username }}{% else %}Chef des Études{% endif %}
                 </span>
                 <a href="{% url 'cours:imprimer_emploi_du_temps_officiel' e.pk %}" 
                    class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1">
